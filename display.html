@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="ms">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Paparan Kod QR</title>
+<title>QR Code Display</title>
 <link rel="icon" type="image/png" href="logo.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
@@ -34,7 +34,7 @@ body{
 p{margin:0}
 
 /* ---------- top strip: logo, school, language, full screen ---------- */
-.bar{display:flex; align-items:center; gap:12px; padding:12px 16px}
+.bar{display:flex; align-items:center; gap:10px; padding:12px 16px}
 .brand{display:flex; align-items:center; gap:10px; min-width:0; flex:1; color:var(--mute); font-size:.9rem; line-height:1.3}
 .logo{flex:none; width:40px; height:40px; object-fit:contain}
 .lang{display:flex; flex:none; border:1.5px solid var(--line); border-radius:10px; overflow:hidden}
@@ -94,23 +94,26 @@ h1{margin:0; font-size:clamp(1.5rem, 5vmin, 3.4rem); line-height:1.15; letter-sp
   <img class="logo" src="logo.png" alt="" width="40" height="40" onerror="this.remove()">
   <span>Sek. Ren. Islam Al-Irsyad Balok</span>
  </div>
- <div class="lang" role="group" aria-label="Bahasa / Language">
-  <button type="button" data-lang="ms" aria-pressed="true"  lang="ms" title="Bahasa Melayu">BM</button>
-  <button type="button" data-lang="en" aria-pressed="false" lang="en" title="English">EN</button>
+ <div class="lang" role="group" aria-label="Language / Bahasa">
+  <button type="button" data-lang="en" aria-pressed="true"  lang="en" title="English">EN</button>
+  <button type="button" data-lang="ms" aria-pressed="false" lang="ms" title="Bahasa Melayu">BM</button>
  </div>
  <button class="btn" id="full" type="button">
   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
   <span id="fullText"></span>
  </button>
+ <!-- The three-line menu with links to every page. Its list of pages lives in menu.js. -->
+ <div id="menu"></div>
 </header>
 
 <main id="stage" aria-live="polite"></main>
 
 <!-- Third-party QR drawing library (MIT licence). Do not edit that file. -->
 <script src="qrcode.js"></script>
+<script src="menu.js"></script>
 <script>
 /* =====================================================================
-   DISPLAY PAGE  v1   -  the QR on a big screen, with NO login
+   DISPLAY PAGE  v1.1  -  the QR on a big screen, with NO login
    1. This page invents a long secret and keeps it in this browser.
    2. It sends only a fingerprint of the secret to the database and gets
       a short code to show.
@@ -191,7 +194,7 @@ async function fingerprint(text) {
 }
 
 /* ---------- 4. What the page currently knows -------------------------- */
-let lang   = store("lang") === "en" ? "en" : "ms";
+let lang   = store("lang") === "ms" ? "ms" : "en";   // English unless this device chose BM before
 let secret = store("display_secret");          // the long secret; it never leaves this browser except to collect
 let view   = { state: "starting" };            // starting | waiting | showing | ended | busy | old
 let lost   = false;                            // could not reach the database on the last try
@@ -205,6 +208,7 @@ function draw(restartBarMs) {
   document.querySelectorAll(".lang button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
   $("#fullText").textContent = t(document.fullscreenElement ? "fullExit" : "full");
   $("#full").setAttribute("aria-label", $("#fullText").textContent);
+  if (window.SiteMenu) SiteMenu.draw(lang);
 
   const panel = el("div", "panel");
   if (view.state === "waiting") {

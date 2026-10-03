@@ -10,7 +10,9 @@ Static pages on GitHub Pages, data on Supabase (PostgreSQL).
 | `index.html` | Staff | Record attendance: choose the event, enter the staff code, submit. |
 | `admin.html` | Admins | Sign in, show the rotating QR, read attendance, manage events, hours, staff, settings and other admins. |
 | `display.html` | A big screen | Shows the rotating QR with no login. An admin pairs it from their own phone with a short code. |
+| `menu.js` | Every page | The three-line menu. It holds the one list of pages: add a line there whenever a page is created. |
 | `qrcode.js` | (library) | Draws the QR picture. Third-party code by Kazuhiko Arase, MIT licence. Do not edit. |
+| `leaflet.js`, `leaflet.css` | (library) | Draws the map in the admin event editor. Third-party code, Leaflet 1.9.4, BSD-2-Clause licence. Do not edit. |
 | `logo.png`, `apple-touch-icon.png` | (images) | School logo for the header, the browser tab and the iPhone home screen. |
 
 ## Database files
@@ -34,6 +36,16 @@ All SQL lives in the `database/` folder. Run each file once in Supabase > SQL Ed
 - Nobody can change or delete an attendance row from the website.
 - An event or session that has attendance is archived, never deleted, so the log always keeps its names.
 - Every change to staff, events, hours, settings and admins is written to an activity record that only an owner can read and nobody can edit.
+
+## Outside services
+
+- The map in the admin event editor shows pictures from OpenStreetMap and searches places with OpenStreetMap's Nominatim. Both are free and need no account or key.
+- They are contacted only from the admin page, only while an event is being edited. They receive the part of the map being looked at and the words typed into the search box, nothing about staff or attendance.
+- Map data © OpenStreetMap contributors. The credit on the map must stay.
+
+## Signing out
+
+The admin page signs out by itself after 15 minutes without a touch, on every screen, and warns one minute before. For a long event, show the QR with `display.html`, which has no login to lose.
 
 ## Admin levels
 

@@ -1,12 +1,14 @@
 <!doctype html>
-<html lang="ms">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Pentadbir Kehadiran</title>
+<title>Attendance Admin</title>
 <link rel="icon" type="image/png" href="logo.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<!-- The look of the map in the event editor (third-party Leaflet, do not edit that file). -->
+<link rel="stylesheet" href="leaflet.css">
 <style>
 /* ---------- colours: the same set as the staff page, plus a shadow ---------- */
 :root{
@@ -72,6 +74,7 @@ main{padding:22px 16px 72px}
   display:inline-flex; align-items:center; justify-content:center; gap:.45rem;
   border:1.5px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); cursor:pointer;
 }
+a.btn{text-decoration:none}
 .btn:hover{border-color:var(--mute)}
 .btn.primary{background:var(--brand); border-color:var(--brand); color:var(--on-brand)}
 .btn.primary:hover{filter:brightness(1.08)}
@@ -172,6 +175,14 @@ td.edit{padding:14px; white-space:normal; background:var(--bg)}
 .pair summary{cursor:pointer; font-weight:600; padding:.35rem 0; border-radius:6px}
 .pair[open] summary{margin-bottom:.7rem}
 
+/* ---------- the map in the event editor ---------- */
+.map{position:relative; z-index:0; height:320px; border:1.5px solid var(--line); border-radius:12px; overflow:hidden; background:var(--bg)}
+.map-pin{background:none; border:0}
+.map-pin svg{width:30px; height:40px; display:block; filter:drop-shadow(0 2px 2px rgb(0 0 0 / .35))}
+.map-results{display:grid; gap:6px}
+.map-results .btn{justify-content:flex-start; text-align:left; font-weight:500; white-space:normal; height:auto}
+@media (min-width:900px){ .map{height:380px} }
+
 /* ---------- events list ---------- */
 .list{display:grid; gap:10px}
 .item{background:var(--card); border:1px solid var(--line); border-radius:14px}
@@ -238,11 +249,14 @@ td.edit{padding:14px; white-space:normal; background:var(--bg)}
     <span>Sek. Ren. Islam Al-Irsyad Balok</span>
    </div>
   </div>
-  <div class="lang" role="group" aria-label="Bahasa / Language">
-   <button type="button" data-lang="ms" aria-pressed="true"  lang="ms" title="Bahasa Melayu">BM</button>
-   <button type="button" data-lang="en" aria-pressed="false" lang="en" title="English">EN</button>
+  <div class="lang" role="group" aria-label="Language / Bahasa">
+   <button type="button" data-lang="en" aria-pressed="true"  lang="en" title="English">EN</button>
+   <button type="button" data-lang="ms" aria-pressed="false" lang="ms" title="Bahasa Melayu">BM</button>
   </div>
-  <button class="btn small" id="logout" type="button" data-t="logout" hidden></button>
+  <!-- Spare sign-out button. Only used if menu.js is missing; normally Sign out lives in the menu. -->
+  <button class="btn small" id="logoutOld" type="button" data-t="logout" hidden></button>
+  <!-- The three-line menu with links to every page. Its list of pages lives in menu.js. -->
+  <div id="menu"></div>
  </div>
  <nav class="tabs" id="tabs" aria-label="Admin" hidden>
   <a href="#qr" data-t="tabQr"></a>
@@ -271,7 +285,7 @@ td.edit{padding:14px; white-space:normal; background:var(--bg)}
    </div>
    <button class="btn primary" id="loginGo" type="submit" data-t="signIn"></button>
   </form>
-  <p class="small"><a href="./" data-t="backToStaff"></a></p>
+  <p class="small" id="backLink" hidden><a href="./" data-t="backToStaff"></a></p>
  </section>
 
  <!-- The five screens. Their contents are drawn by the script. -->
@@ -294,9 +308,12 @@ td.edit{padding:14px; white-space:normal; background:var(--bg)}
 
 <!-- Third-party QR drawing library (MIT licence). Do not edit that file. -->
 <script src="qrcode.js"></script>
+<!-- Third-party map library, Leaflet (BSD licence). Do not edit that file. If it is missing, the event editor simply has no map. -->
+<script src="leaflet.js"></script>
+<script src="menu.js"></script>
 <script>
 /* =====================================================================
-   ADMIN PAGE  v2
+   ADMIN PAGE  v3   (v2 + English by default, three-line menu, map in the event editor, sign-out after 15 quiet minutes)
    Sign in  ->  QR screen | Attendance | Events + time windows | Staff | Settings
 
    THREE LEVELS (set in Settings > Admins by an owner)
@@ -319,6 +336,7 @@ const KEY = "sb_publishable_AzY4sFUQgYQvQRSrFT3qwg_Y6068Gv5";
 const TIME_ZONE     = "Asia/Kuala_Lumpur";
 const QR_ROTATE_MS  = 20000;      // draw a fresh QR this often
 const LOG_REFRESH_MS = 30000;     // reload the attendance list this often
+const IDLE_MINUTES  = 15;         // sign out after this long with no tap, click, key or mouse movement, on every screen
 const STAFF_PAGE    = new URL("./", location.href).href;   // the check-in page lives next to this file
 const DISPLAY_PAGE  = STAFF_PAGE + "display.html";          // the no-login page for a big screen
 
@@ -334,6 +352,13 @@ const TEXT = {
     remove: "Padam", removeAsk: "Padam selama-lamanya?", removeYes: "Ya, padam", close: "Tutup mesej",
     active: "Aktif", inactive: "Tidak aktif", yes: "Ya", no: "Tidak", all: "Semua",
     refresh: "Muat semula", updatedAt: "Dikemas kini {time}",
+
+    openDisplay: "Buka halaman paparan", openDisplayHelp: "Dibuka dalam tab baharu dan tidak memerlukan log masuk. Guna untuk acara yang panjang: halaman pentadbir ini log keluar sendiri selepas {n} minit tanpa sentuhan.",
+    idleSoon: "Anda akan dilog keluar dalam 1 minit", idleSoonText: "Sentuh skrin atau gerakkan tetikus untuk kekal log masuk.",
+    errIdle: "Dilog keluar kerana tiada aktiviti selama {n} minit.",
+    mapHelp: "Klik pada peta atau seret pin ke lokasi acara. Bulatan menunjukkan kawasan yang dibenarkan untuk merekod.",
+    mapSearch: "Cari tempat pada peta", mapFind: "Cari", mapSearching: "Mencari…", mapPlaceholder: "cth. Balok, Kuantan",
+    mapNothing: "Tiada tempat ditemui. Cuba nama lain, atau gerakkan peta sendiri.", mapSearchFailed: "Carian tidak dapat dihubungi. Gerakkan peta sendiri.",
 
     levelOwner: "Pemilik", levelManager: "Pengurus", levelOperator: "Petugas",
     levelOwnerHelp: "Boleh membuat semua perkara, termasuk tetapan dan mengurus pentadbir.",
@@ -389,7 +414,7 @@ const TEXT = {
 
     evTitle: "Acara dan waktu kehadiran", evHelp: "Setiap acara ialah satu lokasi dengan jejari. Waktu kehadiran menentukan bila staf boleh merekod.",
     evAdd: "Tambah acara", evNew: "Acara baharu", evName: "Nama acara", evCode: "Kod acara", evCodeHelp: "Huruf dan nombor sahaja, tanpa ruang. Digunakan dalam pautan QR.",
-    evLat: "Latitud", evLng: "Longitud", evRadius: "Jejari (meter)", evUseHere: "Guna lokasi saya sekarang", evLocating: "Mencari lokasi…",
+    evLat: "Latitud", evLng: "Longitud", evRadius: "Jejari (meter)", evUseHere: "Letak pin di lokasi saya sekarang", evLocating: "Mencari lokasi…",
     evHere: "Lokasi diisi. Ketepatan ±{m} m.", evActive: "Acara aktif (dipaparkan kepada staf)", evRequireQr: "Wajibkan imbasan QR",
     evQr: "QR wajib", evNoWindow: "Tiada waktu", evNoWindowNote: "Acara ini belum ada waktu kehadiran, jadi tiada sesiapa boleh merekod. Tambah sekurang-kurangnya satu waktu.",
     evEmpty: "Belum ada acara. Tekan Tambah acara untuk bermula.",
@@ -432,6 +457,13 @@ const TEXT = {
     remove: "Delete", removeAsk: "Delete for good?", removeYes: "Yes, delete", close: "Close message",
     active: "Active", inactive: "Inactive", yes: "Yes", no: "No", all: "All",
     refresh: "Refresh", updatedAt: "Updated {time}",
+
+    openDisplay: "Open the display page", openDisplayHelp: "Opens in a new tab and needs no sign-in. Use it for long events: this admin page signs itself out after {n} minutes without a touch.",
+    idleSoon: "You will be signed out in 1 minute", idleSoonText: "Touch the screen or move the mouse to stay signed in.",
+    errIdle: "Signed out after {n} minutes without activity.",
+    mapHelp: "Click the map or drag the pin to the event location. The circle shows the area where check-in is allowed.",
+    mapSearch: "Find a place on the map", mapFind: "Find", mapSearching: "Searching…", mapPlaceholder: "e.g. Balok, Kuantan",
+    mapNothing: "No place found. Try another name, or move the map yourself.", mapSearchFailed: "The search could not be reached. Move the map yourself.",
 
     levelOwner: "Owner", levelManager: "Manager", levelOperator: "Operator",
     levelOwnerHelp: "Can do everything, including settings and managing admins.",
@@ -487,7 +519,7 @@ const TEXT = {
 
     evTitle: "Events and attendance hours", evHelp: "Each event is one location with a radius. Attendance hours decide when staff can record.",
     evAdd: "Add event", evNew: "New event", evName: "Event name", evCode: "Event code", evCodeHelp: "Letters and numbers only, no spaces. Used in the QR link.",
-    evLat: "Latitude", evLng: "Longitude", evRadius: "Radius (metres)", evUseHere: "Use my location now", evLocating: "Finding location…",
+    evLat: "Latitude", evLng: "Longitude", evRadius: "Radius (metres)", evUseHere: "Put the pin where I am now", evLocating: "Finding location…",
     evHere: "Location filled in. Accuracy ±{m} m.", evActive: "Event is active (shown to staff)", evRequireQr: "Require the QR scan",
     evQr: "QR required", evNoWindow: "No hours", evNoWindowNote: "This event has no attendance hours, so nobody can record. Add at least one.",
     evEmpty: "No events yet. Press Add event to start.",
@@ -565,7 +597,9 @@ const ICON = {
   refresh: '<path d="M20 11a8 8 0 1 0-2.3 6.3M20 4v7h-7"/>',
   download: '<path d="M12 4v11m-4.5-4.5L12 15l4.5-4.5M5 20h14"/>',
   full: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
-  pin:  '<path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>'
+  pin:  '<path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+  screen: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>'
 };
 function icon(name) {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -593,7 +627,7 @@ const dateKL   = iso => showDate(new Intl.DateTimeFormat("en-CA", { timeZone: TI
 
 /* ---------- 4. What the page currently knows -------------------------- */
 const state = {
-  lang: store(localStorage, "lang") === "en" ? "en" : "ms",
+  lang: store(localStorage, "lang") === "ms" ? "ms" : "en",      // English unless this device chose BM before
   session: null,                 // { access_token, refresh_token, expires_at, email }
   role: null,                    // "owner" | "manager" | "operator"
   view: "qr",
@@ -699,15 +733,38 @@ async function renewSession() {
   }
 }
 
-function endSession(messageKey) {
+function endSession(messageKey, values) {
   const token = state.session && state.session.access_token;
   if (token) fetch(API + "/auth/v1/logout", { method: "POST", headers: { apikey: KEY, Authorization: "Bearer " + token } }).catch(() => {});
   setSession(null); state.role = null; state.admins = []; state.activity = null; state.displays = [];
   stopQr(); clearTimeout(state.log.timer);
   state.staff = []; state.events = []; state.windows = []; state.settings = null; state.log.rows = [];
   showLogin();
-  if (messageKey) toast("warn", t(messageKey)); else hideToast();
+  if (messageKey) toast("warn", t(messageKey, values)); else hideToast();
 }
+
+/* ---------- 6b. Signing out after a quiet spell ---------------------------
+   If nobody touches the page for IDLE_MINUTES, it signs out by itself, on every
+   screen including the QR screen. One minute before, it gives a warning.
+   For a long event, use the display page: it has no login to lose.          */
+const IDLE_MS = IDLE_MINUTES * 60000;
+let lastActive = Date.now(), lastSaved = 0, idleWarned = false;
+
+function noteActivity() {
+  lastActive = Date.now();
+  if (idleWarned) { idleWarned = false; if ($("#toastTitle").textContent === t("idleSoon")) hideToast(); }   // take the warning away, but no other message
+  if (lastActive - lastSaved > 5000) { lastSaved = lastActive; store(sessionStorage, "admin_active", String(lastActive)); }
+}
+function checkIdle() {
+  if (!state.session) return;
+  const quiet = Date.now() - lastActive;
+  if (quiet >= IDLE_MS) { idleWarned = false; endSession("errIdle", { n: IDLE_MINUTES }); }
+  else if (quiet >= IDLE_MS - 60000 && !idleWarned) { idleWarned = true; toast("warn", t("idleSoon"), t("idleSoonText")); }
+}
+["pointerdown", "pointermove", "keydown", "wheel", "touchstart"].forEach(name =>
+  document.addEventListener(name, noteActivity, { passive: true, capture: true }));
+setInterval(checkIdle, 10000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) checkIdle(); });   // a laptop that slept wakes up here
 
 async function signIn(event) {
   event.preventDefault();
@@ -717,7 +774,7 @@ async function signIn(event) {
   button.disabled = true; button.textContent = t("signingIn");
   try {
     setSession(await authCall("password", { email, password }));
-    $("#password").value = "";
+    $("#password").value = ""; noteActivity();
     state.role = await fetchRole();
     if (!state.role) { setSession(null); toast("bad", t("errTitle"), t("errNotAdmin")); return; }
     hideToast();
@@ -802,14 +859,21 @@ const liveEvents  = () => state.events.filter(e => !e.archived_at);             
 /* ---------- 8. Moving between screens --------------------------------- */
 const VIEWS = ["qr", "log", "events", "staff", "settings"];
 
+/* The three-line menu. Sign out sits inside it while someone is signed in. */
+function drawMenu() {
+  const signedIn = !!state.session;
+  if (window.SiteMenu) SiteMenu.draw(state.lang, signedIn ? [{ id: "logout", label: t("logout"), action: () => endSession() }] : []);
+  else { $("#logoutOld").hidden = !signedIn; $("#backLink").hidden = false; }      // menu.js missing: fall back to plain controls
+}
+
 function showLogin() {
-  $("#tabs").hidden = true; $("#logout").hidden = true;
+  $("#tabs").hidden = true; drawMenu();
   VIEWS.forEach(v => { $("#view-" + v).hidden = true; });
   $("#view-login").hidden = false;
 }
 
 async function enterApp() {
-  $("#view-login").hidden = true; $("#tabs").hidden = false; $("#logout").hidden = false;
+  $("#view-login").hidden = true; $("#tabs").hidden = false; drawMenu();
   document.querySelectorAll("#tabs a").forEach(a => { a.hidden = !allowedViews().includes(a.getAttribute("href").slice(1)); });
   showView(viewFromHash(), true);
   try { await loadBasics(); } catch (error) { if (error.kind !== "session") fail(error); return; }
@@ -821,6 +885,7 @@ const viewFromHash = () => allowedViews().includes(location.hash.slice(1)) ? loc
 
 function showView(name, loading) {
   if (!state.session) return;
+  closeMap();
   if (name !== state.view) { state.edit = null; state.confirm = null; }
   state.view = name;
   VIEWS.forEach(v => { $("#view-" + v).hidden = v !== name; });
@@ -886,7 +951,10 @@ function drawQrScreen() {
     h("p", { class: "mute small", id: "qrHint" }, ev ? t("qrScan") : ""),
     h("p", { class: "qr-count", id: "qrCount" }));
 
-  const pick = h("div", { class: "card form qr-pick" }, field(t("qrEvent"), picker), ev && state.canPair && pairPanel(ev));
+  const pick = h("div", { class: "card form qr-pick" }, field(t("qrEvent"), picker), ev && state.canPair && pairPanel(ev),
+    // Always in view, even before an event is chosen: the page for a big screen, in a new tab.
+    state.canPair && h("a", { class: "btn", id: "qrOpenDisplay", href: DISPLAY_PAGE, target: "_blank", rel: "noopener" }, icon("screen"), t("openDisplay")),
+    state.canPair && h("p", { class: "help" }, t("openDisplayHelp", { n: IDLE_MINUTES })));
   const side = h("div", { class: "qr-side" },
     ev && h("div", { class: "card form" },
       canManage() && h("div", null,                       // only a manager or owner may change the rule
@@ -1207,6 +1275,7 @@ function windowSummary(w) {
 }
 
 function drawEvents() {
+  closeMap();
   const F = state.evFilter;
   const editing = state.edit && state.edit.kind === "event" ? state.edit.id : null;
   const search = h("input", { id: "evSearch", type: "search", value: F.text, autocomplete: "off", oninput: e => { F.text = e.target.value; drawEventRows(); } });
@@ -1224,6 +1293,7 @@ function drawEvents() {
 
   /* Only the list is redrawn while typing, so the search box keeps its cursor. */
   function drawEventRows() {
+    closeMap();
     const needle = F.text.trim().toLowerCase(), wantArchived = F.show === "archived";
     const list = state.events.filter(e => !!e.archived_at === wantArchived &&
       (!needle || e.name.toLowerCase().includes(needle) || e.event_code.toLowerCase().includes(needle)));
@@ -1260,6 +1330,79 @@ function drawEvents() {
   }
 }
 
+/* ---------- The map in the event editor ------------------------------------
+   Leaflet (leaflet.js + leaflet.css, kept next to this page) draws the map.
+   The map pictures come from OpenStreetMap, free, with no account or key.
+   The place search uses OpenStreetMap's Nominatim, only when Find is pressed.
+   The two number boxes stay: the map and the boxes always show the same spot. */
+let liveMap = null;                                   // only one event editor is open at a time
+function closeMap() {
+  if (!liveMap) return;
+  const old = liveMap; liveMap = null;
+  setTimeout(() => old.remove(), 600);                // let Leaflet finish any zoom movement first: taking the map apart half-way makes it throw an error
+}
+const PIN_COLOUR = "#0b5d4b";                         // fixed, because the map pictures are always light
+const validSpot = (lat, lng) => lat !== "" && lng !== "" && Math.abs(Number(lat)) <= 90 && Math.abs(Number(lng)) <= 180;
+
+function mapPicker(lat, lng, rad, pre) {
+  if (!window.L) return null;                         // leaflet.js not there: the number boxes still do the job
+  const box = h("div", { class: "map", id: pre + "map" });
+  const found = h("div", { class: "map-results", id: pre + "found" });
+  const query = h("input", { id: pre + "q", type: "search", autocomplete: "off", placeholder: t("mapPlaceholder") });
+  let place = () => {};                               // filled in once the map exists
+
+  async function find() {
+    const text = query.value.trim();
+    if (!text) return;
+    found.replaceChildren(h("p", { class: "help" }, t("mapSearching")));
+    try {
+      const reply = await fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=" + state.lang + "&q=" + encodeURIComponent(text));
+      const places = await reply.json();
+      found.replaceChildren(...(places.length
+        ? places.map(p => h("button", { class: "btn small", type: "button", onclick: () => { place({ lat: Number(p.lat), lng: Number(p.lon) }, 17); found.replaceChildren(); } }, p.display_name))
+        : [h("p", { class: "help" }, t("mapNothing"))]));
+    } catch { found.replaceChildren(h("p", { class: "help" }, t("mapSearchFailed"))); }
+  }
+  query.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); find(); } });   // Enter searches; it must not save the event
+
+  setTimeout(() => {                                  // wait until the box is really on the page, then build the map in it
+    if (!box.isConnected) return;
+    closeMap();
+    const pinned = validSpot(lat.value, lng.value);
+    const others = liveEvents().filter(e => validSpot(e.latitude, e.longitude));
+    const start = pinned ? [Number(lat.value), Number(lng.value)]
+                : others.length ? [others.reduce((sum, e) => sum + e.latitude, 0) / others.length, others.reduce((sum, e) => sum + e.longitude, 0) / others.length]
+                : [4.2, 102.0];                       // nothing to go on: show Peninsular Malaysia
+    const map = L.map(box, { scrollWheelZoom: false }).setView(start, pinned ? 18 : others.length ? 16 : 6);   // the mouse wheel scrolls the page, not the map
+    map.attributionControl.setPrefix('<a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>');
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' }).addTo(map);
+    const pin = L.marker(start, { draggable: true, icon: L.divIcon({ className: "map-pin", iconSize: [30, 40], iconAnchor: [15, 39],
+      html: `<svg viewBox="0 0 30 40" aria-hidden="true"><path d="M15 1C7.8 1 2 6.7 2 13.8 2 23 15 39 15 39s13-16 13-25.2C28 6.7 22.2 1 15 1z" fill="${PIN_COLOUR}" stroke="#fff" stroke-width="2"/><circle cx="15" cy="14" r="4.5" fill="#fff"/></svg>` }) });
+    const ring = L.circle(start, { radius: Number(rad.value) > 0 ? Number(rad.value) : 50, color: PIN_COLOUR, weight: 2, fillColor: PIN_COLOUR, fillOpacity: .15 });
+    if (pinned) { pin.addTo(map); ring.addTo(map); }
+
+    place = (spot, zoom, fromBoxes) => {              // the one place that moves the pin and the circle, and writes the two number boxes
+      if (!fromBoxes) { lat.value = Number(spot.lat).toFixed(6); lng.value = Number(spot.lng).toFixed(6); }   // never rewrite what someone is typing
+      pin.setLatLng(spot).addTo(map); ring.setLatLng(spot).addTo(map);
+      if (zoom) map.setView(spot, Math.max(zoom, map.getZoom()), { animate: false }); else if (!map.getBounds().contains(spot)) map.panTo(spot);
+    };
+    map.on("click", e => place(e.latlng));
+    pin.on("drag", () => ring.setLatLng(pin.getLatLng()));
+    pin.on("dragend", () => place(pin.getLatLng()));
+    const typed = () => { if (validSpot(lat.value, lng.value)) place({ lat: Number(lat.value), lng: Number(lng.value) }, 17, true); };
+    lat.addEventListener("change", typed); lng.addEventListener("change", typed);
+    rad.addEventListener("input", () => { if (Number(rad.value) > 0) ring.setRadius(Number(rad.value)); });
+    liveMap = map;
+  }, 0);
+
+  return h("div", { class: "form" },
+    h("div", { class: "tools" },
+      field(t("mapSearch"), query),
+      h("div", { class: "fixed" }, h("button", { class: "btn", type: "button", id: pre + "find", onclick: find }, icon("search"), t("mapFind")))),
+    found, box,
+    h("p", { class: "help" }, t("mapHelp")));
+}
+
 function eventForm(ev) {
   const id = ev ? ev.id : "new", pre = "ev-" + id + "-";
   const name = h("input", { id: pre + "name", required: true, maxlength: 80, value: ev ? ev.name : "" });
@@ -1275,6 +1418,7 @@ function eventForm(ev) {
     here.disabled = true; hereNote.textContent = t("evLocating");
     navigator.geolocation.getCurrentPosition(p => {
       lat.value = p.coords.latitude.toFixed(6); lng.value = p.coords.longitude.toFixed(6);
+      lat.dispatchEvent(new Event("change"));                         // tells the map to move its pin there too
       hereNote.textContent = t("evHere", { m: Math.round(p.coords.accuracy) }); here.disabled = false;
     }, () => { hereNote.textContent = ""; here.disabled = false; toast("bad", t("errTitle"), t("errGeo")); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
   } }, icon("pin"), t("evUseHere"));
@@ -1294,6 +1438,7 @@ function eventForm(ev) {
     });
   } },
     h("div", { class: "row" }, field(t("evName"), name), field(t("evCode"), code, t("evCodeHelp"))),
+    mapPicker(lat, lng, rad, pre),
     h("div", { class: "row" }, field(t("evLat"), lat), field(t("evLng"), lng), field(t("evRadius"), rad)),
     h("div", null, here, hereNote),
     h("div", { class: "row" }, active, needQr),
@@ -1595,11 +1740,12 @@ function drawLanguage() {
   document.title = t("pageTitle");
   document.querySelectorAll("[data-t]").forEach(el => { el.textContent = t(el.dataset.t); });
   document.querySelectorAll(".lang button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === state.lang)));
+  drawMenu();
   if (state.session && state.settings) redraw();
 }
 
 $("#loginForm").addEventListener("submit", signIn);
-$("#logout").addEventListener("click", () => endSession());
+$("#logoutOld").addEventListener("click", () => endSession());
 $("#toastClose").addEventListener("click", hideToast);
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !toastEl.hidden) hideToast(); });
 document.addEventListener("fullscreenchange", () => { const b = $("#qrFull"); if (b) b.lastChild.textContent = t(document.fullscreenElement ? "qrFullExit" : "qrFull"); });
@@ -1613,6 +1759,10 @@ document.querySelectorAll(".lang button").forEach(b => b.addEventListener("click
   let saved = null;
   try { saved = JSON.parse(store(sessionStorage, "admin_session")); } catch { /* nothing saved */ }
   if (!saved || !saved.refresh_token) { showLogin(); return; }
+  const seen = Number(store(sessionStorage, "admin_active"));
+  if (seen && Date.now() - seen >= IDLE_MS) {                     // the tab was left alone too long before this reload
+    setSession(saved); endSession("errIdle", { n: IDLE_MINUTES }); return;
+  }
   setSession(saved);                                              // same tab was reloaded: carry on without asking for the password
   try {
     if (saved.expires_at * 1000 < Date.now() + 60000 && (await renewSession()) !== "ok") { setSession(null); showLogin(); return; }
