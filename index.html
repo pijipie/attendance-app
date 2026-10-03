@@ -5,153 +5,538 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kehadiran Staf</title>
 <style>
-:root{--bg:#f2f7f5;--card:#fff;--ink:#14302a;--mute:#55696213;--mute:#566b64;--brand:#0b5d4b;--on-brand:#fff;--line:#c9d8d2;--ok:#0b6b3a;--ok-bg:#e3f4ea;--bad:#a3231b;--bad-bg:#fbe9e7;--warn:#7a5200;--warn-bg:#fff3d6}
-@media(prefers-color-scheme:dark){:root{--bg:#0e1a17;--card:#16251f;--ink:#e6f0ec;--mute:#9db3aa;--brand:#3fb594;--on-brand:#04251c;--line:#2b3f37;--ok:#7be0a8;--ok-bg:#143325;--bad:#ff9d94;--bad-bg:#3a1b18;--warn:#f0c46a;--warn-bg:#3a2d0c}}
+/* ---------- colours (light), then the same names again for dark ---------- */
+:root{
+  color-scheme:light dark;
+  --bg:#f2f7f5; --card:#fff; --ink:#14302a; --mute:#566b64; --line:#c9d8d2;
+  --brand:#0b5d4b; --on-brand:#fff;
+  --ok:#0b6b3a;   --ok-bg:#e3f4ea;
+  --bad:#a3231b;  --bad-bg:#fbe9e7;
+  --warn:#7a5200; --warn-bg:#fff3d6;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0e1a17; --card:#16251f; --ink:#e6f0ec; --mute:#9db3aa; --line:#2b3f37;
+    --brand:#3fb594; --on-brand:#04251c;
+    --ok:#7be0a8;   --ok-bg:#143325;
+    --bad:#ff9d94;  --bad-bg:#3a1b18;
+    --warn:#f0c46a; --warn-bg:#3a2d0c;
+  }
+}
+
+/* ---------- page frame ---------- */
 *{box-sizing:border-box}
-body{margin:0;min-height:100dvh;background:var(--bg);color:var(--ink);font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:grid;place-items:start center;padding:16px}
-.shell{width:100%;max-width:520px;display:grid;gap:20px}
-.school{margin:0;color:var(--mute);font-size:.9rem}
-h1{margin:.2rem 0 0;font-size:1.7rem;line-height:1.15;letter-spacing:-.01em}
-.ev{margin:.4rem 0 0;color:var(--mute)}
-.steps{display:none;margin:1.2rem 0 0;padding-left:1.2rem;color:var(--mute)}
+[hidden]{display:none !important}
+body{
+  margin:0; min-height:100dvh; padding:16px;
+  background:var(--bg); color:var(--ink);
+  font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  display:grid; place-items:start center;
+}
+.shell{width:100%; max-width:520px; display:grid; gap:20px}
+
+/* ---------- header: school name, BM/EN button, title, steps ---------- */
+.top{display:flex; align-items:center; justify-content:space-between; gap:12px}
+.school{margin:0; color:var(--mute); font-size:.9rem; min-width:0}
+h1{margin:.5rem 0 0; font-size:1.7rem; line-height:1.15; letter-spacing:-.01em}
+.steps{display:none; margin:1.2rem 0 0; padding-left:1.2rem; color:var(--mute)}
 .steps li{margin:.35rem 0}
-.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px}
-label{display:block;font-weight:600;margin:0 0 .35rem}
+
+.lang{display:flex; flex:none; border:1.5px solid var(--line); border-radius:10px; overflow:hidden}
+.lang button{
+  font:inherit; font-size:.85rem; font-weight:700; letter-spacing:.03em;
+  min-width:44px; min-height:40px; padding:0 .6rem;
+  border:0; background:transparent; color:var(--mute); cursor:pointer;
+}
+.lang button[aria-pressed="true"]{background:var(--brand); color:var(--on-brand)}
+
+/* ---------- the form card ---------- */
+.card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px}
 .field{margin-bottom:1rem}
-input{width:100%;font:inherit;padding:.8rem .9rem;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);text-transform:uppercase}
-input:focus-visible,button:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
-button{width:100%;font:inherit;font-weight:700;padding:1rem;border:0;border-radius:12px;background:var(--brand);color:var(--on-brand);cursor:pointer;min-height:56px}
-button[disabled]{opacity:.65;cursor:progress}
-.gps{min-height:1.5em;margin:.7rem 0 0;color:var(--mute);font-size:.9rem;text-align:center}
-#result{margin-top:1rem;padding:1rem 1.1rem;border-radius:12px;border:1.5px solid;outline:0}
-#result[hidden]{display:none}
-#result h2{margin:0 0 .25rem;font-size:1.15rem}
-#result p{margin:0}
-.ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok)}
-.bad{background:var(--bad-bg);color:var(--bad);border-color:var(--bad)}
-.warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn)}
-@media(min-width:640px){
- body{font-size:18px;padding:40px;place-items:center}
- .steps{display:block}
- .card{padding:32px}
- h1{font-size:2rem}
+label{display:block; font-weight:600; margin:0 0 .35rem}
+input,select{
+  width:100%; font:inherit; padding:.8rem .9rem; min-height:52px;
+  border:1.5px solid var(--line); border-radius:10px;
+  background:var(--bg); color:var(--ink);
 }
-@media(min-width:1024px){
- .shell{max-width:1040px;grid-template-columns:1fr 480px;gap:64px;align-items:center}
- h1{font-size:2.6rem}
- .steps{font-size:1.05rem}
+input{text-transform:uppercase}
+select{text-overflow:ellipsis}
+select:user-invalid,input:user-invalid{border-color:var(--bad)}
+.locked{margin:0; padding:.8rem .9rem; border:1.5px dashed var(--line); border-radius:10px}
+.locked small{display:block; color:var(--mute); font-size:.85rem}
+.locked strong{overflow-wrap:anywhere}
+.hint{margin:.45rem 0 0; font-size:.9rem; color:var(--warn)}
+
+.primary{
+  width:100%; min-height:56px; padding:1rem;
+  font:inherit; font-weight:700;
+  border:0; border-radius:12px; background:var(--brand); color:var(--on-brand); cursor:pointer;
 }
-@media(prefers-reduced-motion:no-preference){#result{animation:in .25s ease-out}@keyframes in{from{opacity:0;transform:translateY(6px)}}}
+.primary[disabled]{opacity:.65; cursor:progress}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid var(--brand); outline-offset:2px}
+.gps{min-height:1.5em; margin:.7rem 0 0; color:var(--mute); font-size:.9rem; text-align:center}
+
+/* ---------- the result box (green / amber / red) ---------- */
+#result{margin-top:1rem; padding:1rem 1.1rem; border-radius:12px; border:1.5px solid; outline:0}
+#result h2{margin:0 0 .25rem; font-size:1.15rem}
+#result p{margin:0; overflow-wrap:anywhere}
+.ok{background:var(--ok-bg); color:var(--ok); border-color:var(--ok)}
+.bad{background:var(--bad-bg); color:var(--bad); border-color:var(--bad)}
+.warn{background:var(--warn-bg); color:var(--warn); border-color:var(--warn)}
+
+/* ---------- tablet ---------- */
+@media (min-width:640px){
+  body{font-size:18px; padding:40px; place-items:center}
+  .steps{display:block}
+  .card{padding:32px}
+  h1{font-size:2rem}
+}
+/* ---------- computer: words on the left, form on the right ---------- */
+@media (min-width:1024px){
+  .shell{max-width:1040px; grid-template-columns:1fr 480px; gap:64px; align-items:center}
+  h1{font-size:2.6rem}
+  .steps{font-size:1.05rem}
+}
+@media (prefers-reduced-motion:no-preference){
+  #result{animation:rise .25s ease-out}
+  @keyframes rise{from{opacity:0; transform:translateY(6px)}}
+}
 </style>
 </head>
 <body>
 <main class="shell">
+
  <header>
-  <p class="school">Sek. Ren. Islam Al-Irsyad Balok</p>
-  <h1>Rekod kehadiran</h1>
-  <p class="ev" id="evline" hidden></p>
+  <div class="top">
+   <p class="school">Sek. Ren. Islam Al-Irsyad Balok</p>
+   <div class="lang" role="group" aria-label="Bahasa / Language">
+    <button type="button" data-lang="ms" aria-pressed="true"  lang="ms" title="Bahasa Melayu">BM</button>
+    <button type="button" data-lang="en" aria-pressed="false" lang="en" title="English">EN</button>
+   </div>
+  </div>
+  <h1 data-t="title">Rekod kehadiran</h1>
   <ol class="steps">
-   <li>Benarkan akses lokasi apabila diminta.</li>
-   <li>Masukkan kod staf anda.</li>
-   <li>Tekan <strong>Hantar kehadiran</strong> semasa berada di lokasi.</li>
+   <li data-t="step1"></li>
+   <li data-t="step2"></li>
+   <li data-t-html="step3"></li>
   </ol>
  </header>
+
  <section class="card">
   <form id="f" novalidate>
-   <div class="field" id="evfield" hidden>
-    <label for="event">Kod acara</label>
-    <input id="event" name="event" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20">
-   </div>
+
    <div class="field">
-    <label for="staff">Kod staf</label>
+    <!-- A. Event came from a scanned QR link (?e=CODE): just show it. -->
+    <p class="locked" id="lockedBox" hidden>
+     <small data-t="event"></small>
+     <strong id="lockedName"></strong>
+    </p>
+
+    <!-- B. Normal case: choose the event from a list. -->
+    <div id="selectField">
+     <label for="event" data-t="event"></label>
+     <select id="event" name="event" required disabled></select>
+    </div>
+
+    <!-- C. Spare tyre: if the list cannot be loaded, type the code instead. -->
+    <div id="codeField" hidden>
+     <label for="eventCode" data-t="eventCode"></label>
+     <input id="eventCode" name="eventCode" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20">
+    </div>
+
+    <p class="hint" id="hint" hidden></p>
+   </div>
+
+   <div class="field">
+    <label for="staff" data-t="staff"></label>
     <input id="staff" name="staff" required autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" enterkeyhint="send">
    </div>
-   <button id="go" type="submit">Hantar kehadiran</button>
+
+   <button class="primary" id="go" type="submit" data-t="submit"></button>
    <p class="gps" id="gps" aria-live="off"></p>
   </form>
+
   <section id="result" tabindex="-1" role="status" aria-live="polite" hidden></section>
  </section>
+
 </main>
+
 <script>
-const API="https://xtrgefkopnqgektrllra.supabase.co";
-const KEY="sb_publishable_AzY4sFUQgYQvQRSrFT3qwg_Y6068Gv5";
-const $=s=>document.querySelector(s);
-const qs=new URLSearchParams(location.search);
-const eventCode=(qs.get("e")||"").trim(), token=qs.get("t");
+/* =====================================================================
+   STAFF CHECK-IN PAGE  v2   (event dropdown + BM/EN)
+   The page only collects facts and shows the answer.
+   The database function check_in() makes every decision.
+   ===================================================================== */
 
-function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch{return null}}
-function deviceId(){let id=store("device_id");if(!id){id="DEV-"+crypto.randomUUID().replace(/-/g,"").slice(0,16).toUpperCase();store("device_id",id)}return id}
+/* ---------- 1. Where the database lives -------------------------------
+   The publishable key is meant to be public. It can only open the two
+   doors we granted to "anon": list_events() and check_in().            */
+const API = "https://xtrgefkopnqgektrllra.supabase.co";
+const KEY = "sb_publishable_AzY4sFUQgYQvQRSrFT3qwg_Y6068Gv5";
 
-function show(kind,title,text){
- const r=$("#result");
- if(!kind){r.hidden=true;return}
- r.className=kind;r.hidden=false;
- r.innerHTML="";
- const h=document.createElement("h2");h.textContent=title;
- const p=document.createElement("p");p.textContent=text;
- r.append(h,p);r.focus();
-}
 
-function locate(onTick){
- return new Promise((resolve,reject)=>{
-  let best=null,w,t;
-  const done=()=>{navigator.geolocation.clearWatch(w);clearTimeout(t);best?resolve(best):reject({code:3})};
-  w=navigator.geolocation.watchPosition(p=>{
-   if(!best||p.coords.accuracy<best.coords.accuracy)best=p;
-   onTick(p.coords.accuracy);
-   if(p.coords.accuracy<=15)done();
-  },e=>{if(e.code===1){navigator.geolocation.clearWatch(w);clearTimeout(t);reject(e)}},
-  {enableHighAccuracy:true,maximumAge:0,timeout:15000});
-  t=setTimeout(done,12000);
- });
-}
-
-const REASONS={
- qr_invalid_or_expired:["warn","Kod QR tamat tempoh","Imbas semula QR yang dipaparkan di lokasi, kemudian cuba lagi."],
- outside_time_window:["warn","Di luar waktu kehadiran","Acara ini tidak menerima kehadiran pada masa ini."],
- duplicate_or_device_already_used:["warn","Tidak dapat direkodkan","Kehadiran anda sudah direkodkan bagi sesi ini, atau peranti ini telah digunakan oleh orang lain."],
- unknown_staff_or_event:["bad","Kod tidak dikenali","Semak kod staf dan kod acara, kemudian cuba lagi."],
- bad_input:["bad","Data tidak lengkap","Cuba hantar semula."]
+/* ---------- 2. All words on the page, in both languages --------------- */
+const TEXT = {
+  ms: {
+    pageTitle: "Kehadiran Staf",
+    title: "Rekod kehadiran",
+    step1: "Benarkan akses lokasi apabila diminta.",
+    step2: "Pilih acara dan masukkan kod staf anda.",
+    step3: "Tekan <strong>Hantar kehadiran</strong> semasa berada di lokasi.",
+    event: "Acara",
+    eventCode: "Kod acara",
+    staff: "Kod staf",
+    submit: "Hantar kehadiran",
+    choose: "Pilih acara…",
+    loading: "Memuatkan senarai acara…",
+    noEvents: "Tiada acara aktif",
+    closedTag: "tutup sekarang",
+    hintQr: "Acara ini memerlukan imbasan kod QR di lokasi.",
+    hintClosed: "Acara ini tidak menerima kehadiran pada masa ini.",
+    hintTyped: "Senarai acara tidak dapat dimuatkan. Masukkan kod acara.",
+    locating: "Mencari lokasi…",
+    sending: "Menghantar…",
+    gps: "Ketepatan GPS: ±{m} m"
+  },
+  en: {
+    pageTitle: "Staff Attendance",
+    title: "Record attendance",
+    step1: "Allow location access when asked.",
+    step2: "Choose the event and enter your staff code.",
+    step3: "Press <strong>Submit attendance</strong> while you are at the location.",
+    event: "Event",
+    eventCode: "Event code",
+    staff: "Staff code",
+    submit: "Submit attendance",
+    choose: "Choose an event…",
+    loading: "Loading the event list…",
+    noEvents: "No active events",
+    closedTag: "closed now",
+    hintQr: "This event requires scanning the QR code at the location.",
+    hintClosed: "This event is not accepting attendance right now.",
+    hintTyped: "The event list could not be loaded. Enter the event code.",
+    locating: "Finding your location…",
+    sending: "Sending…",
+    gps: "GPS accuracy: ±{m} m"
+  }
 };
-function explain(d,acc){
- if(d.reason==="outside_geofence")return["bad","Anda di luar kawasan",`Anda kira-kira ${Math.round(d.distance_m)} m dari lokasi. Dekati lokasi acara dan cuba lagi.`];
- if(d.reason==="gps_accuracy_too_low")return["warn","Isyarat GPS terlalu lemah",`Ketepatan semasa ±${Math.round(acc)} m. Pergi ke kawasan terbuka dan cuba lagi.`];
- return REASONS[d.reason]||["bad","Tidak berjaya","Sila cuba lagi."];
-}
-function geoError(e){
- if(e&&e.code===1)return["bad","Akses lokasi ditolak","Benarkan lokasi untuk laman ini dalam tetapan pelayar, kemudian cuba lagi."];
- if(e&&e.code===0)return["bad","Lokasi tidak disokong","Gunakan pelayar lain atau peranti lain."];
- if(e&&(e.code===2||e.code===3))return["warn","Lokasi tidak ditemui","Pastikan GPS dihidupkan dan cuba lagi di kawasan terbuka."];
- return["bad","Sambungan gagal","Semak capaian internet anda dan cuba lagi."];
+
+/* Every result the page can show: [colour, title, explanation].
+   The keys in the middle block are the "reason" words sent back by check_in(). */
+const MESSAGES = {
+  ms: {
+    ok:          ["ok",   "Kehadiran direkodkan", "{name} · {event} · {m} m dari lokasi"],
+
+    qr_invalid_or_expired:            ["warn", "Kod QR tamat tempoh", "Imbas semula QR yang dipaparkan di lokasi, kemudian cuba lagi."],
+    outside_time_window:              ["warn", "Di luar waktu kehadiran", "Acara ini tidak menerima kehadiran pada masa ini."],
+    gps_accuracy_too_low:             ["warn", "Isyarat GPS terlalu lemah", "Ketepatan semasa ±{m} m. Pergi ke kawasan terbuka dan cuba lagi."],
+    outside_geofence:                 ["bad",  "Anda di luar kawasan", "Anda kira-kira {m} m dari lokasi. Dekati lokasi acara dan cuba lagi."],
+    duplicate_or_device_already_used: ["warn", "Tidak dapat direkodkan", "Kehadiran anda sudah direkodkan bagi sesi ini, atau peranti ini telah digunakan oleh orang lain."],
+    unknown_staff_or_event:           ["bad",  "Kod tidak dikenali", "Semak kod staf dan acara, kemudian cuba lagi."],
+    bad_input:                        ["bad",  "Data tidak lengkap", "Cuba hantar semula."],
+
+    need_event:      ["bad",  "Acara diperlukan", "Pilih acara daripada senarai."],
+    need_event_code: ["bad",  "Kod acara diperlukan", "Masukkan kod acara atau imbas QR di lokasi."],
+    need_staff:      ["bad",  "Kod staf diperlukan", "Masukkan kod staf anda."],
+    qr_needed:       ["warn", "Imbasan QR diperlukan", "Imbas kod QR yang dipaparkan di lokasi untuk merekod kehadiran acara ini."],
+    geo_denied:      ["bad",  "Akses lokasi ditolak", "Benarkan lokasi untuk laman ini dalam tetapan pelayar, kemudian cuba lagi."],
+    geo_unsupported: ["bad",  "Lokasi tidak disokong", "Gunakan pelayar lain atau peranti lain."],
+    geo_not_found:   ["warn", "Lokasi tidak ditemui", "Pastikan GPS dihidupkan dan cuba lagi di kawasan terbuka."],
+    network:         ["bad",  "Sambungan gagal", "Semak capaian internet anda dan cuba lagi."],
+    server:          ["bad",  "Pelayan menolak permintaan", "Kod ralat {status}. Maklumkan kepada pentadbir jika berulang."],
+    unknown:         ["bad",  "Tidak berjaya", "Sila cuba lagi."]
+  },
+  en: {
+    ok:          ["ok",   "Attendance recorded", "{name} · {event} · {m} m from the location"],
+
+    qr_invalid_or_expired:            ["warn", "QR code expired", "Scan the QR shown at the location again, then retry."],
+    outside_time_window:              ["warn", "Outside attendance hours", "This event is not accepting attendance right now."],
+    gps_accuracy_too_low:             ["warn", "GPS signal too weak", "Current accuracy is ±{m} m. Move to an open area and try again."],
+    outside_geofence:                 ["bad",  "You are outside the area", "You are about {m} m from the location. Move closer and try again."],
+    duplicate_or_device_already_used: ["warn", "Could not be recorded", "Your attendance is already recorded for this session, or this device has been used by someone else."],
+    unknown_staff_or_event:           ["bad",  "Code not recognised", "Check the staff code and the event, then try again."],
+    bad_input:                        ["bad",  "Incomplete data", "Try sending again."],
+
+    need_event:      ["bad",  "Event required", "Choose an event from the list."],
+    need_event_code: ["bad",  "Event code required", "Enter the event code or scan the QR at the location."],
+    need_staff:      ["bad",  "Staff code required", "Enter your staff code."],
+    qr_needed:       ["warn", "QR scan required", "Scan the QR code shown at the location to record attendance for this event."],
+    geo_denied:      ["bad",  "Location access denied", "Allow location for this site in your browser settings, then try again."],
+    geo_unsupported: ["bad",  "Location not supported", "Use a different browser or device."],
+    geo_not_found:   ["warn", "Location not found", "Make sure GPS is on and try again in an open area."],
+    network:         ["bad",  "Connection failed", "Check your internet access and try again."],
+    server:          ["bad",  "The server refused the request", "Error code {status}. Tell the administrator if it keeps happening."],
+    unknown:         ["bad",  "Unsuccessful", "Please try again."]
+  }
+};
+
+
+/* ---------- 3. Small helpers ------------------------------------------ */
+const $ = selector => document.querySelector(selector);
+
+/* Swap {name} style placeholders for real values. */
+function fill(template, values) {
+  return template.replace(/\{(\w+)\}/g, (_, key) => (values && key in values ? values[key] : ""));
 }
 
-if(eventCode){$("#evline").textContent="Kod acara: "+eventCode.toUpperCase();$("#evline").hidden=false}
-else $("#evfield").hidden=false;
-$("#staff").value=store("staff_code")||"";
+/* Browser storage can be blocked (private mode), so never let it crash the page. */
+function remember(key, value) {
+  try {
+    if (value === undefined) return localStorage.getItem(key);
+    localStorage.setItem(key, value);
+  } catch { /* storage unavailable: carry on without it */ }
+  return null;
+}
 
-$("#f").addEventListener("submit",async e=>{
- e.preventDefault();
- const staff=$("#staff").value.trim().toUpperCase();
- const ev=eventCode||$("#event").value.trim();
- if(!staff){show("bad","Kod staf diperlukan","Masukkan kod staf anda.");$("#staff").focus();return}
- if(!ev){show("bad","Kod acara diperlukan","Masukkan kod acara atau imbas QR di lokasi.");$("#event").focus();return}
- store("staff_code",staff);show("");
- const btn=$("#go");btn.disabled=true;btn.textContent="Mencari lokasi…";
- let acc=0;
- try{
-  if(!navigator.geolocation)throw{code:0};
-  const p=await locate(a=>{acc=a;$("#gps").textContent="Ketepatan GPS: ±"+Math.round(a)+" m"});
-  acc=p.coords.accuracy;
-  btn.textContent="Menghantar…";
-  const r=await fetch(API+"/rest/v1/rpc/check_in",{method:"POST",headers:{apikey:KEY,"Content-Type":"application/json"},
-   body:JSON.stringify({p_staff_code:staff,p_event_code:ev,p_lat:p.coords.latitude,p_lng:p.coords.longitude,p_accuracy:acc,p_device_id:deviceId(),p_qr_token:token})});
-  if(!r.ok)throw new Error("http "+r.status);
-  const d=await r.json();
-  if(d.ok){show("ok","Kehadiran direkodkan",`${d.name} · ${d.event} · ${d.distance_m} m dari lokasi`);$("#f").hidden=true}
-  else show(...explain(d,acc));
- }catch(err){show(...geoError(err))}
- finally{btn.disabled=false;btn.textContent="Hantar kehadiran";$("#gps").textContent=""}
-});
+/* One random ID per browser. This is what "one device, one person" is checked against. */
+function deviceId() {
+  let id = remember("device_id");
+  if (!id) {
+    const raw = crypto.randomUUID
+      ? crypto.randomUUID().replace(/-/g, "")
+      : Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, "0")).join("");
+    id = "DEV-" + raw.slice(0, 16).toUpperCase();
+    remember("device_id", id);
+  }
+  return id;
+}
+
+/* Knock on one of the database doors. Throws {http: status} or a network error. */
+async function callDatabase(functionName, body) {
+  const response = await fetch(API + "/rest/v1/rpc/" + functionName, {
+    method: "POST",
+    headers: { apikey: KEY, "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+    signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined
+  });
+  if (!response.ok) throw { http: response.status };
+  return response.json();
+}
+
+
+/* ---------- 4. What the page currently knows -------------------------- */
+const query    = new URLSearchParams(location.search);
+const urlEvent = (query.get("e") || "").trim();   // set when staff scanned a QR
+const qrToken  = query.get("t");                  // the rotating secret from the QR
+
+let lang    = remember("lang") === "en" ? "en" : "ms";
+let events  = null;                               // filled by loadEvents()
+let mode    = urlEvent ? "locked" : "loading";    // locked | loading | select | typed
+let lastMsg = null;                               // so a result can be re-shown in the other language
+let busy    = false;
+
+const t = key => TEXT[lang][key];
+
+
+/* ---------- 5. Drawing the page --------------------------------------- */
+function showMessage(id, values) {
+  lastMsg = id ? { id, values } : null;
+  const box = $("#result");
+  if (!id) { box.hidden = true; return; }
+  const [colour, title, text] = MESSAGES[lang][id] || MESSAGES[lang].unknown;
+  box.className = colour;
+  box.hidden = false;
+  box.replaceChildren();
+  const h = document.createElement("h2"); h.textContent = fill(title, values);
+  const p = document.createElement("p");  p.textContent = fill(text, values);
+  box.append(h, p);
+}
+
+function currentEventCode() {
+  if (mode === "locked") return urlEvent;
+  if (mode === "typed")  return $("#eventCode").value.trim();
+  return $("#event").value;
+}
+
+function currentEvent() {
+  const code = currentEventCode().toLowerCase();
+  return events && code ? events.find(e => e.event_code.toLowerCase() === code) || null : null;
+}
+
+function drawEventPicker() {
+  $("#lockedBox").hidden   = mode !== "locked";
+  $("#selectField").hidden = mode !== "loading" && mode !== "select";
+  $("#codeField").hidden   = mode !== "typed";
+
+  if (mode === "locked") {
+    const found = currentEvent();
+    $("#lockedName").textContent = found ? found.name : urlEvent.toUpperCase();
+  }
+
+  if (mode === "loading" || mode === "select") {
+    const select  = $("#event");
+    const keep    = select.value || remember("event_code") || "";
+    const options = [];
+
+    const first = new Option(
+      mode === "loading" ? t("loading") : events.length ? t("choose") : t("noEvents"), "");
+    first.disabled = true;
+    options.push(first);
+
+    for (const ev of events || []) {
+      options.push(new Option(ev.open_now ? ev.name : ev.name + " (" + t("closedTag") + ")", ev.event_code));
+    }
+    select.replaceChildren(...options);
+    select.value = options.some(o => o.value === keep) ? keep : "";
+    select.disabled = mode === "loading" || !events.length;
+  }
+  drawHint();
+}
+
+function drawHint() {
+  const ev = currentEvent();
+  let text = "";
+  if (mode === "typed")                 text = t("hintTyped");
+  else if (ev && ev.require_qr && !qrToken) text = t("hintQr");
+  else if (ev && !ev.open_now)          text = t("hintClosed");
+  $("#hint").textContent = text;
+  $("#hint").hidden = !text;
+}
+
+function drawLanguage() {
+  document.documentElement.lang = lang;
+  document.title = t("pageTitle");
+  document.querySelectorAll("[data-t]").forEach(el => { if (!(busy && el.id === "go")) el.textContent = t(el.dataset.t); });
+  document.querySelectorAll("[data-t-html]").forEach(el => { el.innerHTML = t(el.dataset.tHtml); });
+  document.querySelectorAll(".lang button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
+  drawEventPicker();
+  if (lastMsg) showMessage(lastMsg.id, lastMsg.values);
+}
+
+
+/* ---------- 6. Fetch the event list for the dropdown ------------------ */
+async function loadEvents() {
+  try {
+    const rows = await callDatabase("list_events");
+    if (!Array.isArray(rows)) throw new Error("unexpected reply");
+    events = rows;
+    if (mode !== "locked") mode = "select";
+  } catch {
+    events = null;
+    if (mode !== "locked") mode = "typed";   // spare tyre: type the code
+  }
+  drawEventPicker();
+}
+
+
+/* ---------- 7. Ask the phone where it is ------------------------------
+   Watches the GPS for up to 12 s and keeps the most accurate reading.
+   Stops early as soon as accuracy is 15 m or better.                   */
+function locate(onReading) {
+  return new Promise((resolve, reject) => {
+    let best = null, watchId, timer;
+    const finish = () => {
+      navigator.geolocation.clearWatch(watchId);
+      clearTimeout(timer);
+      best ? resolve(best) : reject({ code: 3 });
+    };
+    watchId = navigator.geolocation.watchPosition(
+      position => {
+        if (!best || position.coords.accuracy < best.coords.accuracy) best = position;
+        onReading(position.coords.accuracy);
+        if (position.coords.accuracy <= 15) finish();
+      },
+      error => {
+        if (error.code === 1) {            // the person pressed "Block"
+          navigator.geolocation.clearWatch(watchId);
+          clearTimeout(timer);
+          reject(error);
+        }
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+    );
+    timer = setTimeout(finish, 12000);
+  });
+}
+
+
+/* ---------- 8. The Submit button -------------------------------------- */
+async function submit(event) {
+  event.preventDefault();
+  if (busy) return;
+
+  const staffCode = $("#staff").value.trim().toUpperCase();
+  const eventCode = currentEventCode();
+
+  // 8a. Simple checks before we bother the GPS or the database.
+  if (!eventCode) {
+    showMessage(mode === "typed" ? "need_event_code" : "need_event");
+    (mode === "typed" ? $("#eventCode") : $("#event")).focus();
+    return;
+  }
+  if (!staffCode) { showMessage("need_staff"); $("#staff").focus(); return; }
+
+  const chosen = currentEvent();
+  if (chosen && chosen.require_qr && !qrToken) { showMessage("qr_needed"); $("#result").focus(); return; }
+
+  remember("staff_code", staffCode);
+  if (mode === "select") remember("event_code", eventCode);
+  showMessage(null);
+
+  const button = $("#go");
+  busy = true; button.disabled = true; button.textContent = t("locating");
+
+  try {
+    // 8b. Where is the phone?
+    let position;
+    try {
+      if (!navigator.geolocation) throw { code: 0 };
+      position = await locate(metres => { $("#gps").textContent = fill(t("gps"), { m: Math.round(metres) }); });
+    } catch (geoError) {
+      const code = geoError && geoError.code;
+      showMessage(code === 1 ? "geo_denied" : code === 0 ? "geo_unsupported" : "geo_not_found");
+      return;
+    }
+
+    // 8c. Send the facts. The database decides.
+    button.textContent = t("sending");
+    const accuracy = position.coords.accuracy;
+    let reply;
+    try {
+      reply = await callDatabase("check_in", {
+        p_staff_code: staffCode,
+        p_event_code: eventCode,
+        p_lat:        position.coords.latitude,
+        p_lng:        position.coords.longitude,
+        p_accuracy:   accuracy,
+        p_device_id:  deviceId(),
+        p_qr_token:   qrToken
+      });
+    } catch (sendError) {
+      if (sendError && sendError.http) showMessage("server", { status: sendError.http });
+      else showMessage("network");
+      return;
+    }
+
+    // 8d. Show the answer.
+    if (reply && reply.ok) {
+      showMessage("ok", { name: reply.name, event: reply.event, m: reply.distance_m });
+      $("#f").hidden = true;
+    } else {
+      const reason = reply && reply.reason;
+      const metres = reason === "gps_accuracy_too_low" ? accuracy : reply && reply.distance_m;
+      showMessage(reason in MESSAGES[lang] ? reason : "unknown", { m: Math.round(metres || 0) });
+    }
+  } finally {
+    busy = false; button.disabled = false; button.textContent = t("submit");
+    $("#gps").textContent = "";
+    if (lastMsg) $("#result").focus();
+  }
+}
+
+
+/* ---------- 9. Start --------------------------------------------------- */
+$("#staff").value = remember("staff_code") || "";
+$("#f").addEventListener("submit", submit);
+$("#event").addEventListener("change", () => { showMessage(null); drawHint(); });   // new choice: clear the old answer
+document.querySelectorAll(".lang button").forEach(b => b.addEventListener("click", () => {
+  lang = b.dataset.lang;
+  remember("lang", lang);
+  drawLanguage();
+}));
+
+drawLanguage();
+loadEvents();
 </script>
 </body>
 </html>
