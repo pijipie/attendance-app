@@ -26,6 +26,9 @@ All SQL lives in the `database/` folder. Run each file once in Supabase > SQL Ed
 | `03_list_events.sql` | `list_events()` for the staff page's event dropdown. |
 | `04_admin.sql` | Write permissions for admins, and `check_in()` version 2, which keeps refused duplicates as rejected rows. |
 | `05_roles_archive_displays.sql` | Three admin levels, archive instead of delete, the activity record, and screen pairing. |
+| `06_security_hardening.sql` | Fixes from the security review of 3 Oct 2026: limits and a brake on `check_in()`, replies that give less away, confirmed accounts only for admins, never zero owners, pairing that cannot be jammed, table rights cut down, indexes. |
+
+Each file from `01` to `05` begins with a guard: if a later file is already installed, it stops and changes nothing. Running an old file again would otherwise put back older, weaker rules. The newest file (`06`) is safe to run again.
 
 ## How the safety works
 
@@ -36,6 +39,20 @@ All SQL lives in the `database/` folder. Run each file once in Supabase > SQL Ed
 - Nobody can change or delete an attendance row from the website.
 - An event or session that has attendance is archived, never deleted, so the log always keeps its names.
 - Every change to staff, events, hours, settings and admins is written to an activity record that only an owner can read and nobody can edit.
+- `check_in()` accepts only short, well-formed input, stores at most 10 refusals per person in any 10 minutes, and answers an unknown staff code exactly as it would answer a real one, so the reply cannot be used to find out which codes exist.
+- A signed-in account holds only the table rights the admin page uses (for example, read-only on attendance). The row rules are a second lock on top, not the only one.
+- Every page carries a Content-Security-Policy: it may load code only from its own folder and may talk only to the database (the admin page also to OpenStreetMap). No page can be shown inside another website's frame.
+- The QR token travels after the `#` in the link, which is never sent to a web server, and the staff page wipes it from the address bar.
+
+## Settings to check in Supabase (not in the code)
+
+These cannot be set from a SQL file or from the pages. Check them once in the Supabase dashboard.
+
+| Where | Setting | Why |
+|---|---|---|
+| Authentication > Sign In / Providers | **Allow new users to sign up: OFF** | Admin accounts are created by hand. With sign-up open, a stranger could register an address and wait for it to be added as an admin. `admin_set()` also refuses any account whose email is not confirmed. |
+| Authentication > Attack Protection | **Leaked password protection: ON** (may need a paid plan) | Refuses passwords known from data breaches. |
+| Database > Backups | The free plan keeps **no backups** | The attendance log is an official record. Download the CSV regularly from the Attendance screen, or move to a paid plan. |
 
 ## Outside services
 
@@ -46,6 +63,8 @@ All SQL lives in the `database/` folder. Run each file once in Supabase > SQL Ed
 ## Signing out
 
 The admin page signs out by itself after 15 minutes without a touch, on every screen, and warns one minute before. For a long event, show the QR with `display.html`, which has no login to lose.
+
+Signing out ends the session on that device only (a phone signing out does not sign out a laptop), and empties the page: no staff list, attendance or admin email stays behind in the browser.
 
 ## Admin levels
 

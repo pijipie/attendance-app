@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
+<!-- A fence around this page: it may load code, styles and pictures only from its own folder,
+     and may talk only to the database. If the database address (API, further down) ever changes, change it here too. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src https://xtrgefkopnqgektrllra.supabase.co; base-uri 'none'; form-action 'none'">
+<!-- Refuse to be shown inside another website's frame. The page stays invisible until this check has passed. -->
+<style id="noFrame">html{display:none !important}</style>
+<script>
+if (self === top) document.getElementById("noFrame").remove();
+else { try { top.location = self.location.href; } catch (e) { /* cannot break out: stay invisible */ } }
+</script>
 <title>QR Code Display</title>
 <link rel="icon" type="image/png" href="logo.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -113,7 +122,9 @@ h1{margin:0; font-size:clamp(1.5rem, 5vmin, 3.4rem); line-height:1.15; letter-sp
 <script src="menu.js"></script>
 <script>
 /* =====================================================================
-   DISPLAY PAGE  v1.1  -  the QR on a big screen, with NO login
+   DISPLAY PAGE  v1.2  -  the QR on a big screen, with NO login
+   (1.2: fixes from the security review of 3 Oct 2026 - only one request to the database at a
+         time, a drawing slip can no longer stop the loop, the QR token rides after "#")
    1. This page invents a long secret and keeps it in this browser.
    2. It sends only a fingerprint of the secret to the database and gets
       a short code to show.
@@ -200,6 +211,7 @@ let view   = { state: "starting" };            // starting | waiting | showing |
 let lost   = false;                            // could not reach the database on the last try
 let goodUntil = 0;                             // when the QR on screen stops being accepted
 let timer = null, lock = null;
+let round = 0;                                 // each round of the loop takes a number; only the newest one may change the screen
 
 /* ---------- 5. Drawing ------------------------------------------------- */
 function draw(restartBarMs) {
@@ -219,7 +231,8 @@ function draw(restartBarMs) {
   } else if (view.state === "showing") {
     panel.classList.add("show");
     const tile = el("div", "tile");
-    if (view.token && Date.now() < goodUntil) tile.append(qrPicture(STAFF_PAGE + "?e=" + encodeURIComponent(view.event_code) + "&t=" + encodeURIComponent(view.token), view.event_name));
+    // The token goes after "#": that part of a link is never sent to a web server, so it cannot end up in a server log.
+    if (view.token && Date.now() < goodUntil) tile.append(qrPicture(STAFF_PAGE + "?e=" + encodeURIComponent(view.event_code) + "#t=" + encodeURIComponent(view.token), view.event_name));
     else tile.textContent = t("lost");                                   // never leave a dead code on screen
     const bar = el("div", "barline"); bar.setAttribute("aria-hidden", "true"); const fillBar = document.createElement("i"); bar.append(fillBar);
     if (restartBarMs) { fillBar.style.animationDuration = restartBarMs + "ms"; fillBar.className = "run"; }
@@ -249,28 +262,42 @@ function qrPicture(text, label) {
   return svg;
 }
 
-/* ---------- 6. The loop ------------------------------------------------ */
-async function register() {
-  if (!secret) { secret = randomHex(32); store("display_secret", secret); }
-  const reply = await door("display_register", { p_secret_hash: await fingerprint(secret) });
-  if (reply.ok) { view = { state: "waiting", code: reply.code }; return; }
-  if (reply.reason === "already_used") { secret = null; store("display_secret", null); return register(); }   // this secret has had its turn
+/* ---------- 6. The loop ------------------------------------------------
+   Several things can start a round: the timer, the tab coming back into view, "Get a new code".
+   Before, two rounds could run at once and the slower one could put a code on screen for a secret
+   that had already been thrown away. Now every round takes a number ("mine"), and after every wait
+   it checks that it is still the newest round and that the secret is still the one it asked with.
+   If not, it quietly stops: the newer round is in charge.                                        */
+async function register(mine) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (!secret) { secret = randomHex(32); store("display_secret", secret); }
+    const asked = secret;
+    const reply = await door("display_register", { p_secret_hash: await fingerprint(asked) });
+    if (mine !== round || asked !== secret) return false;
+    if (reply.ok) { view = { state: "waiting", code: reply.code }; return true; }
+    if (reply.reason !== "already_used") break;
+    secret = null; store("display_secret", null);                        // this secret has had its turn: make a new one and ask once more
+  }
   view = { state: "busy" };
+  return true;
 }
 
 async function tick() {
   clearTimeout(timer);
   if (document.hidden) return;                 // tab not visible: wait. It restarts when the tab is shown again.
+  const mine = ++round;
   let next = WAIT_MS, restartBar = 0;
   try {
     // No secret yet (first visit, or the last display ended): ask for a pairing code.
     // A secret already kept (the page was reloaded): go straight to collecting, so a running display survives a reload.
-    if (!secret || view.state === "busy") await register();
+    if (!secret || view.state === "busy") { if (!(await register(mine))) return; }
     else {
-      const reply = await door("display_poll", { p_secret: secret });
+      const asked = secret;
+      const reply = await door("display_poll", { p_secret: asked });
+      if (mine !== round || asked !== secret) return;
       if (reply.state === "showing") {
         view = reply; goodUntil = Date.now() + reply.valid_seconds * 1000;
-        next = restartBar = Math.min(ROTATE_MS, reply.valid_seconds * 500);
+        next = restartBar = Math.max(2000, Math.min(ROTATE_MS, reply.valid_seconds * 500));
         keepAwake();
       } else if (reply.state === "waiting") view = { state: "waiting", code: reply.code };
       else if (reply.state === "ended") { view = { state: "ended" }; secret = null; store("display_secret", null); }
@@ -279,10 +306,12 @@ async function tick() {
     lost = false;
     if (view.state === "busy") next = 15000;
   } catch (error) {
+    if (mine !== round) return;
     if (error && error.http === 404) view = { state: "old" };            // the database has no display doors yet
     else { lost = true; next = 5000; }
   }
-  draw(restartBar);
+  // Whatever happens while drawing, the next round is still booked: a screen on a wall must not freeze silently.
+  try { draw(restartBar); } catch (error) { console.error(error); next = Math.min(next, 5000); }
   if (view.state !== "ended" && view.state !== "old") timer = setTimeout(tick, next);
 }
 

@@ -18,6 +18,20 @@
 --      or removing an admin is still done here in Supabase, on purpose.
 -- =====================================================================
 
+-- ---------------------------------------------------------------------
+-- GUARD (added 3 Oct 2026). This file is OLDER than 05_roles_archive_displays.sql.
+-- Running it again after that file would put back the older, weaker
+-- rules. So it checks first, and stops without changing anything.
+-- "begin" ... "commit" make the whole file all-or-nothing.
+-- ---------------------------------------------------------------------
+begin;
+do $$
+begin
+  if to_regprocedure('public.can_manage()') is not null then
+    raise exception 'STOP: 05_roles_archive_displays.sql is already installed. Running this older file again would undo its stricter rules (operators could change staff, events and settings again). Nothing was changed.';
+  end if;
+end $$;
+
 
 -- ---------------------------------------------------------------------
 -- PART A : write permissions for admins
@@ -207,6 +221,9 @@ $$;
 -- this file is complete by itself.
 revoke all on function check_in(text, text, double precision, double precision, real, text, text) from public, anon, authenticated;
 grant  execute on function check_in(text, text, double precision, double precision, real, text, text) to anon, authenticated;
+
+
+commit;
 
 
 -- ---------------------------------------------------------------------

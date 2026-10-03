@@ -4,6 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
+<!-- A fence around this page: it may load code, styles and pictures only from its own folder
+     (plus OpenStreetMap map pictures), and may talk only to the database and the OpenStreetMap
+     place search. If the database address (API, further down) ever changes, change it here too. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org; connect-src https://xtrgefkopnqgektrllra.supabase.co https://nominatim.openstreetmap.org; base-uri 'none'; form-action 'none'">
+<!-- Refuse to be shown inside another website's frame (a trick used to make people click hidden buttons).
+     The page stays invisible until this check has passed. -->
+<style id="noFrame">html{display:none !important}</style>
+<script>
+if (self === top) document.getElementById("noFrame").remove();
+else { try { top.location = self.location.href; } catch (e) { /* cannot break out: stay invisible */ } }
+</script>
 <title>Attendance Admin</title>
 <link rel="icon" type="image/png" href="logo.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -313,8 +324,11 @@ td.edit{padding:14px; white-space:normal; background:var(--bg)}
 <script src="menu.js"></script>
 <script>
 /* =====================================================================
-   ADMIN PAGE  v3.1 (v2 + English by default, three-line menu, map in the event editor, sign-out after 15 quiet minutes;
-                     3.1: sign-out still reaches the server when the tab closes straight after)
+   ADMIN PAGE  v3.2 (v2 + English by default, three-line menu, map in the event editor, sign-out after 15 quiet minutes;
+                     3.1: sign-out still reaches the server when the tab closes straight after;
+                     3.2: fixes from the security review of 3 Oct 2026 - sign-out empties the page and ends
+                          only this device's session, the attendance list loads every row and shows a clear
+                          error instead of "0 present", staff and events are re-read while the page is open)
    Sign in  ->  QR screen | Attendance | Events + time windows | Staff | Settings
 
    THREE LEVELS (set in Settings > Admins by an owner)
@@ -337,6 +351,10 @@ const KEY = "sb_publishable_AzY4sFUQgYQvQRSrFT3qwg_Y6068Gv5";
 const TIME_ZONE     = "Asia/Kuala_Lumpur";
 const QR_ROTATE_MS  = 20000;      // draw a fresh QR this often
 const LOG_REFRESH_MS = 30000;     // reload the attendance list this often
+const LOG_PAGE      = 1000;       // rows asked for in one request (the database hands out at most 1,000 at a time)
+const LOG_MAX_PAGES = 30;         // safety stop: 30,000 rows of one kind (present / rejected) for one date
+const LOG_SHOW      = 500;        // rows drawn on screen at first; "Show more" adds this many. The CSV always has all.
+const BASICS_AGE_MS = 60000;      // re-read staff, events, hours and settings when they are older than this
 const IDLE_MINUTES  = 15;         // sign out after this long with no tap, click, key or mouse movement, on every screen
 const STAFF_PAGE    = new URL("./", location.href).href;   // the check-in page lives next to this file
 const DISPLAY_PAGE  = STAFF_PAGE + "display.html";          // the no-login page for a big screen
@@ -382,6 +400,8 @@ const TEXT = {
     admTitle: "Pentadbir", admHelp: "Langkah 1: cipta akaun di Supabase > Authentication > Users > Add user. Langkah 2: masukkan e-mel yang sama di sini dan pilih tahap.",
     admEmail: "E-mel akaun", admLevel: "Tahap", admAdd: "Tambah pentadbir", admYou: "anda",
     errNoUser: "Tiada akaun dengan e-mel itu. Cipta akaun di Supabase dahulu.", errLastOwner: "Mesti ada sekurang-kurangnya seorang pemilik.",
+    errUnconfirmed: "Akaun itu belum mengesahkan e-melnya. Sahkan dahulu di Supabase > Authentication > Users.",
+    errNoDisplay: "Skrin itu tiada lagi dalam senarai.",
     actTitle: "Rekod aktiviti", actHelp: "Setiap tambahan, perubahan dan pemadaman dicatat sendiri. Tiada sesiapa boleh mengubah rekod ini dari laman web.",
     actLoad: "Papar 50 terkini", actEmpty: "Belum ada aktiviti direkodkan.", actSql: "Supabase (SQL)",
     act_insert: "Tambah", act_update: "Ubah", act_delete: "Padam", act_archive: "Arkib", act_restore: "Pulih",
@@ -406,7 +426,10 @@ const TEXT = {
     emptyRejected: "Tiada percubaan yang ditolak untuk pilihan ini.",
     emptyAbsent: "Semua staf aktif sudah hadir.",
     absentPick: "Pilih satu acara untuk melihat siapa yang belum hadir.",
-    logCapped: "Hanya 1,000 baris pertama dipaparkan. Pilih satu acara untuk mengecilkan senarai.",
+    logCapped: "Tarikh ini mempunyai lebih daripada {n} baris bagi satu jenis. Hanya {n} yang pertama dimuatkan. Pilih satu acara untuk mengecilkan senarai.",
+    logFailed: "Senarai tidak dapat dimuatkan", logRetry: "Cuba lagi",
+    logStale: "Tidak dapat dimuat semula. Ini senarai pada {time}.",
+    logShowing: "Memaparkan {a} daripada {b} baris. Fail CSV mengandungi semuanya.", logMore: "Papar lagi",
     deviceOf: "Peranti ini telah merekod {who}",
     r_qr_invalid_or_expired: "Kod QR tiada atau tamat tempoh", r_outside_time_window: "Di luar waktu kehadiran",
     r_gps_accuracy_too_low: "Isyarat GPS terlalu lemah", r_outside_geofence: "Di luar kawasan",
@@ -487,6 +510,8 @@ const TEXT = {
     admTitle: "Admins", admHelp: "Step 1: create the account in Supabase > Authentication > Users > Add user. Step 2: enter the same email here and choose a level.",
     admEmail: "Account email", admLevel: "Level", admAdd: "Add admin", admYou: "you",
     errNoUser: "No account has that email. Create the account in Supabase first.", errLastOwner: "There must be at least one owner.",
+    errUnconfirmed: "That account has not confirmed its email yet. Confirm it first in Supabase > Authentication > Users.",
+    errNoDisplay: "That screen is no longer listed.",
     actTitle: "Activity record", actHelp: "Every addition, change and deletion is written down automatically. Nobody can alter this record from the website.",
     actLoad: "Show latest 50", actEmpty: "No activity recorded yet.", actSql: "Supabase (SQL)",
     act_insert: "Add", act_update: "Change", act_delete: "Delete", act_archive: "Archive", act_restore: "Restore",
@@ -511,7 +536,10 @@ const TEXT = {
     emptyRejected: "No rejected attempts for this selection.",
     emptyAbsent: "Every active staff member has checked in.",
     absentPick: "Choose one event to see who has not checked in.",
-    logCapped: "Only the first 1,000 rows are shown. Choose one event to narrow the list.",
+    logCapped: "This date has more than {n} rows of one kind. Only the first {n} are loaded. Choose one event to narrow the list.",
+    logFailed: "The list could not be loaded", logRetry: "Try again",
+    logStale: "Could not refresh. This is the list as of {time}.",
+    logShowing: "Showing {a} of {b} rows. The CSV file has all of them.", logMore: "Show more",
     deviceOf: "This device already recorded {who}",
     r_qr_invalid_or_expired: "QR code missing or expired", r_outside_time_window: "Outside attendance hours",
     r_gps_accuracy_too_low: "GPS signal too weak", r_outside_geofence: "Outside the area",
@@ -586,6 +614,7 @@ function h(tag, props, ...children) {
 
 /* Put new content into one of the five screens. Empty slots (false / null) are skipped. */
 function fillView(name, ...parts) {
+  if (!state.session) return;                          // signed out: the screens stay empty
   $("#view-" + name).replaceChildren(...parts.flat(Infinity).filter(part => part != null && part !== false));
 }
 
@@ -609,12 +638,24 @@ function icon(name) {
   return svg;
 }
 
-/* Browser storage can be blocked, so never let it crash the page. */
-function store(area, key, value) {
+/* Browser storage can be blocked, so never let it crash the page.
+   store("local", key)            read          "local"   = kept on this device (language)
+   store("session", key, value)   write         "session" = kept for this tab only (the sign-in)
+   store("session", key, null)    remove
+   When the browser blocks storage, even looking at it throws an error, so that happens inside the
+   "try". The page then remembers things in its own memory instead: everything works, but a reload
+   asks for the password again.                                                                    */
+const memory = { local: {}, session: {} };
+function store(where, key, value) {
   try {
+    const area = where === "session" ? window.sessionStorage : window.localStorage;
     if (value === undefined) return area.getItem(key);
     if (value === null) area.removeItem(key); else area.setItem(key, value);
-  } catch { /* storage unavailable: carry on without it */ }
+    return null;
+  } catch { /* storage unavailable: use the page's own memory below */ }
+  const box = memory[where === "session" ? "session" : "local"];
+  if (value === undefined) return key in box ? box[key] : null;
+  if (value === null) delete box[key]; else box[key] = String(value);
   return null;
 }
 
@@ -628,16 +669,25 @@ const dateKL   = iso => showDate(new Intl.DateTimeFormat("en-CA", { timeZone: TI
 
 /* ---------- 4. What the page currently knows -------------------------- */
 const state = {
-  lang: store(localStorage, "lang") === "ms" ? "ms" : "en",      // English unless this device chose BM before
+  lang: store("local", "lang") === "ms" ? "ms" : "en",      // English unless this device chose BM before
   session: null,                 // { access_token, refresh_token, expires_at, email }
+  epoch: 0,                      // goes up by one at every sign-out. A reply that was asked for before a sign-out is thrown away.
   role: null,                    // "owner" | "manager" | "operator"
   view: "qr",
   staff: [], events: [], windows: [], settings: null,
+  basicsAt: 0, basicsBusy: false,   // when the four lists above were last read from the database
   openNow: {},                   // event_code -> true/false, from list_events()
   edit: null,                    // which inline editor is open, e.g. { kind:"staff", id:"new" }
   confirm: null,                 // which Delete button is asking "are you sure?"
-  qr:  { eventId: store(sessionStorage, "qr_event") || "", token: null, goodUntil: 0, lost: false, present: null, timer: null, busy: false, run: 0, lock: null },
-  log: { date: todayKL(), eventId: "", windowId: "", tab: "present", rows: [], capped: false, loadedAt: null, loading: false,
+  qr:  { eventId: store("session", "qr_event") || "", token: null, goodUntil: 0, lost: false, present: null, timer: null, busy: false, run: 0, lock: null },
+  log: { date: todayKL(), followToday: true,   // followToday: the date moves on by itself at midnight
+         eventId: "", windowId: "", tab: "present", rows: [], capped: false, loadedAt: null, loading: false,
+         error: null,                // the last load failed: show that, never an empty "0 present"
+         stale: false,               // a background refresh failed: the list on screen is older than it looks
+         ticket: 0,                  // each load takes a number; only the newest one may fill the list
+         loadedKey: "",              // which date and event the rows on screen belong to
+         shown: LOG_SHOW,            // how many rows are drawn on screen
+         known: { date: "", events: new Set(), sessions: new Set() },   // events and sessions seen with rows on this date
          details: window.matchMedia("(min-width: 900px)").matches, timer: null },
   staffFilter: { text: "", show: "active" },
   evFilter: { text: "", show: "current" },
@@ -674,7 +724,10 @@ function hideToast() {
   toastEl.hidden = true;
   $("#announce").textContent = "";
 }
-const fail = error => toast("bad", t("errTitle"), explain(error));
+const fail = error => {
+  if (error && error.kind === "session" && !state.session) return;      // already signed out: the login screen says enough
+  toast("bad", t("errTitle"), explain(error));
+};
 
 /* Turn a technical error into a sentence a person can act on. */
 function explain(error) {
@@ -697,10 +750,11 @@ function explain(error) {
    What is kept is a short-lived token, in this browser tab only:
    closing the tab signs you out.                                       */
 let refreshTimer = null;
+let renewing = null;             // the renewal that is under way, if any. Everyone who needs one waits for the same one.
 
 function setSession(session) {
   state.session = session;
-  store(sessionStorage, "admin_session", session ? JSON.stringify(session) : null);
+  store("session", "admin_session", session ? JSON.stringify(session) : null);
   clearTimeout(refreshTimer);
   if (session) {
     const wait = Math.max(5000, session.expires_at * 1000 - Date.now() - 90000);     // renew 90 s before it runs out
@@ -724,23 +778,56 @@ async function authCall(grant, body) {
   };
 }
 
-/* Returns "ok", "offline" (try again later) or "ended" (must sign in again). */
-async function renewSession() {
-  if (!state.session) return "ended";
-  try { setSession(await authCall("refresh_token", { refresh_token: state.session.refresh_token })); return "ok"; }
-  catch (error) {
-    if (error.kind === "network") { clearTimeout(refreshTimer); refreshTimer = setTimeout(renewSession, 30000); return "offline"; }
-    endSession("errSession"); return "ended";
-  }
+/* Tell the server that a token is finished with. "scope=local" ends THIS device's session only:
+   signing out on a phone must not sign out the laptop that is showing the QR.
+   keepalive: the browser finishes this request even if the tab is closed a moment later. */
+function serverSignOut(token) {
+  if (token) fetch(API + "/auth/v1/logout?scope=local", { method: "POST", keepalive: true, headers: { apikey: KEY, Authorization: "Bearer " + token } }).catch(() => {});
 }
 
+/* Returns "ok", "offline" (try again later) or "ended" (must sign in again).
+   Only ONE renewal runs at a time. Two at once would use the same renewal token twice,
+   which the server treats as theft and answers by ending the session. */
+function renewSession() {
+  if (!state.session) return Promise.resolve("ended");
+  if (!renewing) renewing = renewNow().finally(() => { renewing = null; });
+  return renewing;
+}
+async function renewNow() {
+  const epoch = state.epoch;
+  let fresh;
+  try { fresh = await authCall("refresh_token", { refresh_token: state.session.refresh_token }); }
+  catch (error) {
+    if (epoch !== state.epoch) return "ended";                              // signed out while we waited
+    // Only a clear "no" from the server (400, 401, 403) ends the session. A server hiccup (500, 503),
+    // "too many requests" (429) or no internet means: keep the session and try again shortly.
+    const refused = error.kind === "auth" && [400, 401, 403].includes(error.status);
+    if (!refused) { clearTimeout(refreshTimer); refreshTimer = setTimeout(renewSession, 30000); return "offline"; }
+    endSession("errSession"); return "ended";
+  }
+  if (epoch !== state.epoch) { serverSignOut(fresh.access_token); return "ended"; }   // the person signed out while this was on its way: do NOT sign them back in
+  setSession(fresh); return "ok";
+}
+
+/* Forget the sign-in on this device and on the server, without touching the page. */
+function dropSession() {
+  serverSignOut(state.session && state.session.access_token);
+  state.epoch++;
+  setSession(null);
+}
+
+/* Sign out: forget the session AND empty the page. Hiding the screens is not enough: the staff list,
+   attendance and admin emails would still be in the page for anyone who knows where to look. */
 function endSession(messageKey, values) {
-  const token = state.session && state.session.access_token;
-  // keepalive: the browser finishes this request even if the tab is closed or moves to another page a moment later
-  if (token) fetch(API + "/auth/v1/logout", { method: "POST", keepalive: true, headers: { apikey: KEY, Authorization: "Bearer " + token } }).catch(() => {});
-  setSession(null); state.role = null; state.admins = []; state.activity = null; state.displays = [];
-  stopQr(); clearTimeout(state.log.timer);
-  state.staff = []; state.events = []; state.windows = []; state.settings = null; state.log.rows = [];
+  dropSession();
+  stopQr(); clearTimeout(state.log.timer); closeMap();
+  Object.assign(state, { role: null, staff: [], events: [], windows: [], settings: null, basicsAt: 0, openNow: {},
+                         edit: null, confirm: null, displays: [], canPair: false, pairOpen: false, admins: [], activity: null });
+  Object.assign(state.log, { eventId: "", windowId: "", tab: "present", rows: [], capped: false, loadedAt: null, loading: false,
+                             error: null, stale: false, loadedKey: "", shown: LOG_SHOW, known: { date: "", events: new Set(), sessions: new Set() } });
+  state.log.ticket++;                                                       // any attendance list still on its way is now out of date
+  state.staffFilter.text = ""; state.evFilter.text = "";
+  VIEWS.forEach(v => $("#view-" + v).replaceChildren());
   showLogin();
   if (messageKey) toast("warn", t(messageKey, values)); else hideToast();
 }
@@ -753,9 +840,18 @@ const IDLE_MS = IDLE_MINUTES * 60000;
 let lastActive = Date.now(), lastSaved = 0, idleWarned = false;
 
 function noteActivity() {
-  lastActive = Date.now();
+  const now = Date.now();
+  // The limit had already passed (for example the laptop was asleep and its timers with it):
+  // this touch must sign out, not rescue the session.
+  if (state.session && now - lastActive >= IDLE_MS) { checkIdle(); return; }
+  lastActive = now;
   if (idleWarned) { idleWarned = false; if ($("#toastTitle").textContent === t("idleSoon")) hideToast(); }   // take the warning away, but no other message
-  if (lastActive - lastSaved > 5000) { lastSaved = lastActive; store(sessionStorage, "admin_active", String(lastActive)); }
+  if (lastActive - lastSaved > 5000) { lastSaved = lastActive; store("session", "admin_active", String(lastActive)); }
+}
+/* A fresh sign-in starts a fresh quiet spell. */
+function restartIdle() {
+  lastActive = lastSaved = Date.now(); idleWarned = false;
+  store("session", "admin_active", String(lastActive));
 }
 function checkIdle() {
   if (!state.session) return;
@@ -775,14 +871,15 @@ async function signIn(event) {
   const button = $("#loginGo");
   button.disabled = true; button.textContent = t("signingIn");
   try {
-    setSession(await authCall("password", { email, password }));
-    $("#password").value = ""; noteActivity();
+    const session = await authCall("password", { email, password });
+    restartIdle(); setSession(session);
+    $("#password").value = "";
     state.role = await fetchRole();
-    if (!state.role) { setSession(null); toast("bad", t("errTitle"), t("errNotAdmin")); return; }
+    if (!state.role) { dropSession(); toast("bad", t("errTitle"), t("errNotAdmin")); return; }
     hideToast();
     await enterApp();
   } catch (error) {
-    setSession(null);
+    if (state.session) dropSession();
     toast("bad", t("errTitle"), error.kind === "auth" ? t(error.status === 429 ? "errTooMany" : "errLogin") : explain(error));
   } finally {
     button.disabled = false; button.textContent = t("signIn");
@@ -796,29 +893,37 @@ async function signIn(event) {
    api("staff?id=eq.123", {method:"PATCH", body})     change
    api("staff?id=eq.123", {method:"DELETE"})          remove
    Every call carries the signed-in token. The database decides.        */
-async function api(path, { method = "GET", body } = {}) {
+async function api(path, { method = "GET", body, count } = {}) {
+  if (!state.session) throw { kind: "session" };
+  const epoch = state.epoch;
+  // "gone": the person signed out (or was signed out) while this request was on its way.
+  // Its reply must never be written back into the page.
+  const gone = () => epoch !== state.epoch || !state.session;
   const send = () => fetch(API + "/rest/v1/" + path, {
     method,
     headers: { apikey: KEY, Authorization: "Bearer " + state.session.access_token,
-               "Content-Type": "application/json", Prefer: "return=representation" },
+               "Content-Type": "application/json", Prefer: "return=representation" + (count ? ",count=exact" : "") },
     body: body === undefined ? undefined : JSON.stringify(body),
     signal: AbortSignal.timeout ? AbortSignal.timeout(20000) : undefined
   });
-  if (!state.session) throw { kind: "session" };
-  let response;
-  try { response = await send(); } catch { throw { kind: "network" }; }
+  let response, raw;
+  try { response = await send(); } catch { throw { kind: gone() ? "session" : "network" }; }
+  if (gone()) throw { kind: "session" };
   if (response.status === 401) {                       // token ran out: renew once and try again
     const renewed = await renewSession();
+    if (gone() || renewed === "ended") throw { kind: "session" };
     if (renewed === "offline") throw { kind: "network" };
-    if (renewed === "ended") throw { kind: "session" };
-    try { response = await send(); } catch { throw { kind: "network" }; }
+    try { response = await send(); } catch { throw { kind: gone() ? "session" : "network" }; }
   }
-  const raw = await response.text();
+  try { raw = await response.text(); } catch { throw { kind: gone() ? "session" : "network" }; }
+  if (gone()) throw { kind: "session" };
   let data = null;
   try { data = raw ? JSON.parse(raw) : null; } catch { /* not JSON */ }
   if (!response.ok) throw { kind: "db", status: response.status, code: data && data.code, message: data && data.message };
   if ((method === "PATCH" || method === "DELETE") && Array.isArray(data) && data.length === 0) throw { kind: "db", code: "42501" };
-  return { data };
+  // With count: the database also says how many rows match in all ("Content-Range: 0-999/2345").
+  const total = count ? Number((response.headers.get("Content-Range") || "").split("/")[1]) : NaN;
+  return { data, total: Number.isFinite(total) ? total : null };
 }
 
 /* Which level is the signed-in person? null means "not an admin". */
@@ -841,15 +946,41 @@ async function removeViaDoor(door, body, plainPath) {
   }
 }
 
-async function loadBasics() {
+async function fetchBasics() {
   const [staff, events, windows, settings] = await Promise.all([
     api("staff?select=*&order=full_name.asc"),
     api("events?select=*&order=name.asc"),
     api("event_windows?select=*&order=start_time.asc"),
     api("org_settings?select=*&id=eq.1")
   ]);
-  state.staff = staff.data; state.events = events.data; state.windows = windows.data; state.settings = settings.data[0] || null;
+  return { staff: staff.data, events: events.data, windows: windows.data, settings: settings.data[0] || null };
+}
+
+async function loadBasics() {
+  Object.assign(state, await fetchBasics());
+  state.basicsAt = Date.now();
   await loadDisplays();
+}
+
+/* Is the person in the middle of typing or choosing something on the current screen? */
+const busyChoosing = () => /^(INPUT|SELECT|TEXTAREA)$/.test((document.activeElement || {}).tagName || "") && $("#view-" + state.view).contains(document.activeElement);
+
+/* Another admin may have added a staff member or changed an event since this page read them.
+   So the four lists are read again when they are more than a minute old. It is cheap, it happens
+   in the background, and the screen is only redrawn when something really changed. */
+async function refreshBasics() {
+  if (!state.session || !state.settings || state.basicsBusy || Date.now() - state.basicsAt < BASICS_AGE_MS) return;
+  state.basicsBusy = true;
+  try {
+    const fresh = await fetchBasics();
+    if (state.edit || state.confirm) return;           // an editor is open and holds the old rows: leave them alone, try again next time
+    const before = JSON.stringify([state.staff, state.events, state.windows, state.settings]);
+    state.basicsAt = Date.now();
+    if (JSON.stringify([fresh.staff, fresh.events, fresh.windows, fresh.settings]) === before) return;
+    Object.assign(state, fresh);
+    if (!busyChoosing()) repaint();                    // never yank a dropdown or a search box away from the person using it
+  } catch { /* keep what we have; the next round tries again */ }
+  finally { state.basicsBusy = false; }
 }
 const eventById   = id => state.events.find(e => e.id === id);
 const staffById   = id => state.staff.find(s => s.id === id);
@@ -899,9 +1030,12 @@ function showView(name, loading) {
   if (name !== "log") clearTimeout(state.log.timer);
   if (loading) { $("#view-" + name).replaceChildren(h("div", { class: "card skeleton" }, h("i"), h("i"), h("i"))); return; }
   ({ qr: drawQrScreen, log: openLog, events: drawEvents, staff: drawStaff, settings: drawSettings })[name]();
+  refreshBasics();                                     // in the background, and only if the lists are more than a minute old
 }
 
 const redraw = () => showView(state.view);
+/* Draw the current screen again from what the page already knows, without asking the database for the attendance list again. */
+const repaint = () => { if (state.session) ({ qr: drawQrScreen, log: drawLog, events: drawEvents, staff: drawStaff, settings: drawSettings })[state.view](); };
 
 /* A Delete button that asks once more, in the page, before it acts. */
 function removeButton(id, action, question) {
@@ -939,10 +1073,11 @@ const CODE_OK = /^[A-Za-z0-9_-]{1,20}$/;
    and draws it as a QR. Staff scan it, which opens the check-in page with
    that token. Old tokens stop working after the lifetime in Settings.   */
 function drawQrScreen() {
+  if (!state.session) return;
   const active = liveEvents().filter(e => e.active);
   if (!active.some(e => e.id === state.qr.eventId)) state.qr.eventId = "";
   const ev = eventById(state.qr.eventId);
-  const picker = h("select", { id: "qrEvent", value: state.qr.eventId, onchange: e => { state.qr.eventId = e.target.value; store(sessionStorage, "qr_event", e.target.value); stopQr(); drawQrScreen(); } },
+  const picker = h("select", { id: "qrEvent", value: state.qr.eventId, onchange: e => { state.qr.eventId = e.target.value; store("session", "qr_event", e.target.value); stopQr(); drawQrScreen(); } },
     h("option", { value: "" }, active.length ? t("qrChoose") : t("qrNoEvents")),
     active.map(e => h("option", { value: e.id }, e.name)));
 
@@ -1032,8 +1167,11 @@ function paintDisplays() {
     h("div", { class: "windows" }, state.displays.map(d => h("div", { class: "window" },
       h("div", null, t("pairUntil", { event: (eventById(d.event_id) || {}).name || "", time: clockKL(d.expires_at).slice(0, 5) })),
       h("button", { class: "btn small", type: "button", onclick: async () => {
-        try { await api("rpc/display_stop", { method: "POST", body: { p_display_id: d.id } }); toast("ok", t("okStopped")); }
-        catch (error) { fail(error); }
+        try {
+          const { data } = await api("rpc/display_stop", { method: "POST", body: { p_display_id: d.id } });
+          if (data && data.ok === false) throw { text: t(data.reason === "not_admin" ? "errNotAllowed" : "errNoDisplay") };
+          toast("ok", t("okStopped"));
+        } catch (error) { fail(error); }
         loadDisplays();
       } }, t("pairStop")))))]));
 }
@@ -1050,10 +1188,12 @@ async function qrTick() {
     const { data } = await api("rpc/issue_qr_token", { method: "POST", body: { p_event_code: ev.event_code } });
     if (run !== state.qr.run) return;
     const lifetime = ((state.settings && state.settings.qr_valid_seconds) || 60) * 1000;
-    state.qr.token = data.token; state.qr.goodUntil = Date.now() + lifetime; state.qr.lost = false;
-    next = Math.min(QR_ROTATE_MS, lifetime / 2);
+    const left = data.valid_seconds > 0 ? data.valid_seconds * 1000 : lifetime;   // how long THIS token is still accepted (older databases do not say: assume a full life)
+    state.qr.token = data.token; state.qr.goodUntil = Date.now() + left; state.qr.lost = false;
+    next = Math.min(QR_ROTATE_MS, lifetime / 2, Math.max(2000, left - 3000));
     keepAwake();
     qrExtras(ev, run);                                            // count and open/closed, without holding up the QR
+    refreshBasics();                                              // a QR screen left open still learns about new staff and events
   } catch (error) {
     if (run !== state.qr.run) return;
     if (error.kind === "session") { state.qr.busy = false; return; }
@@ -1085,7 +1225,9 @@ function paintQr(restartBarMs) {
   if (!ev || !tile) return;
   if (state.qr.token) {
     const qr = qrcode(0, "M");
-    qr.addData(STAFF_PAGE + "?e=" + encodeURIComponent(ev.event_code) + "&t=" + encodeURIComponent(state.qr.token));
+    // The token goes after "#". That part of a link stays in the phone: it is never sent to a web server,
+    // so it cannot end up in a server log. The staff page reads it and then wipes it from the address bar.
+    qr.addData(STAFF_PAGE + "?e=" + encodeURIComponent(ev.event_code) + "#t=" + encodeURIComponent(state.qr.token));
     qr.make();
     const n = qr.getModuleCount(), quiet = 4;
     let path = "";
@@ -1130,32 +1272,64 @@ function toggleFullscreen() {
   if (document.fullscreenElement) document.exitFullscreen();
   else if (stage.requestFullscreen) stage.requestFullscreen().catch(() => {});
 }
-document.addEventListener("visibilitychange", () => { if (!document.hidden && state.view === "qr" && state.qr.eventId && !state.qr.timer && !state.qr.busy) qrTick(); });
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden || !state.session) return;
+  if (state.view === "qr" && state.qr.eventId && !state.qr.timer && !state.qr.busy) qrTick();
+  if (state.view === "log" && state.log.followToday) loadLog(true);   // catch up at once, and move to the new day if midnight passed meanwhile
+  refreshBasics();
+});
 
 
 /* ---------- 10. Attendance screen -------------------------------------- */
 function openLog() { drawLog(); loadLog(); }
 
+/* Read EVERY row that matches, 1,000 at a time. (The database never hands out more than 1,000 rows
+   in one go. Before, the page stopped at the first 1,000, so on a busy or spammed day real check-ins
+   could be missing from the screen and from the CSV.) */
+async function fetchAllRows(query) {
+  const rows = [];
+  for (let page = 0; page < LOG_MAX_PAGES; page++) {
+    const { data, total } = await api(query + "&limit=" + LOG_PAGE + "&offset=" + rows.length, { count: true });
+    rows.push(...data);
+    const done = total != null ? rows.length >= total : data.length < LOG_PAGE;     // total = how many the database says there are
+    if (done || !data.length) return { rows, capped: false };
+  }
+  return { rows, capped: true };
+}
+
 async function loadLog(quiet) {
   const L = state.log;
   clearTimeout(L.timer);
-  const again = () => { if (state.view === "log" && L.date === todayKL()) L.timer = setTimeout(() => loadLog(true), LOG_REFRESH_MS); };
+  if (L.followToday && L.date !== todayKL()) { L.date = todayKL(); L.rows = []; quiet = false; }   // midnight has passed: move on to the new day
+  const again = () => { if (state.view === "log" && L.followToday) L.timer = setTimeout(() => loadLog(true), LOG_REFRESH_MS); };
   if (quiet && document.hidden) { again(); return; }             // tab not visible: skip this round
-  if (!quiet) { L.loading = true; drawLog(); }
+  if (quiet && L.loading) return;                                // a load the person asked for is under way: it will book the next round itself
+  const ticket = ++L.ticket, date = L.date, eventId = L.eventId; // take a number. If a newer load starts while we wait, this one is thrown away.
+  const key = date + "|" + eventId;
+  if (!quiet) { L.loading = true; L.error = null; drawLog(); }
   try {
-    const { data } = await api("attendance?select=id,checked_in_at,status,reason,distance_m,gps_accuracy_m,device_id,staff_id,event_id,window_id"
-      + "&attendance_date=eq." + L.date + "&order=checked_in_at.asc");       // the whole day; the event filter is applied in the page
-    L.rows = data; L.capped = data.length >= 1000; L.loadedAt = new Date();
+    // The event filter is applied by the database, so one event's rows can never push another's off the list.
+    // Present and rejected are read separately for the same reason: a flood of rejected attempts cannot hide a real check-in.
+    const base = "attendance?select=id,checked_in_at,status,reason,distance_m,gps_accuracy_m,device_id,staff_id,event_id,window_id"
+      + "&attendance_date=eq." + date + (eventId ? "&event_id=eq." + eventId : "") + "&order=checked_in_at.asc,id.asc";
+    const [present, rejected] = await Promise.all([fetchAllRows(base + "&status=eq.present"), fetchAllRows(base + "&status=eq.rejected")]);
+    if (ticket !== L.ticket) return;                             // a newer load (another date, another event) has taken over
+    L.rows = [...present.rows, ...rejected.rows]; L.capped = present.capped || rejected.capped;
+    L.loadedAt = new Date(); L.loadedKey = key; L.error = null; L.stale = false;
+    if (L.known.date !== date) L.known = { date, events: new Set(), sessions: new Set() };
+    for (const r of L.rows) { L.known.events.add(r.event_id); L.known.sessions.add(r.window_id); }
   } catch (error) {
+    if (ticket !== L.ticket) return;
     L.loading = false;
     if (error.kind === "session") return;
-    if (!quiet) fail(error);
+    if (quiet && L.loadedKey === key && !L.error) L.stale = true; // background refresh failed: keep the last good list for this date and event, but say that it is old
+    else { L.error = error; L.rows = []; L.capped = false; }     // anything else failed: say so. Never show an empty list as if nobody came.
   }
   L.loading = false;
   if (state.view !== "log") return;
-  const busyChoosing = quiet && /^(INPUT|SELECT)$/.test((document.activeElement || {}).tagName || "") && $("#view-log").contains(document.activeElement);
-  if (!busyChoosing) drawLog();                                   // do not yank a date picker or dropdown away from the person using it
+  if (!(quiet && busyChoosing())) drawLog();                      // do not yank a date picker or dropdown away from the person using it
   again();
+  if (quiet) refreshBasics();                                    // names of staff added since sign-in
 }
 
 /* Work out the three lists from the rows we loaded. */
@@ -1196,33 +1370,42 @@ function logColumns(tab, forFile) {
 }
 
 function drawLog() {
+  if (!state.session) return;
   const L = state.log, lists = logLists();
   // Offer current events, plus any archived event that has rows on this date. After years the list stays short.
-  const used = new Set(L.rows.map(r => r.event_id)), usedSessions = new Set(L.rows.map(r => r.window_id));
+  const used = L.known.date === L.date ? L.known.events : new Set(), usedSessions = L.known.date === L.date ? L.known.sessions : new Set();
   const eventChoices = state.events.filter(e => !e.archived_at || used.has(e.id) || e.id === L.eventId);
   const sessions = L.eventId ? state.windows.filter(w => w.event_id === L.eventId && (!w.archived_at || usedSessions.has(w.id))) : [];
   if (!sessions.some(w => w.id === L.windowId)) L.windowId = "";
 
   const tools = h("div", { class: "card tools" },
-    field(t("logDate"), h("input", { id: "logDate", type: "date", value: L.date, max: todayKL(), onchange: e => { L.date = e.target.value || todayKL(); L.rows = []; loadLog(); } })),
-    field(t("logEvent"), h("select", { id: "logEvent", value: L.eventId, onchange: e => { L.eventId = e.target.value; L.windowId = ""; drawLog(); } },
+    field(t("logDate"), h("input", { id: "logDate", type: "date", value: L.date, max: todayKL(), onchange: e => {
+      L.date = /^\d{4}-\d{2}-\d{2}$/.test(e.target.value) ? e.target.value : todayKL();
+      L.followToday = L.date === todayKL(); L.rows = []; L.shown = LOG_SHOW; loadLog(); } })),
+    field(t("logEvent"), h("select", { id: "logEvent", value: L.eventId, onchange: e => { L.eventId = e.target.value; L.windowId = ""; L.rows = []; L.shown = LOG_SHOW; loadLog(); } },
       h("option", { value: "" }, t("logAllEvents")),
       eventChoices.map(e => h("option", { value: e.id }, e.name + (e.archived_at ? " (" + t("evArchived") + ")" : e.active ? "" : " (" + t("inactive") + ")"))))),
-    sessions.length > 1 && field(t("logSession"), h("select", { id: "logSession", value: L.windowId, onchange: e => { L.windowId = e.target.value; drawLog(); } },
+    sessions.length > 1 && field(t("logSession"), h("select", { id: "logSession", value: L.windowId, onchange: e => { L.windowId = e.target.value; L.shown = LOG_SHOW; drawLog(); } },
       h("option", { value: "" }, t("logAllSessions")), sessions.map(w => h("option", { value: w.id }, w.label + " " + hhmm(w.start_time) + "–" + hhmm(w.end_time))))),
     h("div", { class: "fixed actions" },
       h("button", { class: "btn", type: "button", id: "logRefresh", onclick: () => loadLog() }, icon("refresh"), t("refresh")),
-      h("button", { class: "btn", type: "button", id: "logDownload", onclick: downloadCsv }, icon("download"), t("logDownload"))));
+      // No download while the list is still loading or failed to load: the file would be empty or half full.
+      h("button", { class: "btn", type: "button", id: "logDownload", disabled: L.loading || !!L.error, onclick: downloadCsv }, icon("download"), t("logDownload"))));
 
   const count = L.loading ? { present: "…", absent: "…", rejected: "…" }
+              : L.error   ? { present: "–", absent: "–", rejected: "–" }
               : { present: lists.present.length, absent: lists.absent ? lists.absent.length : "–", rejected: lists.rejected.length };
   const seg = h("div", { class: "seg", role: "group", "aria-label": t("logTitle") },
     [["present", "logPresent"], ["absent", "logAbsent"], ["rejected", "logRejected"]].map(([tab, key]) =>
-      h("button", { type: "button", "aria-pressed": String(L.tab === tab), "data-tab": tab, onclick: () => { L.tab = tab; drawLog(); } }, t(key) + " (" + count[tab] + ")")));
+      h("button", { type: "button", "aria-pressed": String(L.tab === tab), "data-tab": tab, onclick: () => { L.tab = tab; L.shown = LOG_SHOW; drawLog(); } }, t(key) + " (" + count[tab] + ")")));
 
-  let body;
+  let body, more = null;
   const rows = lists[L.tab];
   if (L.loading) body = h("div", { class: "card skeleton" }, h("i"), h("i"), h("i"));
+  else if (L.error) body = h("div", { class: "card empty", id: "logError" },
+    h("p", { class: "note warn", style: "display:inline-block; text-align:left" }, h("strong", null, t("logFailed")), h("br"), explain(L.error)),
+    h("div", { class: "actions", style: "justify-content:center; margin-top:14px" },
+      h("button", { class: "btn primary", type: "button", onclick: () => loadLog() }, icon("refresh"), t("logRetry"))));
   else if (L.tab === "absent" && !rows) body = h("div", { class: "card empty" }, t("absentPick"));
   else if (!rows.length) body = h("div", { class: "card empty" }, t({ present: "emptyPresent", absent: "emptyAbsent", rejected: "emptyRejected" }[L.tab]));
   else {
@@ -1230,27 +1413,34 @@ function drawLog() {
     const lead = ["colTime", "colCode", "colName"];                 // on a phone these three share the first line of each row
     body = h("div", { class: "tablewrap" }, h("table", { class: "stack" },
       h("thead", null, h("tr", null, cols.map(([key, , cls]) => h("th", { class: cls === "num" ? "num" : null }, t(key))))),
-      h("tbody", null, rows.map(r => h("tr", null, cols.map(([key, get, cls]) => {
+      h("tbody", null, rows.slice(0, L.shown).map(r => h("tr", null, cols.map(([key, get, cls]) => {
         const value = get(r), first = lead.includes(key);
         return h("td", { class: [cls, key === "colCode" && "code", first && "inline", value === "" && "nil"].filter(Boolean).join(" ") || null, "data-label": first ? null : t(key) }, value);
       }))))));
+    // A very long list is drawn a part at a time so a phone stays quick. The CSV always holds every row.
+    if (rows.length > L.shown) more = h("div", { class: "actions", id: "logMore" },
+      h("span", { class: "mute small" }, t("logShowing", { a: L.shown.toLocaleString("en"), b: rows.length.toLocaleString("en") })),
+      h("button", { class: "btn small", type: "button", onclick: () => { L.shown += LOG_SHOW; drawLog(); } }, t("logMore")));
   }
 
   fillView("log", 
     h("div", { class: "head" }, h("div", null, h("h1", null, t("logTitle")),
-      h("p", { id: "logStamp" }, L.loadedAt ? t("updatedAt", { time: clockKL(L.loadedAt) }) : ""))),
+      h("p", { id: "logStamp" }, L.loadedAt && !L.error ? t("updatedAt", { time: clockKL(L.loadedAt) }) : ""))),
     tools,
     h("div", { class: "head" }, seg,
       L.tab !== "absent" && check("logDetails", t("logDetails"), L.details)),
-    L.capped && h("p", { class: "note warn" }, t("logCapped")),
-    body);
+    L.stale && !L.loading && !L.error && h("p", { class: "note warn", id: "logStale" }, t("logStale", { time: L.loadedAt ? clockKL(L.loadedAt) : "–" })),
+    L.capped && !L.loading && !L.error && h("p", { class: "note warn" }, t("logCapped", { n: (LOG_PAGE * LOG_MAX_PAGES).toLocaleString("en") })),
+    body, more);
   const box = $("#logDetails");
   if (box) box.addEventListener("change", e => { L.details = e.target.checked; drawLog(); });
 }
 
 /* Save the list that is showing as a file Excel and Google Sheets can open. */
 function downloadCsv() {
-  const L = state.log, rows = logLists()[L.tab] || [];
+  const L = state.log;
+  if (L.loading || L.error) return;                              // nothing trustworthy to save yet
+  const rows = logLists()[L.tab] || [];
   const cols = logColumns(L.tab, true);
   const cell = value => {
     let text = String(value ?? "");
@@ -1277,6 +1467,7 @@ function windowSummary(w) {
 }
 
 function drawEvents() {
+  if (!state.session) return;
   closeMap();
   const F = state.evFilter;
   const editing = state.edit && state.edit.kind === "event" ? state.edit.id : null;
@@ -1521,6 +1712,7 @@ function staffShown() {
 }
 
 function drawStaff() {
+  if (!state.session) return;
   const F = state.staffFilter;
   const editing = state.edit && state.edit.kind === "staff" ? state.edit.id : null;
   const search = h("input", { id: "stSearch", type: "search", value: F.text, autocomplete: "off", oninput: e => { F.text = e.target.value; drawStaffRows(); } });
@@ -1596,6 +1788,7 @@ const levelName = role => t({ owner: "levelOwner", manager: "levelManager", oper
 const levelSelect = (id, value, onchange) => h("select", { id, value, onchange }, LEVELS.map(r => h("option", { value: r }, levelName(r))));
 
 function drawSettings() {
+  if (!state.session) return;
   const copyRow = (id, label, url) => h("div", null, h("label", { for: id }, label),
     h("div", { class: "tools" },
       h("div", null, h("input", { id, readonly: true, value: url, onfocus: e => e.target.select() })),
@@ -1655,7 +1848,7 @@ function adminsCard() {
       h("div", { class: "actions" }, h("button", { class: "btn primary", type: "submit" }, icon("plus"), t("admAdd")))));
 }
 
-const adminReason = reason => ({ text: t({ no_such_user: "errNoUser", last_owner: "errLastOwner" }[reason] || "errNotAllowed") });
+const adminReason = reason => ({ text: t({ no_such_user: "errNoUser", last_owner: "errLastOwner", unconfirmed: "errUnconfirmed" }[reason] || "errNotAllowed") });
 
 async function setAdmin(email, role) {
   let done = false;
@@ -1753,25 +1946,29 @@ document.addEventListener("keydown", e => { if (e.key === "Escape" && !toastEl.h
 document.addEventListener("fullscreenchange", () => { const b = $("#qrFull"); if (b) b.lastChild.textContent = t(document.fullscreenElement ? "qrFullExit" : "qrFull"); });
 window.addEventListener("hashchange", () => { if (state.session && state.settings) showView(viewFromHash()); });
 document.querySelectorAll(".lang button").forEach(b => b.addEventListener("click", () => {
-  state.lang = b.dataset.lang; store(localStorage, "lang", state.lang); drawLanguage();
+  state.lang = b.dataset.lang; store("local", "lang", state.lang); drawLanguage();
 }));
 
 (async function start() {
   drawLanguage();
   let saved = null;
-  try { saved = JSON.parse(store(sessionStorage, "admin_session")); } catch { /* nothing saved */ }
+  try { saved = JSON.parse(store("session", "admin_session")); } catch { /* nothing saved */ }
   if (!saved || !saved.refresh_token) { showLogin(); return; }
-  const seen = Number(store(sessionStorage, "admin_active"));
+  const seen = Number(store("session", "admin_active"));
   if (seen && Date.now() - seen >= IDLE_MS) {                     // the tab was left alone too long before this reload
     setSession(saved); endSession("errIdle", { n: IDLE_MINUTES }); return;
   }
   setSession(saved);                                              // same tab was reloaded: carry on without asking for the password
   try {
-    if (saved.expires_at * 1000 < Date.now() + 60000 && (await renewSession()) !== "ok") { setSession(null); showLogin(); return; }
+    if (saved.expires_at * 1000 < Date.now() + 60000) {
+      const renewed = await renewSession();
+      if (renewed === "ended") return;                            // renewSession has already shown the login screen and said why
+      if (renewed !== "ok") { state.epoch++; setSession(null); showLogin(); toast("bad", t("errTitle"), t("errNetwork")); return; }
+    }
     state.role = await fetchRole();
-    if (!state.role) { setSession(null); showLogin(); return; }
+    if (!state.role) { dropSession(); showLogin(); return; }
     await enterApp();
-  } catch { setSession(null); showLogin(); }
+  } catch { if (state.session) { state.epoch++; setSession(null); } showLogin(); }
 })();
 </script>
 </body>

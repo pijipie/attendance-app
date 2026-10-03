@@ -21,6 +21,20 @@
 --    latitude, longitude, radius, inactive events, staff, attendance.
 -- =====================================================================
 
+-- ---------------------------------------------------------------------
+-- GUARD (added 3 Oct 2026). This file is OLDER than 05_roles_archive_displays.sql.
+-- Running it again after that file would put back the older, weaker
+-- rules. So it checks first, and stops without changing anything.
+-- "begin" ... "commit" make the whole file all-or-nothing.
+-- ---------------------------------------------------------------------
+begin;
+do $$
+begin
+  if to_regprocedure('public.can_manage()') is not null then
+    raise exception 'STOP: 05_roles_archive_displays.sql is already installed. Running this older file again would undo its stricter rules (archived events would show again). Nothing was changed.';
+  end if;
+end $$;
+
 create or replace function list_events()
 returns table (
   event_code  text,
@@ -62,6 +76,9 @@ $$;
 -- ---------------------------------------------------------------------
 revoke all on function list_events() from public, anon, authenticated;
 grant  execute on function list_events() to anon, authenticated;
+
+
+commit;
 
 
 -- ---------------------------------------------------------------------

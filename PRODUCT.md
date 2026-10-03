@@ -46,10 +46,10 @@ The database decides, not the page. The phone only reports measured facts (posit
 
 **Admin page (`admin.html`)**
 
-- Sign-in with a Supabase account that is listed in the `admins` table. The session lasts for the browser tab only, and ends by itself after 15 minutes without a touch on every screen, with a warning one minute before.
+- Sign-in with a Supabase account that is listed in the `admins` table. The session lasts for the browser tab only, and ends by itself after 15 minutes without a touch on every screen, with a warning one minute before. Signing out ends that device's session only and empties the page.
 - Three levels: owner, manager, operator. The database enforces them; the page only hides what a level cannot do.
 - QR screen: a code that changes every 20 seconds, a live count of who is present, full-screen mode, a switch to require the QR for that event, and a button that opens the display page.
-- Attendance: by date, event and session, with three lists (present, not checked in, rejected), GPS and device details, and CSV download.
+- Attendance: by date, event and session, with three lists (present, not checked in, rejected), GPS and device details, and CSV download. Every row of the day is loaded, however many; a failed load is shown as a failure, never as an empty list. At most 10 refused attempts per person are stored in any 10 minutes.
 - Events and attendance hours: add, change, remove; hours can repeat on chosen weekdays or cover chosen dates. Lists show current events by default, with search and an archive view.
 - Event location: set on a map (OpenStreetMap) by clicking, dragging the pin or searching for a place, with the allowed radius drawn as a circle. Latitude and longitude can still be typed.
 - Staff: add, change, set inactive, remove. The list opens on active staff.
@@ -127,7 +127,8 @@ The database decides, not the page. The phone only reports measured facts (posit
 ## Evidence on Hand
 
 - Live staff page: https://pijipie.github.io/attendance-app/
-- Source: `index.html`, `admin.html`, `display.html`, `menu.js`, `qrcode.js` (third-party, MIT), `leaflet.js` and `leaflet.css` (third-party, BSD-2-Clause), and the SQL files `database/01_schema.sql` to `database/05_roles_archive_displays.sql`, run in number order.
+- Source: `index.html`, `admin.html`, `display.html`, `menu.js`, `qrcode.js` (third-party, MIT), `leaflet.js` and `leaflet.css` (third-party, BSD-2-Clause), and the SQL files `database/01_schema.sql` to `database/06_security_hardening.sql`, run in number order.
+- A security and code review dated 3 Oct 2026, and the fixes for it in `06_security_hardening.sql` and page versions index 2.5, admin 3.2, display 1.2.
 - A working database with the real staff list and six real events, plus test rows that must be removed before the pilot.
 - One real phone test on 3 Oct 2026: one accepted check-in at 7 m, one rejected at 7,825 m.
 - There are no usage figures, user feedback, testimonials or screenshots from real use yet. Do not invent any.
