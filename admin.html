@@ -313,7 +313,8 @@ td.edit{padding:14px; white-space:normal; background:var(--bg)}
 <script src="menu.js"></script>
 <script>
 /* =====================================================================
-   ADMIN PAGE  v3   (v2 + English by default, three-line menu, map in the event editor, sign-out after 15 quiet minutes)
+   ADMIN PAGE  v3.1 (v2 + English by default, three-line menu, map in the event editor, sign-out after 15 quiet minutes;
+                     3.1: sign-out still reaches the server when the tab closes straight after)
    Sign in  ->  QR screen | Attendance | Events + time windows | Staff | Settings
 
    THREE LEVELS (set in Settings > Admins by an owner)
@@ -735,7 +736,8 @@ async function renewSession() {
 
 function endSession(messageKey, values) {
   const token = state.session && state.session.access_token;
-  if (token) fetch(API + "/auth/v1/logout", { method: "POST", headers: { apikey: KEY, Authorization: "Bearer " + token } }).catch(() => {});
+  // keepalive: the browser finishes this request even if the tab is closed or moves to another page a moment later
+  if (token) fetch(API + "/auth/v1/logout", { method: "POST", keepalive: true, headers: { apikey: KEY, Authorization: "Bearer " + token } }).catch(() => {});
   setSession(null); state.role = null; state.admins = []; state.activity = null; state.displays = [];
   stopQr(); clearTimeout(state.log.timer);
   state.staff = []; state.events = []; state.windows = []; state.settings = null; state.log.rows = [];
