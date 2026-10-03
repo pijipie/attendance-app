@@ -3,7 +3,9 @@
 Version 2 of the staff attendance system, rebuilding `attendance-geo-sraib` (Google Sheets + Apps Script) on Supabase. Still in development.
 
 ## Layout
-- `index.html` — staff check-in page (BM/EN toggle). Calls the Supabase RPCs `list_events()` and `check_in(...)` using the **publishable** key, which is safe to be public.
+- `PRODUCT.md` — product brief: users, purpose, principles, constraints, open decisions. Read it before design or feature work.
+- `logo.png` (see-through, header + tab icon) and `apple-touch-icon.png` (white background, 180×180, iPhone home screen).
+- `index.html` — staff check-in page (BM/EN toggle, floating notification for results). Calls the Supabase RPCs `list_events()` and `check_in(...)` using the **publishable** key, which is safe to be public.
 - `database/` — all SQL, run in number order in the Supabase SQL Editor.
   - `01_schema.sql` — tables (`org_settings`, `staff`, `events`, `event_windows`, `admins`, `qr_tokens`, `attendance`), row-level security, and the functions `is_admin()`, `check_in()` and `issue_qr_token()`.
   - `02_after_import.sql` — run only after importing the staff and event CSVs into Supabase. It creates an "Anytime" window for each event.

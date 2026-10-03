@@ -3,6 +3,8 @@
 Geo-fenced staff attendance (Supabase + static pages on GitHub Pages).
 
 - `index.html` — staff check-in page (phone / tablet / desktop, BM / EN)
+- `logo.png`, `apple-touch-icon.png` — school logo (page header + browser tab; iPhone home-screen icon)
+- `PRODUCT.md` — who it is for, what it does, constraints and open decisions
 - `database/` — SQL that builds the Supabase database. Run in order in Supabase > SQL Editor:
   1. `01_schema.sql` — tables, security and functions
   2. `02_after_import.sql` — after importing the staff and event CSVs
