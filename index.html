@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kehadiran Staf</title>
+<style>
+:root{--bg:#f2f7f5;--card:#fff;--ink:#14302a;--mute:#55696213;--mute:#566b64;--brand:#0b5d4b;--on-brand:#fff;--line:#c9d8d2;--ok:#0b6b3a;--ok-bg:#e3f4ea;--bad:#a3231b;--bad-bg:#fbe9e7;--warn:#7a5200;--warn-bg:#fff3d6}
+@media(prefers-color-scheme:dark){:root{--bg:#0e1a17;--card:#16251f;--ink:#e6f0ec;--mute:#9db3aa;--brand:#3fb594;--on-brand:#04251c;--line:#2b3f37;--ok:#7be0a8;--ok-bg:#143325;--bad:#ff9d94;--bad-bg:#3a1b18;--warn:#f0c46a;--warn-bg:#3a2d0c}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100dvh;background:var(--bg);color:var(--ink);font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;display:grid;place-items:start center;padding:16px}
+.shell{width:100%;max-width:520px;display:grid;gap:20px}
+.school{margin:0;color:var(--mute);font-size:.9rem}
+h1{margin:.2rem 0 0;font-size:1.7rem;line-height:1.15;letter-spacing:-.01em}
+.ev{margin:.4rem 0 0;color:var(--mute)}
+.steps{display:none;margin:1.2rem 0 0;padding-left:1.2rem;color:var(--mute)}
+.steps li{margin:.35rem 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px}
+label{display:block;font-weight:600;margin:0 0 .35rem}
+.field{margin-bottom:1rem}
+input{width:100%;font:inherit;padding:.8rem .9rem;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);text-transform:uppercase}
+input:focus-visible,button:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+button{width:100%;font:inherit;font-weight:700;padding:1rem;border:0;border-radius:12px;background:var(--brand);color:var(--on-brand);cursor:pointer;min-height:56px}
+button[disabled]{opacity:.65;cursor:progress}
+.gps{min-height:1.5em;margin:.7rem 0 0;color:var(--mute);font-size:.9rem;text-align:center}
+#result{margin-top:1rem;padding:1rem 1.1rem;border-radius:12px;border:1.5px solid;outline:0}
+#result[hidden]{display:none}
+#result h2{margin:0 0 .25rem;font-size:1.15rem}
+#result p{margin:0}
+.ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok)}
+.bad{background:var(--bad-bg);color:var(--bad);border-color:var(--bad)}
+.warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn)}
+@media(min-width:640px){
+ body{font-size:18px;padding:40px;place-items:center}
+ .steps{display:block}
+ .card{padding:32px}
+ h1{font-size:2rem}
+}
+@media(min-width:1024px){
+ .shell{max-width:1040px;grid-template-columns:1fr 480px;gap:64px;align-items:center}
+ h1{font-size:2.6rem}
+ .steps{font-size:1.05rem}
+}
+@media(prefers-reduced-motion:no-preference){#result{animation:in .25s ease-out}@keyframes in{from{opacity:0;transform:translateY(6px)}}}
+</style>
+</head>
+<body>
+<main class="shell">
+ <header>
+  <p class="school">Sek. Ren. Islam Al-Irsyad Balok</p>
+  <h1>Rekod kehadiran</h1>
+  <p class="ev" id="evline" hidden></p>
+  <ol class="steps">
+   <li>Benarkan akses lokasi apabila diminta.</li>
+   <li>Masukkan kod staf anda.</li>
+   <li>Tekan <strong>Hantar kehadiran</strong> semasa berada di lokasi.</li>
+  </ol>
+ </header>
+ <section class="card">
+  <form id="f" novalidate>
+   <div class="field" id="evfield" hidden>
+    <label for="event">Kod acara</label>
+    <input id="event" name="event" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="20">
+   </div>
+   <div class="field">
+    <label for="staff">Kod staf</label>
+    <input id="staff" name="staff" required autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" enterkeyhint="send">
+   </div>
+   <button id="go" type="submit">Hantar kehadiran</button>
+   <p class="gps" id="gps" aria-live="off"></p>
+  </form>
+  <section id="result" tabindex="-1" role="status" aria-live="polite" hidden></section>
+ </section>
+</main>
+<script>
+const API="https://xtrgefkopnqgektrllra.supabase.co";
+const KEY="sb_publishable_AzY4sFUQgYQvQRSrFT3qwg_Y6068Gv5";
+const $=s=>document.querySelector(s);
+const qs=new URLSearchParams(location.search);
+const eventCode=(qs.get("e")||"").trim(), token=qs.get("t");
+
+function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch{return null}}
+function deviceId(){let id=store("device_id");if(!id){id="DEV-"+crypto.randomUUID().replace(/-/g,"").slice(0,16).toUpperCase();store("device_id",id)}return id}
+
+function show(kind,title,text){
+ const r=$("#result");
+ if(!kind){r.hidden=true;return}
+ r.className=kind;r.hidden=false;
+ r.innerHTML="";
+ const h=document.createElement("h2");h.textContent=title;
+ const p=document.createElement("p");p.textContent=text;
+ r.append(h,p);r.focus();
+}
+
+function locate(onTick){
+ return new Promise((resolve,reject)=>{
+  let best=null,w,t;
+  const done=()=>{navigator.geolocation.clearWatch(w);clearTimeout(t);best?resolve(best):reject({code:3})};
+  w=navigator.geolocation.watchPosition(p=>{
+   if(!best||p.coords.accuracy<best.coords.accuracy)best=p;
+   onTick(p.coords.accuracy);
+   if(p.coords.accuracy<=15)done();
+  },e=>{if(e.code===1){navigator.geolocation.clearWatch(w);clearTimeout(t);reject(e)}},
+  {enableHighAccuracy:true,maximumAge:0,timeout:15000});
+  t=setTimeout(done,12000);
+ });
+}
+
+const REASONS={
+ qr_invalid_or_expired:["warn","Kod QR tamat tempoh","Imbas semula QR yang dipaparkan di lokasi, kemudian cuba lagi."],
+ outside_time_window:["warn","Di luar waktu kehadiran","Acara ini tidak menerima kehadiran pada masa ini."],
+ duplicate_or_device_already_used:["warn","Tidak dapat direkodkan","Kehadiran anda sudah direkodkan bagi sesi ini, atau peranti ini telah digunakan oleh orang lain."],
+ unknown_staff_or_event:["bad","Kod tidak dikenali","Semak kod staf dan kod acara, kemudian cuba lagi."],
+ bad_input:["bad","Data tidak lengkap","Cuba hantar semula."]
+};
+function explain(d,acc){
+ if(d.reason==="outside_geofence")return["bad","Anda di luar kawasan",`Anda kira-kira ${Math.round(d.distance_m)} m dari lokasi. Dekati lokasi acara dan cuba lagi.`];
+ if(d.reason==="gps_accuracy_too_low")return["warn","Isyarat GPS terlalu lemah",`Ketepatan semasa ±${Math.round(acc)} m. Pergi ke kawasan terbuka dan cuba lagi.`];
+ return REASONS[d.reason]||["bad","Tidak berjaya","Sila cuba lagi."];
+}
+function geoError(e){
+ if(e&&e.code===1)return["bad","Akses lokasi ditolak","Benarkan lokasi untuk laman ini dalam tetapan pelayar, kemudian cuba lagi."];
+ if(e&&e.code===0)return["bad","Lokasi tidak disokong","Gunakan pelayar lain atau peranti lain."];
+ if(e&&(e.code===2||e.code===3))return["warn","Lokasi tidak ditemui","Pastikan GPS dihidupkan dan cuba lagi di kawasan terbuka."];
+ return["bad","Sambungan gagal","Semak capaian internet anda dan cuba lagi."];
+}
+
+if(eventCode){$("#evline").textContent="Kod acara: "+eventCode.toUpperCase();$("#evline").hidden=false}
+else $("#evfield").hidden=false;
+$("#staff").value=store("staff_code")||"";
+
+$("#f").addEventListener("submit",async e=>{
+ e.preventDefault();
+ const staff=$("#staff").value.trim().toUpperCase();
+ const ev=eventCode||$("#event").value.trim();
+ if(!staff){show("bad","Kod staf diperlukan","Masukkan kod staf anda.");$("#staff").focus();return}
+ if(!ev){show("bad","Kod acara diperlukan","Masukkan kod acara atau imbas QR di lokasi.");$("#event").focus();return}
+ store("staff_code",staff);show("");
+ const btn=$("#go");btn.disabled=true;btn.textContent="Mencari lokasi…";
+ let acc=0;
+ try{
+  if(!navigator.geolocation)throw{code:0};
+  const p=await locate(a=>{acc=a;$("#gps").textContent="Ketepatan GPS: ±"+Math.round(a)+" m"});
+  acc=p.coords.accuracy;
+  btn.textContent="Menghantar…";
+  const r=await fetch(API+"/rest/v1/rpc/check_in",{method:"POST",headers:{apikey:KEY,"Content-Type":"application/json"},
+   body:JSON.stringify({p_staff_code:staff,p_event_code:ev,p_lat:p.coords.latitude,p_lng:p.coords.longitude,p_accuracy:acc,p_device_id:deviceId(),p_qr_token:token})});
+  if(!r.ok)throw new Error("http "+r.status);
+  const d=await r.json();
+  if(d.ok){show("ok","Kehadiran direkodkan",`${d.name} · ${d.event} · ${d.distance_m} m dari lokasi`);$("#f").hidden=true}
+  else show(...explain(d,acc));
+ }catch(err){show(...geoError(err))}
+ finally{btn.disabled=false;btn.textContent="Hantar kehadiran";$("#gps").textContent=""}
+});
+</script>
+</body>
+</html>
