@@ -35,17 +35,34 @@ The database decides, not the page. The phone only reports measured facts (posit
 
 ## Capabilities and Constraints
 
-**Live now**
+**Staff page (`index.html`)**
 
-- Staff check-in page with event dropdown, BM/EN, and a typed-code fallback if the event list cannot be loaded.
-- Server checks in this order: QR, time window, GPS accuracy, distance.
+- Event dropdown, BM/EN, and a typed-code fallback if the event list cannot be loaded.
+- The answer appears as a floating notification; the form is never cleared.
+- Server checks in this order: QR, time window, GPS accuracy, distance, then duplicates.
 - One check-in per person per session per day; one person per device per session per day.
+- A refused duplicate is kept as a rejected row, and the row for "device already used" shows whose device it was.
+
+**Admin page (`admin.html`)**
+
+- Sign-in with a Supabase account that is listed in the `admins` table. The session lasts for the browser tab only.
+- QR screen: a code that changes every 20 seconds, a live count of who is present, full-screen mode, and a switch to require the QR for that event.
+- Attendance: by date, event and session, with three lists (present, not checked in, rejected), GPS and device details, and CSV download.
+- Events and attendance hours: add, change, remove; hours can repeat on chosen weekdays or cover chosen dates.
+- Staff: add, change, set inactive, remove.
+- Settings: organisation name, GPS accuracy limit, QR lifetime.
+
+**Deliberately not possible from the website**
+
+- Changing or deleting an attendance row. The log is evidence.
+- Adding or removing an admin. That is done in Supabase.
+- Creating or dropping database tables. Structure changes go through numbered SQL files run in the Supabase SQL Editor.
+- Removing a staff member, event or session that already has attendance. It is set inactive instead.
 
 **Planned**
 
-- Admin page: login, rotating QR screen, attendance log.
-- Real time windows per event, both daily recurring and one-off dates. Today every window is "anytime".
-- QR required per event through a per-event switch. Today it is off on every event.
+- Real attendance hours entered for each event. Today every event is "anytime".
+- QR switched on for the events that need it. Today it is off on every event.
 - Later: linked-device binding, per-staff PIN, one-time passcodes.
 
 **Decided against**
@@ -73,9 +90,8 @@ The database decides, not the page. The phone only reports measured facts (posit
 
 **Open decisions**
 
-- Who the admins are (one person or several).
-- Which device shows the rotating QR (large screen, tablet or phone).
-- Whether refused duplicate and "device already used" attempts should leave a rejected row. Today they leave none.
+- Who the admins will be (one person or several). The page supports any number.
+- Which device will show the rotating QR. The QR screen works on a phone, a tablet or a large screen.
 - Whether the school's official colours must be used.
 - Whether a formal accessibility standard applies.
 
@@ -89,7 +105,7 @@ The database decides, not the page. The phone only reports measured facts (posit
 ## Evidence on Hand
 
 - Live staff page: https://pijipie.github.io/attendance-app/
-- Source: `index.html`, `database/01_schema.sql`, `database/02_after_import.sql`, `database/03_list_events.sql`.
+- Source: `index.html`, `admin.html`, `qrcode.js` (third-party, MIT), and the SQL files `database/01_schema.sql` to `database/04_admin.sql`, run in number order.
 - A working database with the real staff list and six real events, plus test rows that must be removed before the pilot.
 - One real phone test on 3 Oct 2026: one accepted check-in at 7 m, one rejected at 7,825 m.
 - There are no usage figures, user feedback, testimonials or screenshots from real use yet. Do not invent any.

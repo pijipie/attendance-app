@@ -1,0 +1,1308 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Pentadbir Kehadiran</title>
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+/* ---------- colours: the same set as the staff page, plus a shadow ---------- */
+:root{
+  color-scheme:light dark;
+  --bg:#f2f7f5; --card:#fff; --ink:#14302a; --mute:#566b64; --line:#c9d8d2;
+  --brand:#0b5d4b; --on-brand:#fff;
+  --ok:#0b6b3a;   --ok-bg:#e3f4ea;
+  --bad:#a3231b;  --bad-bg:#fbe9e7;
+  --warn:#7a5200; --warn-bg:#fff3d6;
+  --shadow:0 1px 2px rgb(20 48 42 / .10), 0 8px 14px -6px rgb(20 48 42 / .30);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0e1a17; --card:#16251f; --ink:#e6f0ec; --mute:#9db3aa; --line:#2b3f37;
+    --brand:#3fb594; --on-brand:#04251c;
+    --ok:#7be0a8;   --ok-bg:#143325;
+    --bad:#ff9d94;  --bad-bg:#3a1b18;
+    --warn:#f0c46a; --warn-bg:#3a2d0c;
+    --shadow:0 1px 2px rgb(0 0 0 / .40), 0 8px 14px -6px rgb(0 0 0 / .65);
+  }
+}
+
+/* ---------- page frame ---------- */
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{
+  margin:0; min-height:100dvh; background:var(--bg); color:var(--ink);
+  font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  caret-color:var(--brand); accent-color:var(--brand);
+}
+::selection{background:var(--brand); color:var(--on-brand)}
+.sr-only{position:absolute; width:1px; height:1px; margin:-1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap}
+h1{margin:0; font-size:1.45rem; line-height:1.2; letter-spacing:-.01em}
+h2{margin:0; font-size:1.1rem; line-height:1.25}
+p{margin:0}
+.mute{color:var(--mute)}
+.small{font-size:.88rem}
+
+/* ---------- top bar and tabs ---------- */
+.bar{position:sticky; top:0; z-index:5; background:var(--card); border-bottom:1px solid var(--line)}
+.bar-in,.tabs,main{max-width:1120px; margin-inline:auto}
+.bar-in{display:flex; align-items:center; gap:12px; padding:10px 16px}
+.brand{display:flex; align-items:center; gap:10px; min-width:0; flex:1}
+.logo{flex:none; width:40px; height:40px; object-fit:contain}
+.brand strong{display:block; line-height:1.2}
+.brand span{display:block; color:var(--mute); font-size:.82rem; line-height:1.25; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.lang{display:flex; flex:none; border:1.5px solid var(--line); border-radius:10px; overflow:hidden}
+.lang button{font:inherit; font-size:.85rem; font-weight:700; letter-spacing:.03em; min-width:42px; min-height:38px; padding:0 .5rem; border:0; background:transparent; color:var(--mute); cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--brand); color:var(--on-brand)}
+.tabs{display:flex; gap:2px; padding:0 8px; overflow-x:auto; scrollbar-width:none}
+.tabs a{padding:.65rem .85rem; color:var(--mute); font-weight:600; text-decoration:none; white-space:nowrap; border-bottom:3px solid transparent}
+.tabs a:hover{color:var(--ink)}
+.tabs a[aria-current="page"]{color:var(--ink); border-bottom-color:var(--brand)}
+main{padding:22px 16px 72px}
+.view{display:grid; grid-template-columns:minmax(0,1fr); gap:18px}   /* minmax(0,…) lets wide tables scroll inside their box instead of stretching the page */
+.head{display:flex; flex-wrap:wrap; align-items:end; justify-content:space-between; gap:12px}
+.head p{color:var(--mute); max-width:62ch}
+
+/* ---------- buttons ---------- */
+.btn{
+  font:inherit; font-weight:600; min-height:44px; padding:.5rem .95rem;
+  display:inline-flex; align-items:center; justify-content:center; gap:.45rem;
+  border:1.5px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); cursor:pointer;
+}
+.btn:hover{border-color:var(--mute)}
+.btn.primary{background:var(--brand); border-color:var(--brand); color:var(--on-brand)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.danger{color:var(--bad)}
+.btn.danger:hover{border-color:var(--bad)}
+.btn.small{min-height:36px; padding:.25rem .7rem; font-size:.9rem}
+.btn[disabled]{opacity:.6; cursor:progress}
+.btn svg{width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
+:is(a,button,input,select,summary):focus-visible{outline:3px solid var(--brand); outline-offset:2px}
+
+/* ---------- form controls ---------- */
+label,.label{display:block; font-weight:600; font-size:.92rem; margin:0 0 .3rem}
+input:not([type=checkbox]),select{
+  width:100%; font:inherit; min-height:44px; padding:.5rem .7rem;
+  border:1.5px solid var(--line); border-radius:10px; background:var(--bg); color:var(--ink);
+}
+select{text-overflow:ellipsis}
+input:user-invalid,select:user-invalid{border-color:var(--bad)}
+input.code{text-transform:uppercase}
+.form{display:grid; gap:14px}
+.row{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; align-items:start}
+.help{margin:.3rem 0 0; color:var(--mute); font-size:.85rem}
+.check{display:flex; align-items:center; gap:.55rem; min-height:44px; font-weight:600; margin:0; cursor:pointer}
+.check input{width:20px; height:20px; flex:none}
+.days{display:flex; flex-wrap:wrap; gap:6px}
+.days label{position:relative; margin:0; cursor:pointer}
+.days span{display:grid; place-items:center; min-width:46px; min-height:40px; padding:0 .5rem; border:1.5px solid var(--line); border-radius:10px; font-weight:600; font-size:.9rem; color:var(--mute)}
+.days input:checked + span{background:var(--brand); border-color:var(--brand); color:var(--on-brand)}
+.days input:focus-visible + span{outline:3px solid var(--brand); outline-offset:2px}
+.actions{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.actions .push{margin-left:auto}
+.tools{display:flex; flex-wrap:wrap; gap:10px; align-items:end}
+.tools > div{min-width:150px; flex:1 1 150px}
+.tools > .fixed{flex:0 1 auto; min-width:0; max-width:100%}
+
+/* ---------- surfaces ---------- */
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px}
+.editor{border:1.5px solid var(--brand); border-radius:14px; padding:18px; background:var(--card)}
+.note{padding:.7rem .9rem; border-radius:10px; border:1.5px solid; font-size:.93rem}
+.note.warn{background:var(--warn-bg); color:var(--warn); border-color:var(--warn)}
+.note.info{border-color:var(--line); color:var(--mute)}
+.empty{padding:28px 18px; text-align:center; color:var(--mute)}
+.pill{display:inline-block; padding:.08rem .55rem; border-radius:99px; font-size:.78rem; font-weight:700; border:1px solid; white-space:nowrap}
+.pill.ok{color:var(--ok); background:var(--ok-bg); border-color:var(--ok)}
+.pill.warn{color:var(--warn); background:var(--warn-bg); border-color:var(--warn)}
+.pill.bad{color:var(--bad); background:var(--bad-bg); border-color:var(--bad)}
+.pill.off{color:var(--mute); border-color:var(--line)}
+.skeleton{display:grid; gap:10px; padding:18px}
+.skeleton i{display:block; height:16px; border-radius:6px; background:var(--line); opacity:.6}
+.skeleton i:nth-child(2){width:82%} .skeleton i:nth-child(3){width:64%}
+
+/* ---------- tables ---------- */
+.tablewrap{position:relative; overflow-x:auto; border:1px solid var(--line); border-radius:14px; background:var(--card)}
+table{border-collapse:collapse; width:100%; font-size:.94rem; font-variant-numeric:tabular-nums}
+th,td{padding:.6rem .85rem; text-align:left; border-bottom:1px solid var(--line); white-space:nowrap; vertical-align:top}
+th{font-size:.8rem; font-weight:600; color:var(--mute)}
+tbody tr:last-child td{border-bottom:0}
+td.wrap{white-space:normal; min-width:18ch}
+td.wide{min-width:30ch}
+td.num,th.num{text-align:right}
+td.end{text-align:right}
+td.code{font-weight:600}
+td.edit{padding:14px; white-space:normal; background:var(--bg)}
+
+/* ---------- segmented tabs inside a view ---------- */
+.seg{display:flex; flex-wrap:wrap; gap:6px}
+.seg button{font:inherit; font-weight:600; min-height:40px; padding:.3rem .85rem; border:1.5px solid var(--line); border-radius:99px; background:transparent; color:var(--mute); cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--brand); border-color:var(--brand); color:var(--on-brand)}
+
+/* ---------- login ---------- */
+.login{max-width:420px; margin:6vh auto 0; display:grid; gap:18px}
+
+/* ---------- QR screen ---------- */
+.qr-layout{display:grid; grid-template-columns:minmax(0,1fr); gap:18px}
+.qr-stage{display:grid; gap:14px; justify-items:center; text-align:center; padding:18px; border:1px solid var(--line); border-radius:14px; background:var(--card)}
+.qr-tile{width:min(100%, 440px); aspect-ratio:1; background:#fff; border-radius:12px; padding:10px; display:grid; place-items:center; color:#3c4a45}
+.qr-tile svg{width:100%; height:100%; display:block}
+.qr-name{font-size:1.25rem; font-weight:700; line-height:1.25; overflow-wrap:anywhere}
+.qr-bar{width:min(100%, 440px); height:6px; border-radius:99px; background:var(--line); overflow:hidden}
+.qr-bar i{display:block; height:100%; width:100%; background:var(--brand); transform-origin:left}
+.qr-count{font-size:1.05rem}
+.qr-count b{font-size:1.5rem; font-variant-numeric:tabular-nums}
+.qr-side{display:grid; gap:14px; align-content:start}
+.qr-stage:fullscreen{align-content:center; border:0; border-radius:0; background:var(--bg); padding:3vmin; gap:2.2vmin}
+.qr-stage:fullscreen .qr-tile{width:min(78vmin, 92vw)}
+.qr-stage:fullscreen .qr-bar{width:min(78vmin, 92vw)}
+.qr-stage:fullscreen .qr-name{font-size:clamp(1.4rem, 4vmin, 3rem)}
+.qr-stage:fullscreen .qr-count{font-size:clamp(1.1rem, 2.6vmin, 2rem)}
+@media (min-width:900px){
+  .qr-layout{grid-template-columns:minmax(0,1fr) 340px; grid-template-rows:auto 1fr; grid-template-areas:"stage pick" "stage side"; align-items:start}
+  .qr-pick{grid-area:pick} .qr-stage{grid-area:stage} .qr-side{grid-area:side}
+}
+@media (prefers-reduced-motion:no-preference){
+  .qr-bar i.run{animation:shrink linear forwards}
+  @keyframes shrink{from{transform:scaleX(1)} to{transform:scaleX(0)}}
+}
+
+/* ---------- events list ---------- */
+.list{display:grid; gap:10px}
+.item{background:var(--card); border:1px solid var(--line); border-radius:14px}
+.item-head{display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:14px 16px}
+.item-title{flex:1 1 220px; min-width:0}
+.item-title strong{display:block; overflow-wrap:anywhere}
+.item-body{border-top:1px solid var(--line); padding:16px; display:grid; gap:18px}
+.windows{display:grid; gap:8px}
+.window{display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--bg)}
+.window > div:first-child{flex:1 1 200px; min-width:0}
+
+/* ---------- the floating notification (same as the staff page) ---------- */
+.toast{
+  position:fixed; z-index:10; inset:auto; top:max(12px, env(safe-area-inset-top)); left:12px; right:12px;
+  margin:0; width:auto; height:auto; overflow:visible;
+  display:grid; grid-template-columns:auto 1fr auto; gap:.7rem; align-items:start;
+  padding:.8rem .35rem .8rem .9rem; border:1.5px solid; border-radius:14px; box-shadow:var(--shadow);
+}
+.toast svg{fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
+.toast-icon{width:24px; height:24px; margin-top:.1rem}
+.toast-body{min-width:0}
+.toast-title{font-weight:700; line-height:1.3}
+.toast-text{margin-top:.15rem; font-size:.95rem; overflow-wrap:anywhere}
+.toast-close{width:44px; height:44px; margin:-.5rem 0; padding:0; display:grid; place-items:center; border:0; border-radius:10px; background:transparent; color:inherit; cursor:pointer}
+.toast-close svg{width:18px; height:18px}
+.toast-close:hover{background:color-mix(in srgb, currentColor 12%, transparent)}
+.toast.ok{background:var(--ok-bg); color:var(--ok); border-color:var(--ok)}
+.toast.bad{background:var(--bad-bg); color:var(--bad); border-color:var(--bad)}
+.toast.warn{background:var(--warn-bg); color:var(--warn); border-color:var(--warn)}
+@media (min-width:640px){ .toast{top:24px; left:24px; right:auto; width:min(420px, calc(100vw - 48px))} }
+@media (prefers-reduced-motion:no-preference){
+  .toast{animation:drop .32s cubic-bezier(.16,1,.3,1)}
+  @keyframes drop{from{opacity:0; transform:translateY(-14px) scale(.97)}}
+}
+@media (max-width:520px){ .brand span{display:none} }
+
+/* ---------- phone: a table becomes a list of small blocks, one per row ---------- */
+@media (max-width:640px){
+  .stack thead{position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%)}
+  .stack,.stack tbody,.stack tr,.stack td{display:block}
+  .stack tr{padding:.65rem .85rem; border-bottom:1px solid var(--line)}
+  .stack tbody tr:last-child{border-bottom:0}
+  .stack td{padding:0; border:0; white-space:normal; text-align:left; min-width:0}
+  .stack td.inline{display:inline; margin-right:.45rem}
+  .stack td[data-label]::before{content:attr(data-label) ": "; color:var(--mute); font-size:.85rem}
+  .stack td.nil{display:none}
+  .stack tr.editing{padding:14px; background:var(--bg)}
+  .stack td.edit{padding:0; background:transparent}
+  .stack.staff tr:not(.editing){display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"code status" "name act" "type act"; gap:2px 12px; align-items:center}
+  .stack.staff td.code{grid-area:code} .stack.staff td.name{grid-area:name}
+  .stack.staff td.type{grid-area:type; color:var(--mute); font-size:.88rem}
+  .stack.staff td.status{grid-area:status; justify-self:end} .stack.staff td.act{grid-area:act; justify-self:end}
+}
+</style>
+</head>
+<body>
+
+<header class="bar">
+ <div class="bar-in">
+  <div class="brand">
+   <img class="logo" src="logo.png" alt="" width="40" height="40" onerror="this.remove()">
+   <div>
+    <strong data-t="appName"></strong>
+    <span>Sek. Ren. Islam Al-Irsyad Balok</span>
+   </div>
+  </div>
+  <div class="lang" role="group" aria-label="Bahasa / Language">
+   <button type="button" data-lang="ms" aria-pressed="true"  lang="ms" title="Bahasa Melayu">BM</button>
+   <button type="button" data-lang="en" aria-pressed="false" lang="en" title="English">EN</button>
+  </div>
+  <button class="btn small" id="logout" type="button" data-t="logout" hidden></button>
+ </div>
+ <nav class="tabs" id="tabs" aria-label="Admin" hidden>
+  <a href="#qr" data-t="tabQr"></a>
+  <a href="#log" data-t="tabLog"></a>
+  <a href="#events" data-t="tabEvents"></a>
+  <a href="#staff" data-t="tabStaff"></a>
+  <a href="#settings" data-t="tabSettings"></a>
+ </nav>
+</header>
+
+<main>
+ <!-- Login. Shown until an admin has signed in. -->
+ <section class="login" id="view-login" hidden>
+  <div>
+   <h1 data-t="loginTitle"></h1>
+   <p class="mute" data-t="loginHelp" style="margin-top:.4rem"></p>
+  </div>
+  <form class="card form" id="loginForm" novalidate>
+   <div>
+    <label for="email" data-t="email"></label>
+    <input id="email" name="email" type="email" autocomplete="username" required spellcheck="false">
+   </div>
+   <div>
+    <label for="password" data-t="password"></label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+   </div>
+   <button class="btn primary" id="loginGo" type="submit" data-t="signIn"></button>
+  </form>
+ </section>
+
+ <!-- The five screens. Their contents are drawn by the script. -->
+ <section class="view" id="view-qr" hidden></section>
+ <section class="view" id="view-log" hidden></section>
+ <section class="view" id="view-events" hidden></section>
+ <section class="view" id="view-staff" hidden></section>
+ <section class="view" id="view-settings" hidden></section>
+</main>
+
+<!-- The floating notification -->
+<div class="toast" id="toast" hidden>
+ <svg class="toast-icon" id="toastIcon" viewBox="0 0 24 24" aria-hidden="true"></svg>
+ <div class="toast-body"><p class="toast-title" id="toastTitle"></p><p class="toast-text" id="toastText"></p></div>
+ <button class="toast-close" id="toastClose" type="button">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+ </button>
+</div>
+<p class="sr-only" id="announce" role="status" aria-live="polite"></p>
+
+<!-- Third-party QR drawing library (MIT licence). Do not edit that file. -->
+<script src="qrcode.js"></script>
+<script>
+/* =====================================================================
+   ADMIN PAGE  v1
+   Sign in  ->  QR screen | Attendance | Events + time windows | Staff | Settings
+
+   SAFETY MODEL (the same idea as the staff page)
+   This page is public code. What protects the data is the database:
+   every request carries the signed-in person's token, and the database
+   checks on every row that the person is in the "admins" table.
+   A stranger who opens this page can see the buttons but gets no data.
+   ===================================================================== */
+
+/* ---------- 1. Where the database lives ------------------------------- */
+const API = "https://xtrgefkopnqgektrllra.supabase.co";
+const KEY = "sb_publishable_AzY4sFUQgYQvQRSrFT3qwg_Y6068Gv5";
+const TIME_ZONE     = "Asia/Kuala_Lumpur";
+const QR_ROTATE_MS  = 20000;      // draw a fresh QR this often
+const LOG_REFRESH_MS = 30000;     // reload the attendance list this often
+const STAFF_PAGE    = new URL("./", location.href).href;   // the check-in page lives next to this file
+
+
+/* ---------- 2. All words on the page, in both languages --------------- */
+const TEXT = {
+  ms: {
+    appName: "Pentadbir Kehadiran", pageTitle: "Pentadbir Kehadiran", logout: "Log keluar",
+    tabQr: "Kod QR", tabLog: "Kehadiran", tabEvents: "Acara", tabStaff: "Staf", tabSettings: "Tetapan",
+    loginTitle: "Log masuk pentadbir", loginHelp: "Hanya akaun yang disenaraikan sebagai pentadbir boleh masuk.",
+    email: "E-mel", password: "Kata laluan", signIn: "Log masuk", signingIn: "Sedang log masuk…",
+    loading: "Memuatkan…", save: "Simpan", saving: "Menyimpan…", cancel: "Batal", edit: "Ubah", add: "Tambah",
+    remove: "Padam", removeAsk: "Padam selama-lamanya?", removeYes: "Ya, padam", close: "Tutup mesej",
+    active: "Aktif", inactive: "Tidak aktif", yes: "Ya", no: "Tidak", all: "Semua",
+    refresh: "Muat semula", updatedAt: "Dikemas kini {time}",
+
+    qrTitle: "Kod QR di lokasi", qrHelp: "Paparkan skrin ini di lokasi. Kod bertukar sendiri setiap {s} saat, jadi gambar kod yang dihantar kepada orang lain tidak boleh digunakan.",
+    qrEvent: "Acara", qrChoose: "Pilih acara…", qrNoEvents: "Tiada acara aktif. Tambah acara dahulu.",
+    qrPresent: "hadir hari ini", qrOf: "daripada {n}",
+    qrRequire: "Wajibkan imbasan QR untuk acara ini", qrRequireHelp: "Jika dimatikan, staf boleh merekod kehadiran tanpa mengimbas, dengan memilih acara daripada senarai.",
+    qrOptionalNote: "QR belum diwajibkan untuk acara ini. Staf masih boleh hadir tanpa mengimbas.",
+    qrClosedNote: "Acara ini di luar waktu kehadiran sekarang. Imbasan akan ditolak.",
+    qrLost: "Sambungan terputus. Mencuba semula…", qrPaused: "Pilih acara untuk memaparkan kod.",
+    qrFull: "Skrin penuh", qrFullExit: "Keluar skrin penuh", qrScan: "Imbas dengan kamera telefon",
+
+    logTitle: "Kehadiran", logDate: "Tarikh", logEvent: "Acara", logSession: "Sesi", logAllEvents: "Semua acara", logAllSessions: "Semua sesi",
+    logPresent: "Hadir", logAbsent: "Belum hadir", logRejected: "Ditolak",
+    logDetails: "Tunjuk butiran GPS dan peranti", logDownload: "Muat turun CSV",
+    colTime: "Masa", colCode: "Kod", colName: "Nama", colType: "Jenis", colEvent: "Acara", colSession: "Sesi", colReason: "Sebab",
+    colDistance: "Jarak", colAccuracy: "Ketepatan GPS", colDevice: "Peranti", colStatus: "Status",
+    emptyPresent: "Belum ada kehadiran direkodkan untuk pilihan ini. Senarai dimuat semula sendiri setiap 30 saat.",
+    emptyRejected: "Tiada percubaan yang ditolak untuk pilihan ini.",
+    emptyAbsent: "Semua staf aktif sudah hadir.",
+    absentPick: "Pilih satu acara untuk melihat siapa yang belum hadir.",
+    logCapped: "Hanya 1,000 baris pertama dipaparkan. Pilih satu acara untuk mengecilkan senarai.",
+    deviceOf: "Peranti ini telah merekod {who}",
+    r_qr_invalid_or_expired: "Kod QR tiada atau tamat tempoh", r_outside_time_window: "Di luar waktu kehadiran",
+    r_gps_accuracy_too_low: "Isyarat GPS terlalu lemah", r_outside_geofence: "Di luar kawasan",
+    r_already_checked_in: "Sudah hadir (percubaan berulang)", r_device_already_used: "Peranti sudah digunakan oleh orang lain",
+    r_duplicate_same_moment: "Pendua pada saat yang sama", r_duplicate_or_device_already_used: "Pendua atau peranti sudah digunakan",
+
+    evTitle: "Acara dan waktu kehadiran", evHelp: "Setiap acara ialah satu lokasi dengan jejari. Waktu kehadiran menentukan bila staf boleh merekod.",
+    evAdd: "Tambah acara", evNew: "Acara baharu", evName: "Nama acara", evCode: "Kod acara", evCodeHelp: "Huruf dan nombor sahaja, tanpa ruang. Digunakan dalam pautan QR.",
+    evLat: "Latitud", evLng: "Longitud", evRadius: "Jejari (meter)", evUseHere: "Guna lokasi saya sekarang", evLocating: "Mencari lokasi…",
+    evHere: "Lokasi diisi. Ketepatan ±{m} m.", evActive: "Acara aktif (dipaparkan kepada staf)", evRequireQr: "Wajibkan imbasan QR",
+    evQr: "QR wajib", evNoWindow: "Tiada waktu", evNoWindowNote: "Acara ini belum ada waktu kehadiran, jadi tiada sesiapa boleh merekod. Tambah sekurang-kurangnya satu waktu.",
+    evEmpty: "Belum ada acara. Tekan Tambah acara untuk bermula.",
+    winTitle: "Waktu kehadiran", winAdd: "Tambah waktu", winNew: "Waktu baharu", winLabel: "Nama sesi", winLabelHelp: "Contoh: Pagi, Petang, Mesyuarat.",
+    winDays: "Hari", winDaysHelp: "Tiada hari dipilih bermaksud setiap hari.", winStart: "Mula", winEnd: "Tamat",
+    winFrom: "Dari tarikh (pilihan)", winTo: "Hingga tarikh (pilihan)", winDatesHelp: "Kosongkan kedua-duanya untuk berulang tanpa had. Untuk acara sehari, isi tarikh yang sama.",
+    winEveryDay: "Setiap hari", winOn: "pada {d}", winFromTo: "{a} hingga {b}", winSince: "dari {a}", winUntil: "hingga {b}",
+    d1: "Isn", d2: "Sel", d3: "Rab", d4: "Kha", d5: "Jum", d6: "Sab", d7: "Ahd",
+
+    stTitle: "Staf", stHelp: "Staf yang tidak aktif tidak boleh merekod kehadiran dan tidak dikira sebagai belum hadir.",
+    stAdd: "Tambah staf", stNew: "Staf baharu", stSearch: "Cari nama atau kod", stShow: "Papar",
+    stCode: "Kod staf", stName: "Nama penuh", stEmail: "E-mel (pilihan)", stType: "Jenis", stTypeStaff: "Staf", stTypeIntern: "Pelatih / kontrak",
+    stActive: "Aktif (boleh merekod kehadiran)", stCount: "{n} orang", stEmpty: "Tiada staf sepadan dengan carian ini.",
+
+    setTitle: "Tetapan", setOrg: "Nama organisasi", setAccuracy: "Had ketepatan GPS (meter)",
+    setAccuracyHelp: "Kehadiran ditolak jika ketepatan GPS telefon lebih buruk daripada nilai ini. Nilai biasa: 30.",
+    setQrSeconds: "Tempoh sah kod QR (saat)", setQrSecondsHelp: "Berapa lama satu kod yang diimbas masih diterima. Antara 10 dan 600. Cadangan: 90.",
+    setAccount: "Akaun", setSignedIn: "Log masuk sebagai {email}.", setAdmins: "Pentadbir ditambah atau dibuang di Supabase, bukan di halaman ini. Itu sengaja, supaya tiada sesiapa boleh menjadikan dirinya pentadbir dari laman web.",
+    setStaffLink: "Pautan halaman staf", setCopy: "Salin pautan", copied: "Pautan disalin",
+
+    okSaved: "Disimpan", okRemoved: "Dipadam", okQrOn: "QR kini diwajibkan", okQrOff: "QR tidak lagi diwajibkan",
+    errTitle: "Tidak berjaya", errLogin: "E-mel atau kata laluan salah.", errTooMany: "Terlalu banyak percubaan. Tunggu sebentar dan cuba lagi.",
+    errNotAdmin: "Akaun ini bukan pentadbir. Minta pentadbir sedia ada menambah anda di Supabase.",
+    errSession: "Sesi anda telah tamat. Sila log masuk semula.", errNetwork: "Sambungan gagal. Semak internet anda dan cuba lagi.",
+    errInUse: "Tidak boleh dipadam kerana sudah ada rekod kehadiran yang merujuknya. Tandakan sebagai tidak aktif.",
+    errDuplicate: "Kod itu sudah digunakan. Pilih kod lain.", errCheck: "Satu nilai tidak dibenarkan. Semak nombor dan masa.",
+    errNotAllowed: "Akaun ini tidak dibenarkan membuat perubahan itu.", errUnknown: "Pelayan menolak permintaan (kod {code}).",
+    errRequired: "Isi semua medan yang diperlukan.", errCode: "Kod hanya boleh mengandungi huruf, nombor, - dan _.",
+    errTimes: "Masa tamat mesti selepas masa mula.", errDates: "Tarikh hingga mesti sama atau selepas tarikh dari.",
+    errNumber: "Semak nombor: latitud -90 hingga 90, longitud -180 hingga 180, jejari lebih daripada 0.",
+    errSettings: "Had GPS mesti lebih daripada 0. Tempoh QR mesti antara 10 dan 600.",
+    errGeo: "Lokasi tidak dapat dibaca. Benarkan akses lokasi dan cuba lagi."
+  },
+  en: {
+    appName: "Attendance Admin", pageTitle: "Attendance Admin", logout: "Sign out",
+    tabQr: "QR code", tabLog: "Attendance", tabEvents: "Events", tabStaff: "Staff", tabSettings: "Settings",
+    loginTitle: "Admin sign-in", loginHelp: "Only accounts listed as admins can enter.",
+    email: "Email", password: "Password", signIn: "Sign in", signingIn: "Signing in…",
+    loading: "Loading…", save: "Save", saving: "Saving…", cancel: "Cancel", edit: "Edit", add: "Add",
+    remove: "Delete", removeAsk: "Delete for good?", removeYes: "Yes, delete", close: "Close message",
+    active: "Active", inactive: "Inactive", yes: "Yes", no: "No", all: "All",
+    refresh: "Refresh", updatedAt: "Updated {time}",
+
+    qrTitle: "QR code at the location", qrHelp: "Show this screen at the location. The code changes by itself every {s} seconds, so a photo of it sent to someone else cannot be used.",
+    qrEvent: "Event", qrChoose: "Choose an event…", qrNoEvents: "No active events. Add an event first.",
+    qrPresent: "present today", qrOf: "of {n}",
+    qrRequire: "Require the QR scan for this event", qrRequireHelp: "When off, staff can record attendance without scanning, by choosing the event from the list.",
+    qrOptionalNote: "The QR is not required for this event yet. Staff can still check in without scanning.",
+    qrClosedNote: "This event is outside its attendance hours right now. Scans will be refused.",
+    qrLost: "Connection lost. Retrying…", qrPaused: "Choose an event to show its code.",
+    qrFull: "Full screen", qrFullExit: "Exit full screen", qrScan: "Scan with your phone camera",
+
+    logTitle: "Attendance", logDate: "Date", logEvent: "Event", logSession: "Session", logAllEvents: "All events", logAllSessions: "All sessions",
+    logPresent: "Present", logAbsent: "Not checked in", logRejected: "Rejected",
+    logDetails: "Show GPS and device details", logDownload: "Download CSV",
+    colTime: "Time", colCode: "Code", colName: "Name", colType: "Type", colEvent: "Event", colSession: "Session", colReason: "Reason",
+    colDistance: "Distance", colAccuracy: "GPS accuracy", colDevice: "Device", colStatus: "Status",
+    emptyPresent: "No attendance recorded for this selection yet. The list reloads by itself every 30 seconds.",
+    emptyRejected: "No rejected attempts for this selection.",
+    emptyAbsent: "Every active staff member has checked in.",
+    absentPick: "Choose one event to see who has not checked in.",
+    logCapped: "Only the first 1,000 rows are shown. Choose one event to narrow the list.",
+    deviceOf: "This device already recorded {who}",
+    r_qr_invalid_or_expired: "QR code missing or expired", r_outside_time_window: "Outside attendance hours",
+    r_gps_accuracy_too_low: "GPS signal too weak", r_outside_geofence: "Outside the area",
+    r_already_checked_in: "Already present (repeat attempt)", r_device_already_used: "Device already used by someone else",
+    r_duplicate_same_moment: "Duplicate in the same instant", r_duplicate_or_device_already_used: "Duplicate or device already used",
+
+    evTitle: "Events and attendance hours", evHelp: "Each event is one location with a radius. Attendance hours decide when staff can record.",
+    evAdd: "Add event", evNew: "New event", evName: "Event name", evCode: "Event code", evCodeHelp: "Letters and numbers only, no spaces. Used in the QR link.",
+    evLat: "Latitude", evLng: "Longitude", evRadius: "Radius (metres)", evUseHere: "Use my location now", evLocating: "Finding location…",
+    evHere: "Location filled in. Accuracy ±{m} m.", evActive: "Event is active (shown to staff)", evRequireQr: "Require the QR scan",
+    evQr: "QR required", evNoWindow: "No hours", evNoWindowNote: "This event has no attendance hours, so nobody can record. Add at least one.",
+    evEmpty: "No events yet. Press Add event to start.",
+    winTitle: "Attendance hours", winAdd: "Add hours", winNew: "New hours", winLabel: "Session name", winLabelHelp: "For example: Morning, Afternoon, Meeting.",
+    winDays: "Days", winDaysHelp: "No day chosen means every day.", winStart: "Start", winEnd: "End",
+    winFrom: "From date (optional)", winTo: "To date (optional)", winDatesHelp: "Leave both empty to repeat with no end. For a one-day event, enter the same date in both.",
+    winEveryDay: "Every day", winOn: "on {d}", winFromTo: "{a} to {b}", winSince: "from {a}", winUntil: "until {b}",
+    d1: "Mon", d2: "Tue", d3: "Wed", d4: "Thu", d5: "Fri", d6: "Sat", d7: "Sun",
+
+    stTitle: "Staff", stHelp: "Inactive staff cannot record attendance and are not counted as not checked in.",
+    stAdd: "Add staff", stNew: "New staff member", stSearch: "Search name or code", stShow: "Show",
+    stCode: "Staff code", stName: "Full name", stEmail: "Email (optional)", stType: "Type", stTypeStaff: "Staff", stTypeIntern: "Intern / contract",
+    stActive: "Active (can record attendance)", stCount: "{n} people", stEmpty: "No staff match this search.",
+
+    setTitle: "Settings", setOrg: "Organisation name", setAccuracy: "GPS accuracy limit (metres)",
+    setAccuracyHelp: "Attendance is refused when the phone's GPS accuracy is worse than this. Usual value: 30.",
+    setQrSeconds: "QR code lifetime (seconds)", setQrSecondsHelp: "How long a scanned code is still accepted. Between 10 and 600. Suggested: 90.",
+    setAccount: "Account", setSignedIn: "Signed in as {email}.", setAdmins: "Admins are added or removed in Supabase, not on this page. That is on purpose, so nobody can make themselves an admin from the website.",
+    setStaffLink: "Staff page link", setCopy: "Copy link", copied: "Link copied",
+
+    okSaved: "Saved", okRemoved: "Deleted", okQrOn: "QR is now required", okQrOff: "QR is no longer required",
+    errTitle: "Unsuccessful", errLogin: "Wrong email or password.", errTooMany: "Too many attempts. Wait a moment and try again.",
+    errNotAdmin: "This account is not an admin. Ask an existing admin to add you in Supabase.",
+    errSession: "Your session has ended. Please sign in again.", errNetwork: "Connection failed. Check your internet and try again.",
+    errInUse: "Cannot be deleted because attendance records already refer to it. Mark it inactive instead.",
+    errDuplicate: "That code is already in use. Choose another.", errCheck: "A value is not allowed. Check the numbers and times.",
+    errNotAllowed: "This account is not allowed to make that change.", errUnknown: "The server refused the request (code {code}).",
+    errRequired: "Fill in every required field.", errCode: "A code may only contain letters, numbers, - and _.",
+    errTimes: "The end time must be after the start time.", errDates: "The to date must be the same as or after the from date.",
+    errNumber: "Check the numbers: latitude -90 to 90, longitude -180 to 180, radius above 0.",
+    errSettings: "The GPS limit must be above 0. The QR lifetime must be between 10 and 600.",
+    errGeo: "The location could not be read. Allow location access and try again."
+  }
+};
+
+
+/* ---------- 3. Small helpers ------------------------------------------ */
+const $ = selector => document.querySelector(selector);
+
+/* Swap {name} style placeholders for real values. */
+const fill = (template, values) => String(template).replace(/\{(\w+)\}/g, (_, key) => (values && key in values ? values[key] : ""));
+
+/* t("save") gives the word in the current language. */
+const t = (key, values) => fill(TEXT[state.lang][key] ?? key, values);
+
+/* Build a piece of the page safely. Text is always added as text, never as HTML,
+   so a staff or event name can never turn into code.
+   h("button", {class:"btn", onclick: fn}, "Save")                                    */
+function h(tag, props, ...children) {
+  const el = document.createElement(tag);
+  const later = {};
+  for (const [name, value] of Object.entries(props || {})) {
+    if (value === false || value == null) continue;
+    if (name === "class") el.className = value;
+    else if (name === "value" || name === "checked") later[name] = value;        // set after children exist
+    else if (name.startsWith("on")) el.addEventListener(name.slice(2), value);
+    else el.setAttribute(name, value === true ? "" : value);
+  }
+  for (const child of children.flat(Infinity)) if (child != null && child !== false) el.append(child);
+  for (const [name, value] of Object.entries(later)) el[name] = value;
+  return el;
+}
+
+/* Put new content into one of the five screens. Empty slots (false / null) are skipped. */
+function fillView(name, ...parts) {
+  $("#view-" + name).replaceChildren(...parts.flat(Infinity).filter(part => part != null && part !== false));
+}
+
+/* Small drawn icons (one style, one stroke weight). */
+const ICON = {
+  ok:   '<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16 9.8"/>',
+  warn: '<path d="M12 4 21 19.5H3z"/><path d="M12 10v4.5M12 17.2v.1"/>',
+  bad:  '<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  refresh: '<path d="M20 11a8 8 0 1 0-2.3 6.3M20 4v7h-7"/>',
+  download: '<path d="M12 4v11m-4.5-4.5L12 15l4.5-4.5M5 20h14"/>',
+  full: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+  pin:  '<path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>'
+};
+function icon(name) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24"); svg.setAttribute("aria-hidden", "true");
+  svg.innerHTML = ICON[name];
+  return svg;
+}
+
+/* Browser storage can be blocked, so never let it crash the page. */
+function store(area, key, value) {
+  try {
+    if (value === undefined) return area.getItem(key);
+    if (value === null) area.removeItem(key); else area.setItem(key, value);
+  } catch { /* storage unavailable: carry on without it */ }
+  return null;
+}
+
+/* Dates and times are always shown in Malaysian time, whatever the computer is set to. */
+const todayKL  = () => new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE }).format(new Date());            // 2026-10-03
+const clockKL  = iso => new Intl.DateTimeFormat("en-GB", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date(iso));
+const showDate = ymd => ymd ? ymd.split("-").reverse().join("/") : "";                                             // 03/10/2026
+const hhmm     = time => (time || "").slice(0, 5);
+
+
+/* ---------- 4. What the page currently knows -------------------------- */
+const state = {
+  lang: store(localStorage, "lang") === "en" ? "en" : "ms",
+  session: null,                 // { access_token, refresh_token, expires_at, email }
+  view: "qr",
+  staff: [], events: [], windows: [], settings: null,
+  openNow: {},                   // event_code -> true/false, from list_events()
+  edit: null,                    // which inline editor is open, e.g. { kind:"staff", id:"new" }
+  confirm: null,                 // which Delete button is asking "are you sure?"
+  qr:  { eventId: store(sessionStorage, "qr_event") || "", token: null, goodUntil: 0, lost: false, present: null, timer: null, busy: false, run: 0, lock: null },
+  log: { date: todayKL(), eventId: "", windowId: "", tab: "present", rows: [], capped: false, loadedAt: null, loading: false,
+         details: window.matchMedia("(min-width: 900px)").matches, timer: null },
+  staffFilter: { text: "", show: "all" }
+};
+
+
+/* ---------- 5. The floating notification ------------------------------ */
+const toastEl = $("#toast");
+const canLift = "popover" in HTMLElement.prototype;
+if (canLift) toastEl.popover = "manual";
+let toastTimer = null;
+
+function toast(kind, title, text) {
+  clearTimeout(toastTimer);
+  toastEl.className = "toast " + kind;
+  $("#toastIcon").innerHTML = ICON[kind];
+  $("#toastTitle").textContent = title;
+  $("#toastText").textContent = text || "";
+  $("#toastText").hidden = !text;
+  $("#toastClose").setAttribute("aria-label", t("close"));
+  $("#announce").textContent = title + (text ? ". " + text : "");
+  if (toastEl.hidden) { toastEl.hidden = false; if (canLift) toastEl.showPopover(); }
+  else { toastEl.style.animation = "none"; void toastEl.offsetWidth; toastEl.style.animation = ""; }
+  if (kind === "ok") toastTimer = setTimeout(hideToast, 4000);       // good news leaves by itself; problems stay
+}
+function hideToast() {
+  clearTimeout(toastTimer);
+  if (canLift && toastEl.matches(":popover-open")) toastEl.hidePopover();
+  toastEl.hidden = true;
+  $("#announce").textContent = "";
+}
+const fail = error => toast("bad", t("errTitle"), explain(error));
+
+/* Turn a technical error into a sentence a person can act on. */
+function explain(error) {
+  if (!error) return t("errUnknown", { code: "?" });
+  if (error.text) return error.text;
+  if (error.kind === "network") return t("errNetwork");
+  if (error.kind === "session") return t("errSession");
+  switch (error.code) {
+    case "23503": return t("errInUse");
+    case "23505": return t("errDuplicate");
+    case "23514": return t("errCheck");
+    case "42501": return t("errNotAllowed");
+  }
+  return t("errUnknown", { code: error.code || error.status || "?" });
+}
+
+
+/* ---------- 6. Signing in and staying signed in -----------------------
+   The password is sent straight to Supabase and is never kept.
+   What is kept is a short-lived token, in this browser tab only:
+   closing the tab signs you out.                                       */
+let refreshTimer = null;
+
+function setSession(session) {
+  state.session = session;
+  store(sessionStorage, "admin_session", session ? JSON.stringify(session) : null);
+  clearTimeout(refreshTimer);
+  if (session) {
+    const wait = Math.max(5000, session.expires_at * 1000 - Date.now() - 90000);     // renew 90 s before it runs out
+    refreshTimer = setTimeout(renewSession, Math.min(wait, 2 ** 31 - 1));
+  }
+}
+
+async function authCall(grant, body) {
+  let response;
+  try {
+    response = await fetch(API + "/auth/v1/token?grant_type=" + grant, {
+      method: "POST", headers: { apikey: KEY, "Content-Type": "application/json" }, body: JSON.stringify(body)
+    });
+  } catch { throw { kind: "network" }; }
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw { kind: "auth", status: response.status };
+  return {
+    access_token: data.access_token, refresh_token: data.refresh_token,
+    expires_at: data.expires_at || Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+    email: (data.user && data.user.email) || body.email || (state.session && state.session.email) || ""
+  };
+}
+
+/* Returns "ok", "offline" (try again later) or "ended" (must sign in again). */
+async function renewSession() {
+  if (!state.session) return "ended";
+  try { setSession(await authCall("refresh_token", { refresh_token: state.session.refresh_token })); return "ok"; }
+  catch (error) {
+    if (error.kind === "network") { clearTimeout(refreshTimer); refreshTimer = setTimeout(renewSession, 30000); return "offline"; }
+    endSession("errSession"); return "ended";
+  }
+}
+
+function endSession(messageKey) {
+  const token = state.session && state.session.access_token;
+  if (token) fetch(API + "/auth/v1/logout", { method: "POST", headers: { apikey: KEY, Authorization: "Bearer " + token } }).catch(() => {});
+  setSession(null);
+  stopQr(); clearTimeout(state.log.timer);
+  state.staff = []; state.events = []; state.windows = []; state.settings = null; state.log.rows = [];
+  showLogin();
+  if (messageKey) toast("warn", t(messageKey)); else hideToast();
+}
+
+async function signIn(event) {
+  event.preventDefault();
+  const email = $("#email").value.trim(), password = $("#password").value;
+  if (!email || !password) { toast("bad", t("errTitle"), t("errRequired")); return; }
+  const button = $("#loginGo");
+  button.disabled = true; button.textContent = t("signingIn");
+  try {
+    setSession(await authCall("password", { email, password }));
+    $("#password").value = "";
+    if (!(await api("rpc/is_admin", { method: "POST", body: {} })).data) {
+      setSession(null); toast("bad", t("errTitle"), t("errNotAdmin")); return;
+    }
+    hideToast();
+    await enterApp();
+  } catch (error) {
+    setSession(null);
+    toast("bad", t("errTitle"), error.kind === "auth" ? t(error.status === 429 ? "errTooMany" : "errLogin") : explain(error));
+  } finally {
+    button.disabled = false; button.textContent = t("signIn");
+  }
+}
+
+
+/* ---------- 7. Talking to the database --------------------------------
+   api("staff?select=*")                              read
+   api("staff", {method:"POST", body:{...}})          add
+   api("staff?id=eq.123", {method:"PATCH", body})     change
+   api("staff?id=eq.123", {method:"DELETE"})          remove
+   Every call carries the signed-in token. The database decides.        */
+async function api(path, { method = "GET", body } = {}) {
+  const send = () => fetch(API + "/rest/v1/" + path, {
+    method,
+    headers: { apikey: KEY, Authorization: "Bearer " + state.session.access_token,
+               "Content-Type": "application/json", Prefer: "return=representation" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout ? AbortSignal.timeout(20000) : undefined
+  });
+  if (!state.session) throw { kind: "session" };
+  let response;
+  try { response = await send(); } catch { throw { kind: "network" }; }
+  if (response.status === 401) {                       // token ran out: renew once and try again
+    const renewed = await renewSession();
+    if (renewed === "offline") throw { kind: "network" };
+    if (renewed === "ended") throw { kind: "session" };
+    try { response = await send(); } catch { throw { kind: "network" }; }
+  }
+  const raw = await response.text();
+  let data = null;
+  try { data = raw ? JSON.parse(raw) : null; } catch { /* not JSON */ }
+  if (!response.ok) throw { kind: "db", status: response.status, code: data && data.code, message: data && data.message };
+  if ((method === "PATCH" || method === "DELETE") && Array.isArray(data) && data.length === 0) throw { kind: "db", code: "42501" };
+  return { data };
+}
+
+async function loadBasics() {
+  const [staff, events, windows, settings] = await Promise.all([
+    api("staff?select=*&order=full_name.asc"),
+    api("events?select=*&order=name.asc"),
+    api("event_windows?select=*&order=start_time.asc"),
+    api("org_settings?select=*&id=eq.1")
+  ]);
+  state.staff = staff.data; state.events = events.data; state.windows = windows.data; state.settings = settings.data[0] || null;
+}
+const eventById   = id => state.events.find(e => e.id === id);
+const staffById   = id => state.staff.find(s => s.id === id);
+const windowById  = id => state.windows.find(w => w.id === id);
+const windowsOf   = eventId => state.windows.filter(w => w.event_id === eventId);
+
+
+/* ---------- 8. Moving between screens --------------------------------- */
+const VIEWS = ["qr", "log", "events", "staff", "settings"];
+
+function showLogin() {
+  $("#tabs").hidden = true; $("#logout").hidden = true;
+  VIEWS.forEach(v => { $("#view-" + v).hidden = true; });
+  $("#view-login").hidden = false;
+}
+
+async function enterApp() {
+  $("#view-login").hidden = true; $("#tabs").hidden = false; $("#logout").hidden = false;
+  showView(viewFromHash(), true);
+  try { await loadBasics(); } catch (error) { if (error.kind !== "session") fail(error); return; }
+  showView(viewFromHash());
+}
+
+const viewFromHash = () => VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "qr";
+
+function showView(name, loading) {
+  if (!state.session) return;
+  if (name !== state.view) { state.edit = null; state.confirm = null; }
+  state.view = name;
+  VIEWS.forEach(v => { $("#view-" + v).hidden = v !== name; });
+  document.querySelectorAll("#tabs a").forEach(a => {
+    if (a.getAttribute("href") === "#" + name) { a.setAttribute("aria-current", "page"); a.scrollIntoView({ block: "nearest", inline: "nearest" }); }
+    else a.removeAttribute("aria-current");
+  });
+  if (name !== "qr") stopQr();
+  if (name !== "log") clearTimeout(state.log.timer);
+  if (loading) { $("#view-" + name).replaceChildren(h("div", { class: "card skeleton" }, h("i"), h("i"), h("i"))); return; }
+  ({ qr: drawQrScreen, log: openLog, events: drawEvents, staff: drawStaff, settings: drawSettings })[name]();
+}
+
+const redraw = () => showView(state.view);
+
+/* A Delete button that asks once more, in the page, before it acts. */
+function removeButton(id, action) {
+  if (state.confirm !== id) {
+    return h("button", { class: "btn small danger", type: "button", onclick: () => { state.confirm = id; redraw(); } }, t("remove"));
+  }
+  return h("span", { class: "actions" },
+    h("span", { class: "small" }, t("removeAsk")),
+    h("button", { class: "btn small danger", type: "button", onclick: async () => {
+      try { const stayOpen = await action(); state.confirm = null; state.edit = stayOpen || null; toast("ok", t("okRemoved")); }
+      catch (error) { state.confirm = null; fail(error); }
+      redraw();
+    } }, t("removeYes")),
+    h("button", { class: "btn small", type: "button", onclick: () => { state.confirm = null; redraw(); } }, t("cancel")));
+}
+
+/* Wrap a Save handler: block double clicks, show the result. */
+async function saving(button, work) {
+  const label = button.textContent;
+  button.disabled = true; button.textContent = t("saving");
+  try { await work(); toast("ok", t("okSaved")); state.edit = null; redraw(); }
+  catch (error) { button.disabled = false; button.textContent = label; fail(error); }
+}
+
+const field = (label, control, help) => h("div", null, h("label", { for: control.id }, label), control, help && h("p", { class: "help" }, help));
+const check = (id, label, checked) => h("label", { class: "check", for: id }, h("input", { id, type: "checkbox", checked }), label);
+const CODE_OK = /^[A-Za-z0-9_-]{1,20}$/;
+
+
+/* ---------- 9. QR screen ------------------------------------------------
+   Every 20 s the page asks the database for a fresh secret word (a token)
+   and draws it as a QR. Staff scan it, which opens the check-in page with
+   that token. Old tokens stop working after the lifetime in Settings.   */
+function drawQrScreen() {
+  const active = state.events.filter(e => e.active);
+  if (!active.some(e => e.id === state.qr.eventId)) state.qr.eventId = "";
+  const ev = eventById(state.qr.eventId);
+  const picker = h("select", { id: "qrEvent", value: state.qr.eventId, onchange: e => { state.qr.eventId = e.target.value; store(sessionStorage, "qr_event", e.target.value); stopQr(); drawQrScreen(); } },
+    h("option", { value: "" }, active.length ? t("qrChoose") : t("qrNoEvents")),
+    active.map(e => h("option", { value: e.id }, e.name)));
+
+  const stage = h("div", { class: "qr-stage", id: "qrStage" },
+    h("div", { class: "qr-name", id: "qrName" }, ev ? ev.name : ""),
+    h("div", { class: "qr-tile", id: "qrTile" }, t("qrPaused")),
+    h("div", { class: "qr-bar", "aria-hidden": "true" }, h("i", { id: "qrBar" })),
+    h("p", { class: "mute small", id: "qrHint" }, ev ? t("qrScan") : ""),
+    h("p", { class: "qr-count", id: "qrCount" }));
+
+  const pick = h("div", { class: "card qr-pick" }, field(t("qrEvent"), picker));
+  const side = h("div", { class: "qr-side" },
+    ev && h("div", { class: "card form" },
+      h("div", null,
+        check("qrRequire", t("qrRequire"), ev.require_qr),
+        h("p", { class: "help" }, t("qrRequireHelp"))),
+      h("button", { class: "btn", type: "button", id: "qrFull", onclick: toggleFullscreen }, icon("full"), t("qrFull"))),
+    h("div", { id: "qrNotes", class: "form" }));
+
+  fillView("qr",
+    h("div", { class: "head" }, h("div", null, h("h1", null, t("qrTitle")), h("p", null, t("qrHelp", { s: QR_ROTATE_MS / 1000 })))),
+    h("div", { class: "qr-layout" }, pick, stage, side));
+
+  if (ev) {
+    $("#qrRequire").addEventListener("change", async e => {
+      const on = e.target.checked;
+      try {
+        const { data } = await api("events?id=eq." + ev.id, { method: "PATCH", body: { require_qr: on } });
+        Object.assign(ev, data[0]); toast("ok", t(on ? "okQrOn" : "okQrOff"));
+      } catch (error) { e.target.checked = !on; fail(error); }
+      paintQr();
+    });
+    if (state.qr.token) paintQr();
+    if (!state.qr.timer && !state.qr.busy) qrTick();
+  }
+}
+
+async function qrTick() {
+  clearTimeout(state.qr.timer); state.qr.timer = null;
+  const ev = eventById(state.qr.eventId);
+  if (!ev || state.view !== "qr" || !state.session) return;
+  if (document.hidden) return;                                   // nobody is looking: stop. It restarts when the tab is shown again.
+  const run = ++state.qr.run;                                    // a ticket number: if it changes while we wait, someone else took over
+  state.qr.busy = true;
+  let next = QR_ROTATE_MS;
+  try {
+    const { data } = await api("rpc/issue_qr_token", { method: "POST", body: { p_event_code: ev.event_code } });
+    if (run !== state.qr.run) return;
+    const lifetime = ((state.settings && state.settings.qr_valid_seconds) || 60) * 1000;
+    state.qr.token = data.token; state.qr.goodUntil = Date.now() + lifetime; state.qr.lost = false;
+    next = Math.min(QR_ROTATE_MS, lifetime / 2);
+    keepAwake();
+    qrExtras(ev, run);                                            // count and open/closed, without holding up the QR
+  } catch (error) {
+    if (run !== state.qr.run) return;
+    if (error.kind === "session") { state.qr.busy = false; return; }
+    state.qr.lost = true; next = 5000;
+    if (Date.now() > state.qr.goodUntil) state.qr.token = null;   // never leave a dead code on screen
+  }
+  state.qr.busy = false;
+  paintQr(next);
+  state.qr.timer = setTimeout(qrTick, next);
+}
+
+async function qrExtras(ev, run) {
+  try {
+    const [present, open] = await Promise.all([
+      api(`attendance?select=staff_id&event_id=eq.${ev.id}&attendance_date=eq.${todayKL()}&status=eq.present`),
+      api("rpc/list_events", { method: "POST", body: {} })
+    ]);
+    if (run !== state.qr.run) return;
+    state.qr.present = new Set(present.data.map(r => r.staff_id)).size;
+    state.openNow = Object.fromEntries(open.data.map(e => [e.event_code, e.open_now]));
+    paintQr();
+  } catch { /* the QR itself still works */ }
+}
+
+/* Draw the current token as a QR picture, and the notes beside it. */
+function paintQr(restartBarMs) {
+  const ev = eventById(state.qr.eventId);
+  const tile = $("#qrTile");
+  if (!ev || !tile) return;
+  if (state.qr.token) {
+    const qr = qrcode(0, "M");
+    qr.addData(STAFF_PAGE + "?e=" + encodeURIComponent(ev.event_code) + "&t=" + encodeURIComponent(state.qr.token));
+    qr.make();
+    const n = qr.getModuleCount(), quiet = 4;
+    let path = "";
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) path += `M${c + quiet} ${r + quiet}h1v1h-1z`;
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", `0 0 ${n + quiet * 2} ${n + quiet * 2}`); svg.setAttribute("shape-rendering", "crispEdges");
+    svg.setAttribute("role", "img"); svg.setAttribute("aria-label", "QR: " + ev.name);
+    svg.innerHTML = `<path d="${path}" fill="#000"/>`;
+    tile.replaceChildren(svg);
+  } else {
+    tile.replaceChildren(state.qr.lost ? t("qrLost") : t("loading"));
+  }
+  if (restartBarMs) {
+    const bar = $("#qrBar");
+    bar.className = ""; void bar.offsetWidth;
+    bar.style.animationDuration = restartBarMs + "ms"; bar.className = "run";
+  }
+  const total = state.staff.filter(s => s.active).length;
+  $("#qrCount").replaceChildren(...(state.qr.present == null ? [] : [h("b", null, String(state.qr.present)), " " + t("qrPresent") + " " + t("qrOf", { n: total })]));
+  const notes = [];
+  if (state.qr.lost) notes.push(h("p", { class: "note warn" }, t("qrLost")));
+  if (!ev.require_qr) notes.push(h("p", { class: "note warn" }, t("qrOptionalNote")));
+  if (state.openNow[ev.event_code] === false) notes.push(h("p", { class: "note warn" }, t("qrClosedNote")));
+  $("#qrNotes").replaceChildren(...notes);
+}
+
+function stopQr() {
+  clearTimeout(state.qr.timer); state.qr.timer = null; state.qr.token = null; state.qr.present = null; state.qr.lost = false;
+  state.qr.run++; state.qr.busy = false;                          // anything still waiting for the database is now out of date
+  if (state.qr.lock) { state.qr.lock.release().catch(() => {}); state.qr.lock = null; }
+}
+
+/* Ask the device not to dim or sleep while the QR is showing. Not every browser can. */
+async function keepAwake() {
+  if (state.qr.lock || !("wakeLock" in navigator)) return;
+  try { state.qr.lock = await navigator.wakeLock.request("screen"); state.qr.lock.addEventListener("release", () => { state.qr.lock = null; }); }
+  catch { /* the screen may sleep; nothing else breaks */ }
+}
+
+function toggleFullscreen() {
+  const stage = $("#qrStage");
+  if (document.fullscreenElement) document.exitFullscreen();
+  else if (stage.requestFullscreen) stage.requestFullscreen().catch(() => {});
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden && state.view === "qr" && state.qr.eventId && !state.qr.timer && !state.qr.busy) qrTick(); });
+
+
+/* ---------- 10. Attendance screen -------------------------------------- */
+function openLog() { drawLog(); loadLog(); }
+
+async function loadLog(quiet) {
+  const L = state.log;
+  clearTimeout(L.timer);
+  const again = () => { if (state.view === "log" && L.date === todayKL()) L.timer = setTimeout(() => loadLog(true), LOG_REFRESH_MS); };
+  if (quiet && document.hidden) { again(); return; }             // tab not visible: skip this round
+  if (!quiet) { L.loading = true; drawLog(); }
+  try {
+    const { data } = await api("attendance?select=id,checked_in_at,status,reason,distance_m,gps_accuracy_m,device_id,staff_id,event_id,window_id"
+      + "&attendance_date=eq." + L.date + (L.eventId ? "&event_id=eq." + L.eventId : "") + "&order=checked_in_at.asc");
+    L.rows = data; L.capped = data.length >= 1000; L.loadedAt = new Date();
+  } catch (error) {
+    L.loading = false;
+    if (error.kind === "session") return;
+    if (!quiet) fail(error);
+  }
+  L.loading = false;
+  if (state.view !== "log") return;
+  const busyChoosing = quiet && /^(INPUT|SELECT)$/.test((document.activeElement || {}).tagName || "") && $("#view-log").contains(document.activeElement);
+  if (!busyChoosing) drawLog();                                   // do not yank a date picker or dropdown away from the person using it
+  again();
+}
+
+/* Work out the three lists from the rows we loaded. */
+function logLists() {
+  const L = state.log;
+  const inSession = r => !L.windowId || r.window_id === L.windowId;
+  const present  = L.rows.filter(r => r.status === "present" && inSession(r));
+  const rejected = L.rows.filter(r => r.status === "rejected" && inSession(r));
+  const here = new Set(present.map(r => r.staff_id));
+  const absent = L.eventId ? state.staff.filter(s => s.active && !here.has(s.id)) : null;
+  return { present, rejected, absent };
+}
+
+const reasonText = reason => TEXT[state.lang]["r_" + reason] || reason || "";
+const typeText   = type => t(type === "intern_contract" ? "stTypeIntern" : "stTypeStaff");
+const metres     = value => value == null ? "" : Math.round(value) + " m";
+
+/* For "device already used": name the person that device had already recorded. */
+function deviceOwner(row) {
+  if (row.reason !== "device_already_used") return "";
+  const first = state.log.rows.find(r => r.status === "present" && r.device_id === row.device_id && r.window_id === row.window_id);
+  const who = first && staffById(first.staff_id);
+  return who ? t("deviceOf", { who: who.staff_code + " " + who.full_name }) : "";
+}
+
+/* One description of the columns feeds both the table on screen and the CSV file. */
+function logColumns(tab, forFile) {
+  const L = state.log, details = forFile || L.details;
+  const who = [["colCode", r => (staffById(r.staff_id) || {}).staff_code || ""], ["colName", r => (staffById(r.staff_id) || {}).full_name || "", "wrap"]];
+  if (tab === "absent") return [["colCode", s => s.staff_code], ["colName", s => s.full_name, "wrap"], ["colType", s => typeText(s.staff_type)]];
+  const cols = [["colTime", r => clockKL(r.checked_in_at)], ...who];
+  if (!L.eventId || forFile) cols.push(["colEvent", r => (eventById(r.event_id) || {}).name || ""]);
+  cols.push(["colSession", r => (windowById(r.window_id) || {}).label || ""]);
+  if (tab === "rejected") cols.push(["colReason", r => deviceOwner(r) || reasonText(r.reason), "wrap wide"]);
+  if (details) cols.push(["colDistance", r => metres(r.distance_m), "num"], ["colAccuracy", r => r.gps_accuracy_m == null ? "" : "±" + Math.round(r.gps_accuracy_m) + " m", "num"],
+                         ["colDevice", r => forFile ? r.device_id : "…" + r.device_id.slice(-8)]);     // the file keeps the full ID; the screen shows the end, enough to compare
+  return cols;
+}
+
+function drawLog() {
+  const L = state.log, lists = logLists();
+  const sessions = L.eventId ? windowsOf(L.eventId) : [];
+  if (!sessions.some(w => w.id === L.windowId)) L.windowId = "";
+
+  const tools = h("div", { class: "card tools" },
+    field(t("logDate"), h("input", { id: "logDate", type: "date", value: L.date, max: todayKL(), onchange: e => { L.date = e.target.value || todayKL(); L.rows = []; loadLog(); } })),
+    field(t("logEvent"), h("select", { id: "logEvent", value: L.eventId, onchange: e => { L.eventId = e.target.value; L.windowId = ""; L.rows = []; loadLog(); } },
+      h("option", { value: "" }, t("logAllEvents")), state.events.map(e => h("option", { value: e.id }, e.name + (e.active ? "" : " (" + t("inactive") + ")"))))),
+    sessions.length > 1 && field(t("logSession"), h("select", { id: "logSession", value: L.windowId, onchange: e => { L.windowId = e.target.value; drawLog(); } },
+      h("option", { value: "" }, t("logAllSessions")), sessions.map(w => h("option", { value: w.id }, w.label + " " + hhmm(w.start_time) + "–" + hhmm(w.end_time))))),
+    h("div", { class: "fixed actions" },
+      h("button", { class: "btn", type: "button", id: "logRefresh", onclick: () => loadLog() }, icon("refresh"), t("refresh")),
+      h("button", { class: "btn", type: "button", id: "logDownload", onclick: downloadCsv }, icon("download"), t("logDownload"))));
+
+  const count = L.loading ? { present: "…", absent: "…", rejected: "…" }
+              : { present: lists.present.length, absent: lists.absent ? lists.absent.length : "–", rejected: lists.rejected.length };
+  const seg = h("div", { class: "seg", role: "group", "aria-label": t("logTitle") },
+    [["present", "logPresent"], ["absent", "logAbsent"], ["rejected", "logRejected"]].map(([tab, key]) =>
+      h("button", { type: "button", "aria-pressed": String(L.tab === tab), "data-tab": tab, onclick: () => { L.tab = tab; drawLog(); } }, t(key) + " (" + count[tab] + ")")));
+
+  let body;
+  const rows = lists[L.tab];
+  if (L.loading) body = h("div", { class: "card skeleton" }, h("i"), h("i"), h("i"));
+  else if (L.tab === "absent" && !rows) body = h("div", { class: "card empty" }, t("absentPick"));
+  else if (!rows.length) body = h("div", { class: "card empty" }, t({ present: "emptyPresent", absent: "emptyAbsent", rejected: "emptyRejected" }[L.tab]));
+  else {
+    const cols = logColumns(L.tab);
+    const lead = ["colTime", "colCode", "colName"];                 // on a phone these three share the first line of each row
+    body = h("div", { class: "tablewrap" }, h("table", { class: "stack" },
+      h("thead", null, h("tr", null, cols.map(([key, , cls]) => h("th", { class: cls === "num" ? "num" : null }, t(key))))),
+      h("tbody", null, rows.map(r => h("tr", null, cols.map(([key, get, cls]) => {
+        const value = get(r), first = lead.includes(key);
+        return h("td", { class: [cls, key === "colCode" && "code", first && "inline", value === "" && "nil"].filter(Boolean).join(" ") || null, "data-label": first ? null : t(key) }, value);
+      }))))));
+  }
+
+  fillView("log", 
+    h("div", { class: "head" }, h("div", null, h("h1", null, t("logTitle")),
+      h("p", { id: "logStamp" }, L.loadedAt ? t("updatedAt", { time: clockKL(L.loadedAt) }) : ""))),
+    tools,
+    h("div", { class: "head" }, seg,
+      L.tab !== "absent" && check("logDetails", t("logDetails"), L.details)),
+    L.capped && h("p", { class: "note warn" }, t("logCapped")),
+    body);
+  const box = $("#logDetails");
+  if (box) box.addEventListener("change", e => { L.details = e.target.checked; drawLog(); });
+}
+
+/* Save the list that is showing as a file Excel and Google Sheets can open. */
+function downloadCsv() {
+  const L = state.log, rows = logLists()[L.tab] || [];
+  const cols = logColumns(L.tab, true);
+  const cell = value => {
+    let text = String(value ?? "");
+    if (/^[=+\-@\t\r]/.test(text)) text = "'" + text;              // stop a spreadsheet from running it as a formula
+    return '"' + text.replace(/"/g, '""') + '"';
+  };
+  const lines = [cols.map(([key]) => cell(t(key))).join(","), ...rows.map(r => cols.map(([, get]) => cell(get(r))).join(","))];
+  const ev = eventById(L.eventId);
+  const name = ["kehadiran", ev ? ev.event_code : "semua", L.date, L.tab].join("_") + ".csv";
+  const link = h("a", { href: URL.createObjectURL(new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" })), download: name });
+  document.body.append(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+
+/* ---------- 11. Events and attendance hours ---------------------------- */
+function windowSummary(w) {
+  const days = !w.weekdays || w.weekdays.length === 0 || w.weekdays.length === 7 ? t("winEveryDay") : [...w.weekdays].sort().map(d => t("d" + d)).join(", ");
+  let dates = "";
+  if (w.starts_on && w.ends_on) dates = w.starts_on === w.ends_on ? t("winOn", { d: showDate(w.starts_on) }) : t("winFromTo", { a: showDate(w.starts_on), b: showDate(w.ends_on) });
+  else if (w.starts_on) dates = t("winSince", { a: showDate(w.starts_on) });
+  else if (w.ends_on) dates = t("winUntil", { b: showDate(w.ends_on) });
+  return [hhmm(w.start_time) + "–" + hhmm(w.end_time), days, dates].filter(Boolean).join(" · ");
+}
+
+function drawEvents() {
+  const editing = state.edit && state.edit.kind === "event" ? state.edit.id : null;
+  const items = state.events.map(ev => {
+    const windows = windowsOf(ev.id), open = editing === ev.id || (state.edit && state.edit.eventId === ev.id);
+    return h("div", { class: "item", "data-code": ev.event_code },
+      h("div", { class: "item-head" },
+        h("div", { class: "item-title" }, h("strong", null, ev.name), h("span", { class: "mute small" }, ev.event_code + " · " + ev.radius_m + " m")),
+        h("span", { class: "pill " + (ev.active ? "ok" : "off") }, t(ev.active ? "active" : "inactive")),
+        ev.require_qr && h("span", { class: "pill ok" }, t("evQr")),
+        !windows.length && h("span", { class: "pill warn" }, t("evNoWindow")),
+        h("button", { class: "btn small", type: "button", "aria-expanded": String(!!open), onclick: () => { state.edit = open ? null : { kind: "event", id: ev.id }; state.confirm = null; drawEvents(); } }, t(open ? "cancel" : "edit"))),
+      open && h("div", { class: "item-body" }, eventForm(ev), windowList(ev, windows)));
+  });
+
+  fillView("events", 
+    h("div", { class: "head" },
+      h("div", null, h("h1", null, t("evTitle")), h("p", null, t("evHelp"))),
+      h("button", { class: "btn primary", type: "button", id: "evAdd", onclick: () => { state.edit = { kind: "event", id: "new" }; drawEvents(); } }, icon("plus"), t("evAdd"))),
+    editing === "new" && h("div", { class: "editor" }, h("h2", { style: "margin-bottom:14px" }, t("evNew")), eventForm(null)),
+    items.length ? h("div", { class: "list" }, items) : editing !== "new" && h("div", { class: "card empty" }, t("evEmpty")));
+}
+
+function eventForm(ev) {
+  const id = ev ? ev.id : "new", pre = "ev-" + id + "-";
+  const name = h("input", { id: pre + "name", required: true, maxlength: 80, value: ev ? ev.name : "" });
+  const code = h("input", { id: pre + "code", class: "code", required: true, maxlength: 20, autocapitalize: "characters", spellcheck: "false", value: ev ? ev.event_code : "" });
+  const lat  = h("input", { id: pre + "lat", type: "number", step: "any", min: -90, max: 90, required: true, inputmode: "decimal", value: ev ? ev.latitude : "" });
+  const lng  = h("input", { id: pre + "lng", type: "number", step: "any", min: -180, max: 180, required: true, inputmode: "decimal", value: ev ? ev.longitude : "" });
+  const rad  = h("input", { id: pre + "rad", type: "number", step: 1, min: 1, required: true, inputmode: "numeric", value: ev ? ev.radius_m : 50 });
+  const active = check(pre + "active", t("evActive"), ev ? ev.active : true);
+  const needQr = check(pre + "qr", t("evRequireQr"), ev ? ev.require_qr : false);
+  const hereNote = h("p", { class: "help", id: pre + "here" });
+  const here = h("button", { class: "btn small", type: "button", onclick: () => {
+    if (!navigator.geolocation) { toast("bad", t("errTitle"), t("errGeo")); return; }
+    here.disabled = true; hereNote.textContent = t("evLocating");
+    navigator.geolocation.getCurrentPosition(p => {
+      lat.value = p.coords.latitude.toFixed(6); lng.value = p.coords.longitude.toFixed(6);
+      hereNote.textContent = t("evHere", { m: Math.round(p.coords.accuracy) }); here.disabled = false;
+    }, () => { hereNote.textContent = ""; here.disabled = false; toast("bad", t("errTitle"), t("errGeo")); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+  } }, icon("pin"), t("evUseHere"));
+
+  const save = h("button", { class: "btn primary", type: "submit" }, t("save"));
+  return h("form", { class: "form", novalidate: true, onsubmit: e => {
+    e.preventDefault();
+    const row = { name: name.value.trim(), event_code: code.value.trim().toUpperCase(), latitude: Number(lat.value), longitude: Number(lng.value),
+                  radius_m: Math.round(Number(rad.value)), active: active.control.checked, require_qr: needQr.control.checked };
+    if (!row.name || !row.event_code || lat.value === "" || lng.value === "" || rad.value === "") return toast("bad", t("errTitle"), t("errRequired"));
+    if (!CODE_OK.test(row.event_code)) return toast("bad", t("errTitle"), t("errCode"));
+    if (!(Math.abs(row.latitude) <= 90 && Math.abs(row.longitude) <= 180 && row.radius_m > 0)) return toast("bad", t("errTitle"), t("errNumber"));
+    saving(save, async () => {
+      if (ev) Object.assign(ev, (await api("events?id=eq." + ev.id, { method: "PATCH", body: row })).data[0]);
+      else state.events.push((await api("events", { method: "POST", body: row })).data[0]);
+      state.events.sort((a, b) => a.name.localeCompare(b.name));
+    });
+  } },
+    h("div", { class: "row" }, field(t("evName"), name), field(t("evCode"), code, t("evCodeHelp"))),
+    h("div", { class: "row" }, field(t("evLat"), lat), field(t("evLng"), lng), field(t("evRadius"), rad)),
+    h("div", null, here, hereNote),
+    h("div", { class: "row" }, active, needQr),
+    h("div", { class: "actions" }, save,
+      h("button", { class: "btn", type: "button", onclick: () => { state.edit = null; state.confirm = null; drawEvents(); } }, t("cancel")),
+      ev && h("span", { class: "push" }, removeButton("event-" + ev.id, async () => {
+        await api("events?id=eq." + ev.id, { method: "DELETE" });
+        state.events = state.events.filter(e => e.id !== ev.id); state.windows = state.windows.filter(w => w.event_id !== ev.id);
+      }))));
+}
+
+function windowList(ev, windows) {
+  const editing = state.edit && state.edit.kind === "window" ? state.edit.id : null;
+  return h("div", { class: "form" },
+    h("div", { class: "head" }, h("h2", null, t("winTitle")),
+      editing !== "new" && h("button", { class: "btn small", type: "button", onclick: () => { state.edit = { kind: "window", id: "new", eventId: ev.id }; state.confirm = null; drawEvents(); } }, icon("plus"), t("winAdd"))),
+    !windows.length && editing !== "new" && h("p", { class: "note warn" }, t("evNoWindowNote")),
+    h("div", { class: "windows" }, windows.map(w => editing === w.id
+      ? h("div", { class: "editor" }, windowForm(ev, w))
+      : h("div", { class: "window" },
+          h("div", null, h("strong", null, w.label), h("div", { class: "mute small" }, windowSummary(w))),
+          h("button", { class: "btn small", type: "button", onclick: () => { state.edit = { kind: "window", id: w.id, eventId: ev.id }; state.confirm = null; drawEvents(); } }, t("edit")),
+          removeButton("window-" + w.id, async () => {
+            await api("event_windows?id=eq." + w.id, { method: "DELETE" });
+            state.windows = state.windows.filter(x => x.id !== w.id);
+            return { kind: "event", id: ev.id };                       // keep this event open after removing one of its hours
+          })))),
+    editing === "new" && h("div", { class: "editor" }, h("h2", { style: "margin-bottom:14px" }, t("winNew")), windowForm(ev, null)));
+}
+
+function windowForm(ev, w) {
+  const pre = "win-" + (w ? w.id : "new") + "-";
+  const label = h("input", { id: pre + "label", required: true, maxlength: 60, value: w ? w.label : "" });
+  const start = h("input", { id: pre + "start", type: "time", required: true, value: w ? hhmm(w.start_time) : "07:00" });
+  const end   = h("input", { id: pre + "end", type: "time", required: true, value: w ? hhmm(w.end_time) : "08:30" });
+  const from  = h("input", { id: pre + "from", type: "date", value: w && w.starts_on ? w.starts_on : "" });
+  const to    = h("input", { id: pre + "to", type: "date", value: w && w.ends_on ? w.ends_on : "" });
+  const chosen = new Set(w && w.weekdays ? w.weekdays : []);
+  const days = [1, 2, 3, 4, 5, 6, 7].map(d => h("label", null, h("input", { type: "checkbox", class: "sr-only", value: String(d), checked: chosen.has(d) }), h("span", null, t("d" + d))));
+  const save = h("button", { class: "btn primary", type: "submit" }, t("save"));
+  const back = () => { state.edit = { kind: "event", id: ev.id }; state.confirm = null; };
+
+  return h("form", { class: "form", novalidate: true, onsubmit: e => {
+    e.preventDefault();
+    const picked = days.map(l => l.firstChild).filter(i => i.checked).map(i => Number(i.value));
+    const row = { event_id: ev.id, label: label.value.trim(), start_time: start.value, end_time: end.value,
+                  weekdays: picked.length === 0 || picked.length === 7 ? null : picked, starts_on: from.value || null, ends_on: to.value || null };
+    if (!row.label || !row.start_time || !row.end_time) return toast("bad", t("errTitle"), t("errRequired"));
+    if (row.end_time <= row.start_time) return toast("bad", t("errTitle"), t("errTimes"));
+    if (row.starts_on && row.ends_on && row.ends_on < row.starts_on) return toast("bad", t("errTitle"), t("errDates"));
+    saving(save, async () => {
+      if (w) Object.assign(w, (await api("event_windows?id=eq." + w.id, { method: "PATCH", body: row })).data[0]);
+      else state.windows.push((await api("event_windows", { method: "POST", body: row })).data[0]);
+      state.windows.sort((a, b) => a.start_time.localeCompare(b.start_time));
+    }).then(() => { if (!state.edit) { back(); drawEvents(); } });
+  } },
+    field(t("winLabel"), label, t("winLabelHelp")),
+    h("div", null, h("p", { class: "label" }, t("winDays")), h("div", { class: "days", role: "group", "aria-label": t("winDays") }, days), h("p", { class: "help" }, t("winDaysHelp"))),
+    h("div", { class: "row" }, field(t("winStart"), start), field(t("winEnd"), end)),
+    h("div", null, h("div", { class: "row" }, field(t("winFrom"), from), field(t("winTo"), to)), h("p", { class: "help" }, t("winDatesHelp"))),
+    h("div", { class: "actions" }, save, h("button", { class: "btn", type: "button", onclick: () => { back(); drawEvents(); } }, t("cancel"))));
+}
+
+
+/* ---------- 12. Staff --------------------------------------------------- */
+function staffShown() {
+  const F = state.staffFilter, needle = F.text.trim().toLowerCase();
+  return state.staff.filter(s =>
+    (F.show === "all" || (F.show === "active") === s.active) &&
+    (!needle || s.full_name.toLowerCase().includes(needle) || s.staff_code.toLowerCase().includes(needle)));
+}
+
+function drawStaff() {
+  const F = state.staffFilter;
+  const editing = state.edit && state.edit.kind === "staff" ? state.edit.id : null;
+  const search = h("input", { id: "stSearch", type: "search", value: F.text, autocomplete: "off", oninput: e => { F.text = e.target.value; drawStaffRows(); } });
+  const show = h("select", { id: "stShow", value: F.show, onchange: e => { F.show = e.target.value; drawStaffRows(); } },
+    h("option", { value: "all" }, t("all")), h("option", { value: "active" }, t("active")), h("option", { value: "inactive" }, t("inactive")));
+
+  fillView("staff", 
+    h("div", { class: "head" },
+      h("div", null, h("h1", null, t("stTitle")), h("p", null, t("stHelp"))),
+      h("button", { class: "btn primary", type: "button", id: "stAdd", onclick: () => { state.edit = { kind: "staff", id: "new" }; drawStaff(); } }, icon("plus"), t("stAdd"))),
+    editing === "new" && h("div", { class: "editor" }, h("h2", { style: "margin-bottom:14px" }, t("stNew")), staffForm(null)),
+    h("div", { class: "card tools" }, field(t("stSearch"), search), h("div", { class: "fixed", style: "min-width:150px" }, h("label", { for: "stShow" }, t("stShow")), show)),
+    h("p", { class: "mute small", id: "stCount" }),
+    h("div", { id: "stRows" }));
+  drawStaffRows();
+
+  /* Only the rows are redrawn while typing, so the search box keeps its cursor. */
+  function drawStaffRows() {
+    const list = staffShown();
+    $("#stCount").textContent = t("stCount", { n: list.length });
+    $("#stRows").replaceChildren(!list.length ? h("div", { class: "card empty" }, t("stEmpty")) :
+      h("div", { class: "tablewrap" }, h("table", { class: "stack staff" },
+        h("thead", null, h("tr", null, h("th", null, t("colCode")), h("th", null, t("colName")), h("th", null, t("colType")), h("th", null, t("colStatus")), h("th", null, h("span", { class: "sr-only" }, t("edit"))))),
+        h("tbody", null, list.map(s => editing === s.id
+          ? h("tr", { class: "editing" }, h("td", { class: "edit", colspan: 5 }, staffForm(s)))
+          : h("tr", { "data-code": s.staff_code },
+              h("td", { class: "code" }, s.staff_code), h("td", { class: "wrap name" }, s.full_name), h("td", { class: "type" }, typeText(s.staff_type)),
+              h("td", { class: "status" }, h("span", { class: "pill " + (s.active ? "ok" : "off") }, t(s.active ? "active" : "inactive"))),
+              h("td", { class: "end act" }, h("button", { class: "btn small", type: "button", onclick: () => { state.edit = { kind: "staff", id: s.id }; state.confirm = null; drawStaff(); } }, t("edit")))))))));
+  }
+}
+
+function staffForm(s) {
+  const pre = "st-" + (s ? s.id : "new") + "-";
+  const code  = h("input", { id: pre + "code", class: "code", required: true, maxlength: 12, autocapitalize: "characters", spellcheck: "false", value: s ? s.staff_code : "" });
+  const name  = h("input", { id: pre + "name", required: true, maxlength: 120, value: s ? s.full_name : "" });
+  const email = h("input", { id: pre + "email", type: "email", maxlength: 120, value: s && s.email ? s.email : "" });
+  const type  = h("select", { id: pre + "type", value: s ? s.staff_type : "staff" }, h("option", { value: "staff" }, t("stTypeStaff")), h("option", { value: "intern_contract" }, t("stTypeIntern")));
+  const active = check(pre + "active", t("stActive"), s ? s.active : true);
+  const save = h("button", { class: "btn primary", type: "submit" }, t("save"));
+  return h("form", { class: "form", novalidate: true, onsubmit: e => {
+    e.preventDefault();
+    const row = { staff_code: code.value.trim().toUpperCase(), full_name: name.value.trim(), email: email.value.trim() || null, staff_type: type.value, active: active.control.checked };
+    if (!row.staff_code || !row.full_name) return toast("bad", t("errTitle"), t("errRequired"));
+    if (!CODE_OK.test(row.staff_code)) return toast("bad", t("errTitle"), t("errCode"));
+    saving(save, async () => {
+      if (s) Object.assign(s, (await api("staff?id=eq." + s.id, { method: "PATCH", body: row })).data[0]);
+      else state.staff.push((await api("staff", { method: "POST", body: row })).data[0]);
+      state.staff.sort((a, b) => a.full_name.localeCompare(b.full_name));
+    });
+  } },
+    h("div", { class: "row" }, field(t("stCode"), code), field(t("stName"), name)),
+    h("div", { class: "row" }, field(t("stEmail"), email), field(t("stType"), type)),
+    active,
+    h("div", { class: "actions" }, save,
+      h("button", { class: "btn", type: "button", onclick: () => { state.edit = null; state.confirm = null; drawStaff(); } }, t("cancel")),
+      s && h("span", { class: "push" }, removeButton("staff-" + s.id, async () => {
+        await api("staff?id=eq." + s.id, { method: "DELETE" });
+        state.staff = state.staff.filter(x => x.id !== s.id);
+      }))));
+}
+
+
+/* ---------- 13. Settings ------------------------------------------------ */
+function drawSettings() {
+  const S = state.settings || {};
+  const org = h("input", { id: "setOrg", required: true, maxlength: 120, value: S.organization_name || "" });
+  const acc = h("input", { id: "setAcc", type: "number", min: 1, step: 1, required: true, inputmode: "numeric", value: S.max_gps_accuracy_m ?? 30 });
+  const sec = h("input", { id: "setSec", type: "number", min: 10, max: 600, step: 1, required: true, inputmode: "numeric", value: S.qr_valid_seconds ?? 60 });
+  const save = h("button", { class: "btn primary", type: "submit" }, t("save"));
+  const link = h("input", { id: "setLink", readonly: true, value: STAFF_PAGE, onfocus: e => e.target.select() });
+
+  fillView("settings", 
+    h("div", { class: "head" }, h("h1", null, t("setTitle"))),
+    h("form", { class: "card form", novalidate: true, style: "max-width:640px", onsubmit: e => {
+      e.preventDefault();
+      const row = { organization_name: org.value.trim(), max_gps_accuracy_m: Math.round(Number(acc.value)), qr_valid_seconds: Math.round(Number(sec.value)) };
+      if (!row.organization_name) return toast("bad", t("errTitle"), t("errRequired"));
+      if (!(row.max_gps_accuracy_m > 0 && row.qr_valid_seconds >= 10 && row.qr_valid_seconds <= 600)) return toast("bad", t("errTitle"), t("errSettings"));
+      saving(save, async () => { state.settings = (await api("org_settings?id=eq.1", { method: "PATCH", body: row })).data[0]; });
+    } },
+      field(t("setOrg"), org),
+      h("div", { class: "row" }, field(t("setAccuracy"), acc, t("setAccuracyHelp")), field(t("setQrSeconds"), sec, t("setQrSecondsHelp"))),
+      h("div", { class: "actions" }, save)),
+    h("div", { class: "card form", style: "max-width:640px" },
+      h("h2", null, t("setStaffLink")),
+      h("div", { class: "tools" }, h("div", null, h("label", { for: "setLink", class: "sr-only" }, t("setStaffLink")), link),
+        h("div", { class: "fixed" }, h("button", { class: "btn", type: "button", onclick: async () => {
+          try { await navigator.clipboard.writeText(STAFF_PAGE); toast("ok", t("copied")); } catch { link.focus(); link.select(); }
+        } }, t("setCopy"))))),
+    h("div", { class: "card form", style: "max-width:640px" },
+      h("h2", null, t("setAccount")),
+      h("p", null, t("setSignedIn", { email: state.session.email })),
+      h("p", { class: "mute small" }, t("setAdmins"))));
+}
+
+
+/* ---------- 14. Language, and start ------------------------------------ */
+function drawLanguage() {
+  document.documentElement.lang = state.lang;
+  document.title = t("pageTitle");
+  document.querySelectorAll("[data-t]").forEach(el => { el.textContent = t(el.dataset.t); });
+  document.querySelectorAll(".lang button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === state.lang)));
+  if (state.session && state.settings) redraw();
+}
+
+$("#loginForm").addEventListener("submit", signIn);
+$("#logout").addEventListener("click", () => endSession());
+$("#toastClose").addEventListener("click", hideToast);
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !toastEl.hidden) hideToast(); });
+document.addEventListener("fullscreenchange", () => { const b = $("#qrFull"); if (b) b.lastChild.textContent = t(document.fullscreenElement ? "qrFullExit" : "qrFull"); });
+window.addEventListener("hashchange", () => { if (state.session && state.settings) showView(viewFromHash()); });
+document.querySelectorAll(".lang button").forEach(b => b.addEventListener("click", () => {
+  state.lang = b.dataset.lang; store(localStorage, "lang", state.lang); drawLanguage();
+}));
+
+(async function start() {
+  drawLanguage();
+  let saved = null;
+  try { saved = JSON.parse(store(sessionStorage, "admin_session")); } catch { /* nothing saved */ }
+  if (!saved || !saved.refresh_token) { showLogin(); return; }
+  setSession(saved);                                              // same tab was reloaded: carry on without asking for the password
+  try {
+    if (saved.expires_at * 1000 < Date.now() + 60000 && (await renewSession()) !== "ok") { setSession(null); showLogin(); return; }
+    if (!(await api("rpc/is_admin", { method: "POST", body: {} })).data) { setSession(null); showLogin(); return; }
+    await enterApp();
+  } catch { setSession(null); showLogin(); }
+})();
+</script>
+</body>
+</html>
