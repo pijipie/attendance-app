@@ -48,7 +48,9 @@ body{
 
 /* ---------- header: logo, school name, BM/EN button, title, steps ---------- */
 .top{display:flex; align-items:center; justify-content:space-between; gap:12px}
-.brand{display:flex; align-items:center; gap:10px; min-width:0}
+.brand{display:flex; align-items:center; gap:10px; min-width:0; text-decoration:none; border-radius:8px}
+.brand:hover .school{color:var(--ink); text-decoration:underline; text-underline-offset:3px}
+.brand:focus-visible{outline:3px solid var(--brand); outline-offset:3px}
 .logo{flex:none; width:44px; height:44px; object-fit:contain}
 .school{margin:0; color:var(--mute); font-size:.9rem; line-height:1.3; min-width:0}
 h1{margin:.5rem 0 0; font-size:1.7rem; line-height:1.15; letter-spacing:-.01em}
@@ -117,6 +119,12 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
 .bad{background:var(--bad-bg); color:var(--bad); border-color:var(--bad)}
 .warn{background:var(--warn-bg); color:var(--warn); border-color:var(--warn)}
 
+/* ---------- footer: the way in for admins ---------- */
+.foot{text-align:center; font-size:.88rem}
+.foot a{display:inline-block; padding:.6rem .9rem; color:var(--mute); text-underline-offset:3px; border-radius:8px}
+.foot a:hover{color:var(--ink)}
+.foot a:focus-visible{outline:3px solid var(--brand); outline-offset:2px}
+
 /* ---------- tablet ---------- */
 @media (min-width:640px){
   body{font-size:18px; padding:40px; place-items:center}
@@ -131,6 +139,7 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
   h1{font-size:2.6rem}
   .steps{font-size:1.05rem}
   .logo{width:56px; height:56px}
+  .foot{grid-column:1 / -1}
 }
 @media (prefers-reduced-motion:no-preference){
   .toast{animation:drop .32s cubic-bezier(.16,1,.3,1)}
@@ -143,11 +152,13 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
 
  <header>
   <div class="top">
-   <div class="brand">
+   <!-- Logo + school name: one link to the official website (opens in a new tab,
+        so a half-filled form is never lost). To change the address, edit the href on the next line. -->
+   <a class="brand" id="siteLink" href="https://irsyadbalok.com.my/" target="_blank" rel="noopener">
     <!-- If logo.png is missing, the picture removes itself and the name stays. -->
     <img class="logo" src="logo.png" alt="" width="44" height="44" onerror="this.remove()">
-    <p class="school">Sek. Ren. Islam Al-Irsyad Balok</p>
-   </div>
+    <span class="school">Sek. Ren. Islam Al-Irsyad Balok</span>
+   </a>
    <div class="lang" role="group" aria-label="Bahasa / Language">
     <button type="button" data-lang="ms" aria-pressed="true"  lang="ms" title="Bahasa Melayu">BM</button>
     <button type="button" data-lang="en" aria-pressed="false" lang="en" title="English">EN</button>
@@ -196,6 +207,9 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
   </form>
  </section>
 
+ <!-- Admins only. Kept small on purpose: staff never need it. -->
+ <footer class="foot"><a href="admin.html" data-t="adminLink"></a></footer>
+
 </main>
 
 <!-- The floating notification. Its words are filled in by showMessage(). -->
@@ -214,7 +228,7 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
 
 <script>
 /* =====================================================================
-   STAFF CHECK-IN PAGE  v2.2 (event dropdown + BM/EN + floating notification + logo + exact duplicate messages)
+   STAFF CHECK-IN PAGE  v2.3 (v2.2 + link to the official website + admin sign-in link)
    The page only collects facts and shows the answer.
    The database function check_in() makes every decision.
    ===================================================================== */
@@ -248,7 +262,9 @@ const TEXT = {
     locating: "Mencari lokasi…",
     sending: "Menghantar…",
     gps: "Ketepatan GPS: ±{m} m",
-    close: "Tutup mesej"
+    close: "Tutup mesej",
+    adminLink: "Log masuk pentadbir",
+    siteTitle: "Laman web rasmi (dibuka dalam tab baharu)"
   },
   en: {
     pageTitle: "Staff Attendance",
@@ -270,7 +286,9 @@ const TEXT = {
     locating: "Finding your location…",
     sending: "Sending…",
     gps: "GPS accuracy: ±{m} m",
-    close: "Close message"
+    close: "Close message",
+    adminLink: "Admin sign-in",
+    siteTitle: "Official website (opens in a new tab)"
   }
 };
 
@@ -488,6 +506,7 @@ function drawLanguage() {
   document.querySelectorAll("[data-t]").forEach(el => { if (!(busy && el.id === "go")) el.textContent = t(el.dataset.t); });
   document.querySelectorAll("[data-t-html]").forEach(el => { el.innerHTML = t(el.dataset.tHtml); });
   document.querySelectorAll(".lang button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
+  $("#siteLink").title = t("siteTitle");
   drawEventPicker();
   if (lastMsg) showMessage(lastMsg.id, lastMsg.values);
 }
