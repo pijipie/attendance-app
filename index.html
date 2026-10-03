@@ -214,7 +214,7 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
 
 <script>
 /* =====================================================================
-   STAFF CHECK-IN PAGE  v2.1 (event dropdown + BM/EN + floating notification + logo)
+   STAFF CHECK-IN PAGE  v2.2 (event dropdown + BM/EN + floating notification + logo + exact duplicate messages)
    The page only collects facts and shows the answer.
    The database function check_in() makes every decision.
    ===================================================================== */
@@ -285,6 +285,8 @@ const MESSAGES = {
     gps_accuracy_too_low:             ["warn", "Isyarat GPS terlalu lemah", "Ketepatan semasa ±{m} m. Pergi ke kawasan terbuka dan cuba lagi."],
     outside_geofence:                 ["bad",  "Anda di luar kawasan", "Anda kira-kira {m} m dari lokasi. Dekati lokasi acara dan cuba lagi."],
     duplicate_or_device_already_used: ["warn", "Tidak dapat direkodkan", "Kehadiran anda sudah direkodkan bagi sesi ini, atau peranti ini telah digunakan oleh orang lain."],
+    already_checked_in:               ["warn", "Sudah direkodkan", "Kehadiran anda bagi sesi ini telah direkodkan lebih awal. Tiada tindakan diperlukan."],
+    device_already_used:              ["bad",  "Peranti sudah digunakan", "Peranti ini telah merekod kehadiran orang lain bagi sesi ini. Gunakan peranti anda sendiri."],
     unknown_staff_or_event:           ["bad",  "Kod tidak dikenali", "Semak kod staf dan acara, kemudian cuba lagi."],
     bad_input:                        ["bad",  "Data tidak lengkap", "Cuba hantar semula."],
 
@@ -307,6 +309,8 @@ const MESSAGES = {
     gps_accuracy_too_low:             ["warn", "GPS signal too weak", "Current accuracy is ±{m} m. Move to an open area and try again."],
     outside_geofence:                 ["bad",  "You are outside the area", "You are about {m} m from the location. Move closer and try again."],
     duplicate_or_device_already_used: ["warn", "Could not be recorded", "Your attendance is already recorded for this session, or this device has been used by someone else."],
+    already_checked_in:               ["warn", "Already recorded", "Your attendance for this session was recorded earlier. Nothing more to do."],
+    device_already_used:              ["bad",  "Device already used", "This device has already recorded someone else for this session. Use your own device."],
     unknown_staff_or_event:           ["bad",  "Code not recognised", "Check the staff code and the event, then try again."],
     bad_input:                        ["bad",  "Incomplete data", "Try sending again."],
 
@@ -597,7 +601,8 @@ async function submit(event) {
     if (reply && reply.ok) {
       showMessage("ok", { name: reply.name, event: reply.event, m: reply.distance_m });
     } else {
-      const reason = reply && reply.reason;
+      // "detail" is the more exact reason, when the database gives one (for example which kind of duplicate).
+      const reason = reply && (reply.detail in MESSAGES[lang] ? reply.detail : reply.reason);
       const metres = reason === "gps_accuracy_too_low" ? accuracy : reply && reply.distance_m;
       showMessage(reason in MESSAGES[lang] ? reason : "unknown", { m: Math.round(metres || 0) });
     }
