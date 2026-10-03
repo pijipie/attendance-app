@@ -12,12 +12,16 @@ Read `PRODUCT.md` first. It holds the product facts and the open decisions.
 - `qrcode.js` — vendored third-party QR library (MIT). Never edit it.
 - `leaflet.js`, `leaflet.css` — vendored third-party map library, Leaflet 1.9.4 (BSD-2-Clause). Never edit them. Only `admin.html` loads them.
 - `logo.png`, `apple-touch-icon.png` — school logo.
-- `database/01_schema.sql` … `database/05_roles_archive_displays.sql` — the database, in run order. A change to the database is always a NEW numbered file that is safe to run twice; never edit a file that has already been run.
+- `database/01_schema.sql` … `database/06_security_hardening.sql` — the database, in run order. A change to the database is always a NEW numbered file that is safe to run twice; never edit a file that has already been run. The one exception is the guard: every file except the newest starts with `begin;` and a `do` block that stops it when a later file is installed (re-running an old file would restore weaker functions and policies). When you add file N+1, add that guard (and the closing `commit;` before its quick check) to file N.
 
 ## Rules
 - Public repo. Never commit staff names, CSV exports, venue coordinates, or any `service_role`/`sb_secret_` key.
 - The CSVs used for the import are kept locally in `D:\Claude\Private Data\attendance\`, outside every repo.
 - `anon` has no direct table access. Staff-phone features go through `security definer` functions. Revoke the default execute grant on every new function, then grant on purpose.
+- `authenticated` holds only the table rights listed in `06_security_hardening.sql` PART F (for example `select` only on `attendance`, nothing on `admins` and `qr_tokens`). Supabase grants ALL on every new table by default: for a new table, `revoke all ... from anon, authenticated` and then grant exactly what the admin page needs.
+- `check_in()` must give an unknown staff code the same reply a real one would get, must not store a row for it, and returns `distance_m` only with `ok` or `outside_geofence`. Every text input to a public function has a length limit checked before anything else.
+- There must always be at least one owner while any admin exists. `admin_set()` / `admin_remove()` take a table lock, and the `admins_keep_owner` trigger is the backstop. Only accounts with a confirmed email can be made admins.
+- A pairing code waits 5 minutes. That interval appears in `display_register()`, `display_approve()` and `display_poll()`: change all three together.
 - `attendance` has a read policy only. Do not add write policies to it. Do not add any policy to `admins` or `qr_tokens`. `admin_audit` is read-only for owners; it is written only by the `audit_row()` trigger.
 - Admin levels are `owner`, `manager`, `operator`. Reading uses `is_admin()`, writing uses `can_manage()`, settings and admin management use `is_owner()`. The page hides what a level cannot do, but the database is the real lock: never rely on the page.
 - Never hard-delete an event or session that has attendance. Use `remove_event()` / `remove_window()`, which archive (`archived_at`) instead. Every query that feeds a staff-facing list or `check_in()` must skip archived rows.
@@ -28,6 +32,10 @@ Read `PRODUCT.md` first. It holds the product facts and the open decisions.
 - Every new page gets a line in `PAGES` in `menu.js` on the day it is created, and loads `menu.js` itself, so no page is ever unreachable while the layout is still being decided.
 - A page must keep working if `menu.js` or the Leaflet files are missing (plain links instead of the menu; number boxes instead of the map).
 - Text from the database goes into the page as text (`textContent`), never as HTML.
+- Every page has a `Content-Security-Policy` meta tag and the small frame guard at the top of `<head>`. A new page gets both. If the database address or an outside service changes, change the `connect-src` / `img-src` lists too, or the page will be blocked from reaching it. Scripts stay inline for now, so `script-src` allows `'unsafe-inline'`; do not add any other source.
+- The QR link is `…/?e=CODE#t=TOKEN`. The token stays in the fragment (never sent to a web server); `index.html` reads it, wipes it from the address bar and keeps it for the tab only. `?t=` is still read for old links; do not generate it.
+- In `admin.html`, every reply from the database passes through `api()`, which throws it away if the person signed out meanwhile (`state.epoch`). Sign-out must empty the five views and the lists in `state`, not just hide them. Anything that draws starts with `if (!state.session) return;`.
+- The attendance list is read in pages of 1,000 (`fetchAllRows`), present and rejected separately, filtered by event in the database. A failed load shows the error card; never draw an empty list after a failure.
 - Plain HTML/CSS/JS with no build step. No code is loaded from a CDN: libraries are copied into the repo. The only outside services are OpenStreetMap map pictures and its Nominatim place search, used by the map in the admin event editor. Neither needs a key. Never send staff or attendance data to them.
 - The admin page signs out after 15 minutes without a touch (`IDLE_MINUTES` in `admin.html`), on every screen including the QR screen. Long events use `display.html`.
 - All three pages share one look: the colour variables at the top of each `<style>` block must stay identical.

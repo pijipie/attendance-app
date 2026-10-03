@@ -3,6 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- A fence around this page: it may load code, styles and pictures only from its own folder,
+     and may talk only to the database. If the database address (API, further down) ever changes, change it here too. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src https://xtrgefkopnqgektrllra.supabase.co; base-uri 'none'; form-action 'none'">
+<!-- Refuse to be shown inside another website's frame (a trick used to make people click hidden buttons).
+     The page stays invisible until this check has passed. -->
+<style id="noFrame">html{display:none !important}</style>
+<script>
+if (self === top) document.getElementById("noFrame").remove();
+else { try { top.location = self.location.href; } catch (e) { /* cannot break out: stay invisible */ } }
+</script>
 <title>Staff Attendance</title>
 <!-- The school logo. Two picture files sit next to this page:
      logo.png             see-through background: browser tab + page header
@@ -231,7 +241,9 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
 <script src="menu.js"></script>
 <script>
 /* =====================================================================
-   STAFF CHECK-IN PAGE  v2.4 (v2.3 + English by default + three-line menu)
+   STAFF CHECK-IN PAGE  v2.5 (v2.4 + fixes from the security review of 3 Oct 2026:
+                              the QR token is read from the "#" part of the link and wiped from the
+                              address bar; the event list is re-read before "QR scan required" is shown)
    The page only collects facts and shows the answer.
    The database function check_in() makes every decision.
    ===================================================================== */
@@ -366,6 +378,15 @@ function remember(key, value) {
   return null;
 }
 
+/* The same, but only for this tab: it is gone when the tab is closed. */
+function rememberForTab(key, value) {
+  try {
+    if (value === undefined) return sessionStorage.getItem(key);
+    sessionStorage.setItem(key, value);
+  } catch { /* storage unavailable: carry on without it */ }
+  return null;
+}
+
 /* One random ID per browser. This is what "one device, one person" is checked against. */
 function deviceId() {
   let id = remember("device_id");
@@ -395,10 +416,29 @@ async function callDatabase(functionName, body) {
 /* ---------- 4. What the page currently knows -------------------------- */
 const query    = new URLSearchParams(location.search);
 const urlEvent = (query.get("e") || "").trim();   // set when staff scanned a QR
-const qrToken  = query.get("t");                  // the rotating secret from the QR
+
+/* The rotating secret from the QR. It arrives after "#" (…?e=CODE#t=SECRET). That part of a link
+   is never sent to a web server, so it cannot land in a server log. ("?t=" is still read, for a QR
+   drawn by an older copy of the admin or display page.)
+   The secret is then wiped from the address bar, so it is not left in the browsing history and is
+   not passed on when someone shares the link. It is kept for this tab only, so that reloading the
+   page (for example after allowing location access) does not force a second scan.               */
+let qrToken = null;
+function takeToken() {
+  const found = new URLSearchParams(location.hash.slice(1)).get("t") || query.get("t");
+  if (!found || found === qrToken) return false;
+  qrToken = found;
+  rememberForTab("qr", JSON.stringify({ e: urlEvent.toLowerCase(), t: qrToken }));
+  try { history.replaceState(null, "", location.pathname + (urlEvent ? "?e=" + encodeURIComponent(urlEvent) : "")); } catch { /* the link simply stays as it was */ }
+  return true;
+}
+if (!takeToken() && urlEvent) {
+  try { const kept = JSON.parse(rememberForTab("qr")); if (kept && kept.e === urlEvent.toLowerCase()) qrToken = kept.t; } catch { /* nothing kept */ }
+}
 
 let lang    = remember("lang") === "ms" ? "ms" : "en";   // English unless this device chose BM before
 let events  = null;                               // filled by loadEvents()
+let eventsAt = 0;                                 // when the list was last read from the database
 let mode    = urlEvent ? "locked" : "loading";    // locked | loading | select | typed
 let lastMsg = null;                               // so a result can be re-shown in the other language
 let busy    = false;
@@ -517,17 +557,24 @@ function drawLanguage() {
 
 
 /* ---------- 6. Fetch the event list for the dropdown ------------------ */
-async function loadEvents() {
+/* loadEvents()      first load: if it fails, fall back to typing the code.
+   loadEvents(true)  a later re-read: if it fails, keep the list we already have.
+   Returns true when a fresh list arrived.                                        */
+async function loadEvents(again) {
   try {
     const rows = await callDatabase("list_events");
     if (!Array.isArray(rows)) throw new Error("unexpected reply");
-    events = rows;
+    events = rows; eventsAt = Date.now();
     if (mode !== "locked") mode = "select";
   } catch {
+    if (again && events) return false;
     events = null;
     if (mode !== "locked") mode = "typed";   // spare tyre: type the code
+    drawEventPicker();
+    return false;
   }
   drawEventPicker();
+  return true;
 }
 
 
@@ -578,17 +625,25 @@ async function submit(event) {
   }
   if (!staffCode) { showMessage("need_staff"); $("#staff").focus(); return; }
 
-  const chosen = currentEvent();
-  if (chosen && chosen.require_qr && !qrToken) { showMessage("qr_needed"); return; }
-
   remember("staff_code", staffCode);
   if (mode === "select") remember("event_code", eventCode);
   showMessage(null);
 
   const button = $("#go");
-  busy = true; button.disabled = true; button.textContent = t("locating");
+  busy = true; button.disabled = true;
 
   try {
+    // 8a-2. "This event needs the QR": the list on this page may be old. An admin may have switched
+    //       "Require QR" off since the page was opened. So read the list again BEFORE refusing.
+    const chosen = currentEvent();
+    if (chosen && chosen.require_qr && !qrToken) {
+      button.textContent = t("sending");
+      if (!(await loadEvents(true))) { showMessage("network"); return; }
+      const now = currentEvent();
+      if (now && now.require_qr) { showMessage("qr_needed"); return; }
+    }
+    button.textContent = t("locating");
+
     // 8b. Where is the phone?
     let position;
     try {
@@ -640,6 +695,14 @@ async function submit(event) {
 $("#staff").value = remember("staff_code") || "";
 $("#f").addEventListener("submit", submit);
 $("#event").addEventListener("change", () => { showMessage(null); drawHint(); });   // new choice: clear the old answer
+// A second scan of the same event can land in this same tab. Only the part after "#" differs then,
+// so the browser does not reload the page: pick the new secret up here.
+window.addEventListener("hashchange", () => { if (takeToken()) { showMessage(null); drawHint(); } });
+// Coming back to a page that was left open: read the event list again if it is more than a minute old,
+// so "closed now" and "needs the QR" are not yesterday's news. Not while the list is open under a finger.
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && !busy && eventsAt && Date.now() - eventsAt > 60000 && document.activeElement !== $("#event")) loadEvents(true);
+});
 $("#toastClose").addEventListener("click", () => showMessage(null));
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !toast.hidden) showMessage(null); });
 document.querySelectorAll(".lang button").forEach(b => b.addEventListener("click", () => {
