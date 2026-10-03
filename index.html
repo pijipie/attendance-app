@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ms">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kehadiran Staf</title>
+<title>Staff Attendance</title>
 <!-- The school logo. Two picture files sit next to this page:
      logo.png             see-through background: browser tab + page header
      apple-touch-icon.png white background: iPhone home-screen icon
@@ -47,8 +47,8 @@ body{
 .shell{width:100%; max-width:520px; display:grid; gap:20px}
 
 /* ---------- header: logo, school name, BM/EN button, title, steps ---------- */
-.top{display:flex; align-items:center; justify-content:space-between; gap:12px}
-.brand{display:flex; align-items:center; gap:10px; min-width:0; text-decoration:none; border-radius:8px}
+.top{display:flex; align-items:center; gap:10px}
+.brand{display:flex; align-items:center; gap:10px; min-width:0; flex:1; text-decoration:none; border-radius:8px}
 .brand:hover .school{color:var(--ink); text-decoration:underline; text-underline-offset:3px}
 .brand:focus-visible{outline:3px solid var(--brand); outline-offset:3px}
 .logo{flex:none; width:44px; height:44px; object-fit:contain}
@@ -159,12 +159,14 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
     <img class="logo" src="logo.png" alt="" width="44" height="44" onerror="this.remove()">
     <span class="school">Sek. Ren. Islam Al-Irsyad Balok</span>
    </a>
-   <div class="lang" role="group" aria-label="Bahasa / Language">
-    <button type="button" data-lang="ms" aria-pressed="true"  lang="ms" title="Bahasa Melayu">BM</button>
-    <button type="button" data-lang="en" aria-pressed="false" lang="en" title="English">EN</button>
+   <div class="lang" role="group" aria-label="Language / Bahasa">
+    <button type="button" data-lang="en" aria-pressed="true"  lang="en" title="English">EN</button>
+    <button type="button" data-lang="ms" aria-pressed="false" lang="ms" title="Bahasa Melayu">BM</button>
    </div>
+   <!-- The three-line menu with links to every page. Its list of pages lives in menu.js. -->
+   <div id="menu"></div>
   </div>
-  <h1 data-t="title">Rekod kehadiran</h1>
+  <h1 data-t="title">Record attendance</h1>
   <ol class="steps">
    <li data-t="step1"></li>
    <li data-t="step2"></li>
@@ -207,8 +209,8 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
   </form>
  </section>
 
- <!-- Admins only. Kept small on purpose: staff never need it. -->
- <footer class="foot"><a href="admin.html" data-t="adminLink"></a></footer>
+ <!-- Spare link for admins. Hidden whenever the menu (menu.js) is working. -->
+ <footer class="foot" id="foot" hidden><a href="admin.html" data-t="adminLink"></a></footer>
 
 </main>
 
@@ -226,9 +228,10 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
 <!-- Screen readers hear the same message from here. It is invisible on screen. -->
 <p class="sr-only" id="announce" role="status" aria-live="polite"></p>
 
+<script src="menu.js"></script>
 <script>
 /* =====================================================================
-   STAFF CHECK-IN PAGE  v2.3 (v2.2 + link to the official website + admin sign-in link)
+   STAFF CHECK-IN PAGE  v2.4 (v2.3 + English by default + three-line menu)
    The page only collects facts and shows the answer.
    The database function check_in() makes every decision.
    ===================================================================== */
@@ -394,7 +397,7 @@ const query    = new URLSearchParams(location.search);
 const urlEvent = (query.get("e") || "").trim();   // set when staff scanned a QR
 const qrToken  = query.get("t");                  // the rotating secret from the QR
 
-let lang    = remember("lang") === "en" ? "en" : "ms";
+let lang    = remember("lang") === "ms" ? "ms" : "en";   // English unless this device chose BM before
 let events  = null;                               // filled by loadEvents()
 let mode    = urlEvent ? "locked" : "loading";    // locked | loading | select | typed
 let lastMsg = null;                               // so a result can be re-shown in the other language
@@ -507,6 +510,7 @@ function drawLanguage() {
   document.querySelectorAll("[data-t-html]").forEach(el => { el.innerHTML = t(el.dataset.tHtml); });
   document.querySelectorAll(".lang button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
   $("#siteLink").title = t("siteTitle");
+  if (window.SiteMenu) SiteMenu.draw(lang); else $("#foot").hidden = false;     // no menu.js: fall back to the plain link
   drawEventPicker();
   if (lastMsg) showMessage(lastMsg.id, lastMsg.values);
 }

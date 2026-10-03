@@ -29,7 +29,8 @@ The database decides, not the page. The phone only reports measured facts (posit
 
 - **Check-in flow:** open the page or scan the QR at the location, choose the event, enter the staff code, allow location access, submit, read the answer.
 - **Conditions:** used on arrival, often outdoors or at an entrance, on mobile data, where GPS needs open sky. The accuracy limit is 30 m and geofence radii are 30 to 50 m.
-- **Languages:** Bahasa Melayu by default, English through a small BM/EN button. The choice is remembered on the device.
+- **Languages:** English by default, Bahasa Melayu through a small EN/BM button. The choice is remembered on the device.
+- **Moving between pages:** a three-line menu in the header of every page lists all pages. Every new page is added to it when it is created.
 - **Hosting:** static pages on GitHub Pages from a public repository; data on Supabase (PostgreSQL), free tier.
 - **Time zone:** Asia/Kuala_Lumpur for "today" and for all time windows.
 
@@ -45,11 +46,12 @@ The database decides, not the page. The phone only reports measured facts (posit
 
 **Admin page (`admin.html`)**
 
-- Sign-in with a Supabase account that is listed in the `admins` table. The session lasts for the browser tab only.
+- Sign-in with a Supabase account that is listed in the `admins` table. The session lasts for the browser tab only, and ends by itself after 15 minutes without a touch on every screen, with a warning one minute before.
 - Three levels: owner, manager, operator. The database enforces them; the page only hides what a level cannot do.
-- QR screen: a code that changes every 20 seconds, a live count of who is present, full-screen mode, and a switch to require the QR for that event.
+- QR screen: a code that changes every 20 seconds, a live count of who is present, full-screen mode, a switch to require the QR for that event, and a button that opens the display page.
 - Attendance: by date, event and session, with three lists (present, not checked in, rejected), GPS and device details, and CSV download.
 - Events and attendance hours: add, change, remove; hours can repeat on chosen weekdays or cover chosen dates. Lists show current events by default, with search and an archive view.
+- Event location: set on a map (OpenStreetMap) by clicking, dragging the pin or searching for a place, with the allowed radius drawn as a circle. Latitude and longitude can still be typed.
 - Staff: add, change, set inactive, remove. The list opens on active staff.
 - Settings (owner): organisation name, GPS accuracy limit, QR lifetime, the other admins and their levels, and the activity record.
 
@@ -88,7 +90,8 @@ The database decides, not the page. The phone only reports measured facts (posit
 
 **Constraints**
 
-- Plain HTML, CSS and JavaScript with no build step.
+- Plain HTML, CSS and JavaScript with no build step. Libraries are copied into the repository, not loaded from elsewhere.
+- The map depends on OpenStreetMap's free public servers, which give no guarantee of service. If they are unreachable, the location is typed as numbers.
 - Free service tiers for now; a paid plan may come later for automation.
 - Public repository: never commit staff names, CSV exports, venue coordinates or any secret key.
 - The public key has no direct table access. Everything goes through database functions, and execute rights are granted on purpose.
@@ -111,18 +114,20 @@ The database decides, not the page. The phone only reports measured facts (posit
 - What the link to the official website (irsyadbalok.com.my) on the staff page becomes later; another plan for it is expected.
 - Reporting across a date range (a month or a term). Today attendance is viewed one day at a time.
 - Whether a formal accessibility standard applies.
+- Final layout and position of the navigation. The three-line menu is the working arrangement until this is decided.
+- A satellite (aerial photo) layer for the map. It would need a key from a map provider.
 
 ## Brand Commitments
 
-- The school is named on the page as "Sek. Ren. Islam Al-Irsyad Balok". The logo and name on the staff page link to the official website, https://irsyadbalok.com.my/, and the staff page has a small link to the admin sign-in.
-- Interface text exists in both Bahasa Melayu and English, with Bahasa Melayu first.
+- The school is named on the page as "Sek. Ren. Islam Al-Irsyad Balok". The logo and name on the staff page link to the official website, https://irsyadbalok.com.my/.
+- Interface text exists in both English and Bahasa Melayu, with English first.
 - The school logo appears in the page header and as the browser tab icon, from a single `logo.png` beside the page.
 - No colour or typeface has been made binding.
 
 ## Evidence on Hand
 
 - Live staff page: https://pijipie.github.io/attendance-app/
-- Source: `index.html`, `admin.html`, `display.html`, `qrcode.js` (third-party, MIT), and the SQL files `database/01_schema.sql` to `database/05_roles_archive_displays.sql`, run in number order.
+- Source: `index.html`, `admin.html`, `display.html`, `menu.js`, `qrcode.js` (third-party, MIT), `leaflet.js` and `leaflet.css` (third-party, BSD-2-Clause), and the SQL files `database/01_schema.sql` to `database/05_roles_archive_displays.sql`, run in number order.
 - A working database with the real staff list and six real events, plus test rows that must be removed before the pilot.
 - One real phone test on 3 Oct 2026: one accepted check-in at 7 m, one rejected at 7,825 m.
 - There are no usage figures, user feedback, testimonials or screenshots from real use yet. Do not invent any.
@@ -138,5 +143,5 @@ The database decides, not the page. The phone only reports measured facts (posit
 ## Accessibility & Inclusion
 
 - Must work on phone, tablet and computer.
-- Must be usable in Bahasa Melayu and in English.
+- Must be usable in English and in Bahasa Melayu.
 - No formal standard has been set.
