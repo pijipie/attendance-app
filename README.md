@@ -8,7 +8,8 @@ Static pages on GitHub Pages, data on Supabase (PostgreSQL).
 | File | Who uses it | What it does |
 |---|---|---|
 | `index.html` | Staff | Record attendance: choose the event, enter the staff code, submit. |
-| `admin.html` | Admins | Sign in, show the rotating QR, read attendance, manage events, hours, staff and settings. |
+| `admin.html` | Admins | Sign in, show the rotating QR, read attendance, manage events, hours, staff, settings and other admins. |
+| `display.html` | A big screen | Shows the rotating QR with no login. An admin pairs it from their own phone with a short code. |
 | `qrcode.js` | (library) | Draws the QR picture. Third-party code by Kazuhiko Arase, MIT licence. Do not edit. |
 | `logo.png`, `apple-touch-icon.png` | (images) | School logo for the header, the browser tab and the iPhone home screen. |
 
@@ -22,14 +23,27 @@ All SQL lives in the `database/` folder. Run each file once in Supabase > SQL Ed
 | `02_after_import.sql` | Run after importing staff and events. Gives every event an "anytime" window. |
 | `03_list_events.sql` | `list_events()` for the staff page's event dropdown. |
 | `04_admin.sql` | Write permissions for admins, and `check_in()` version 2, which keeps refused duplicates as rejected rows. |
+| `05_roles_archive_displays.sql` | Three admin levels, archive instead of delete, the activity record, and screen pairing. |
 
 ## How the safety works
 
 - The pages are public code. The database is what protects the data.
 - Staff phones can only call two functions: `list_events()` and `check_in()`. They cannot read any table.
-- Admin requests carry a sign-in token. The database checks on every row that the person is in the `admins` table.
+- The big screen can only call `display_register()` and `display_poll()`. It never holds a login.
+- Admin requests carry a sign-in token. The database checks on every row that the person is in the `admins` table and what their level allows.
 - Nobody can change or delete an attendance row from the website.
-- Admins are added and removed in Supabase, never from the website.
+- An event or session that has attendance is archived, never deleted, so the log always keeps its names.
+- Every change to staff, events, hours, settings and admins is written to an activity record that only an owner can read and nobody can edit.
+
+## Admin levels
+
+| Level | Can do |
+|---|---|
+| Owner | Everything, including settings, the activity record and managing admins. |
+| Manager | QR, attendance, and editing events, hours and staff. |
+| Operator | Show the QR and view attendance. Cannot change anything. |
+
+To add an admin: create the account in Supabase (Authentication > Users > Add user), then an owner enters that email under Settings > Admins and picks a level.
 
 ## Other documents
 

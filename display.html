@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Paparan Kod QR</title>
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+/* ---------- colours: the same set as the other two pages ---------- */
+:root{
+  color-scheme:light dark;
+  --bg:#f2f7f5; --card:#fff; --ink:#14302a; --mute:#566b64; --line:#c9d8d2;
+  --brand:#0b5d4b; --on-brand:#fff;
+  --warn:#7a5200; --warn-bg:#fff3d6;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#0e1a17; --card:#16251f; --ink:#e6f0ec; --mute:#9db3aa; --line:#2b3f37;
+    --brand:#3fb594; --on-brand:#04251c;
+    --warn:#f0c46a; --warn-bg:#3a2d0c;
+  }
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font:18px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  display:grid; grid-template-rows:auto 1fr;
+}
+::selection{background:var(--brand); color:var(--on-brand)}
+p{margin:0}
+
+/* ---------- top strip: logo, school, language, full screen ---------- */
+.bar{display:flex; align-items:center; gap:12px; padding:12px 16px}
+.brand{display:flex; align-items:center; gap:10px; min-width:0; flex:1; color:var(--mute); font-size:.9rem; line-height:1.3}
+.logo{flex:none; width:40px; height:40px; object-fit:contain}
+.lang{display:flex; flex:none; border:1.5px solid var(--line); border-radius:10px; overflow:hidden}
+.lang button{font:inherit; font-size:.85rem; font-weight:700; letter-spacing:.03em; min-width:42px; min-height:38px; padding:0 .5rem; border:0; background:transparent; color:var(--mute); cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--brand); color:var(--on-brand)}
+.btn{
+  font:inherit; font-weight:600; min-height:44px; padding:.5rem .95rem;
+  display:inline-flex; align-items:center; justify-content:center; gap:.45rem;
+  border:1.5px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); cursor:pointer;
+}
+.btn:hover{border-color:var(--mute)}
+.btn.primary{background:var(--brand); border-color:var(--brand); color:var(--on-brand)}
+.btn svg{width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
+button:focus-visible{outline:3px solid var(--brand); outline-offset:2px}
+@media (max-width:560px){ #fullText{display:none} .btn{padding:.5rem .7rem} }   /* narrow screen: icon only, so the school name fits */
+
+/* ---------- the stage: everything is centred and sized to the screen ---------- */
+main{display:grid; place-items:center; padding:0 4vmin 4vmin; min-height:0}
+.panel{display:grid; gap:2.4vmin; justify-items:center; text-align:center; max-width:100%}
+h1{margin:0; font-size:clamp(1.5rem, 5vmin, 3.4rem); line-height:1.15; letter-spacing:-.01em; overflow-wrap:anywhere}
+.lead{font-size:clamp(1rem, 2.6vmin, 1.6rem); color:var(--mute); max-width:34ch}
+
+/* waiting: the pairing code */
+.code{
+  font:700 clamp(3rem, 15vmin, 9rem)/1 ui-monospace,"Cascadia Mono","Segoe UI Mono",Consolas,monospace;
+  letter-spacing:.14em; padding:.25em .2em .25em .34em; border:2px solid var(--line); border-radius:.16em; background:var(--card);
+}
+.steps{margin:0; padding-left:1.3em; text-align:left; color:var(--mute); font-size:clamp(.95rem, 2.3vmin, 1.4rem); max-width:36ch}
+.steps li{margin:.35em 0}
+.steps strong{color:var(--ink)}
+
+/* showing: the QR */
+.tile{width:min(72vmin, 92vw); aspect-ratio:1; background:#fff; border-radius:1.6vmin; padding:1.6vmin; display:grid; place-items:center; color:#3c4a45}
+.tile svg{width:100%; height:100%; display:block}
+.barline{width:min(72vmin, 92vw); height:.9vmin; min-height:5px; border-radius:99px; background:var(--line); overflow:hidden}
+.barline i{display:block; height:100%; width:100%; background:var(--brand); transform-origin:left}
+.count{font-size:clamp(1rem, 2.8vmin, 1.9rem)}
+.count b{font-size:1.45em; font-variant-numeric:tabular-nums}
+.small{font-size:clamp(.85rem, 1.9vmin, 1.1rem); color:var(--mute)}
+.note{padding:.6rem .9rem; border-radius:10px; border:1.5px solid var(--warn); background:var(--warn-bg); color:var(--warn); font-size:clamp(.9rem, 2vmin, 1.2rem)}
+@media (prefers-reduced-motion:no-preference){
+  .barline i.run{animation:shrink linear forwards}
+  @keyframes shrink{from{transform:scaleX(1)} to{transform:scaleX(0)}}
+}
+/* wide and short screens (most projectors): QR on the left, words on the right */
+@media (min-aspect-ratio: 4/3) and (min-width:900px){
+  .panel.show{grid-template-columns:auto minmax(0, 34ch); grid-template-areas:"tile name" "tile count" "tile hint" "bar ."; column-gap:6vmin; align-items:center; justify-items:start; text-align:left}
+  .panel.show .tile{grid-area:tile; width:min(78vh, 52vw)} .panel.show .barline{grid-area:bar; width:min(78vh, 52vw)}
+  .panel.show h1{grid-area:name; align-self:end} .panel.show .count{grid-area:count} .panel.show .hint{grid-area:hint; align-self:start}
+}
+</style>
+</head>
+<body>
+
+<header class="bar">
+ <div class="brand">
+  <img class="logo" src="logo.png" alt="" width="40" height="40" onerror="this.remove()">
+  <span>Sek. Ren. Islam Al-Irsyad Balok</span>
+ </div>
+ <div class="lang" role="group" aria-label="Bahasa / Language">
+  <button type="button" data-lang="ms" aria-pressed="true"  lang="ms" title="Bahasa Melayu">BM</button>
+  <button type="button" data-lang="en" aria-pressed="false" lang="en" title="English">EN</button>
+ </div>
+ <button class="btn" id="full" type="button">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+  <span id="fullText"></span>
+ </button>
+</header>
+
+<main id="stage" aria-live="polite"></main>
+
+<!-- Third-party QR drawing library (MIT licence). Do not edit that file. -->
+<script src="qrcode.js"></script>
+<script>
+/* =====================================================================
+   DISPLAY PAGE  v1   -  the QR on a big screen, with NO login
+   1. This page invents a long secret and keeps it in this browser.
+   2. It sends only a fingerprint of the secret to the database and gets
+      a short code to show.
+   3. An admin, signed in on their own phone, types that code and picks
+      the event. From then on this page receives fresh QR codes.
+   Nothing here can read staff, attendance or anything else.
+   ===================================================================== */
+
+/* ---------- 1. Where the database lives ------------------------------- */
+const API = "https://xtrgefkopnqgektrllra.supabase.co";
+const KEY = "sb_publishable_AzY4sFUQgYQvQRSrFT3qwg_Y6068Gv5";
+const STAFF_PAGE = new URL("./", location.href).href;
+const WAIT_MS   = 3000;     // while showing the pairing code, ask this often
+const ROTATE_MS = 20000;    // while showing the QR, fetch a fresh one this often
+
+/* ---------- 2. Words -------------------------------------------------- */
+const TEXT = {
+  ms: {
+    pageTitle: "Paparan Kod QR", full: "Skrin penuh", fullExit: "Keluar skrin penuh",
+    starting: "Menyediakan paparan…",
+    waitTitle: "Kod paparan", waitLead: "Tiada log masuk diperlukan pada skrin ini.",
+    step1: "Pada telefon anda, buka <strong>Pentadbir</strong> dan pilih tab <strong>Kod QR</strong>.",
+    step2: "Pilih acara, kemudian ketik <strong>Papar di skrin lain</strong>.",
+    step3: "Masukkan kod di atas.",
+    scan: "Imbas dengan kamera telefon untuk merekod kehadiran.", present: "hadir hari ini", of: "daripada {n}",
+    until: "Paparan ini berhenti sendiri pada {time}.",
+    endedTitle: "Paparan tamat", endedLead: "Pentadbir telah menghentikannya, atau masanya sudah habis.", again: "Dapatkan kod baharu",
+    lost: "Sambungan terputus. Mencuba semula…",
+    busy: "Terlalu banyak skrin sedang menunggu. Cuba lagi sebentar.",
+    old: "Pangkalan data belum dikemas kini untuk paparan ini. Minta pentadbir menjalankan fail SQL 05."
+  },
+  en: {
+    pageTitle: "QR Code Display", full: "Full screen", fullExit: "Exit full screen",
+    starting: "Preparing the display…",
+    waitTitle: "Display code", waitLead: "No sign-in is needed on this screen.",
+    step1: "On your phone, open <strong>Admin</strong> and choose the <strong>QR code</strong> tab.",
+    step2: "Choose the event, then tap <strong>Show on another screen</strong>.",
+    step3: "Enter the code above.",
+    scan: "Scan with your phone camera to record attendance.", present: "present today", of: "of {n}",
+    until: "This display stops by itself at {time}.",
+    endedTitle: "Display ended", endedLead: "An admin stopped it, or its time ran out.", again: "Get a new code",
+    lost: "Connection lost. Retrying…",
+    busy: "Too many screens are waiting. Try again in a moment.",
+    old: "The database has not been updated for this display yet. Ask an admin to run SQL file 05."
+  }
+};
+
+/* ---------- 3. Small helpers ------------------------------------------ */
+const $ = selector => document.querySelector(selector);
+const fill = (template, values) => template.replace(/\{(\w+)\}/g, (_, key) => (values && key in values ? values[key] : ""));
+const t = (key, values) => fill(TEXT[lang][key], values);
+function store(key, value) {
+  try {
+    if (value === undefined) return localStorage.getItem(key);
+    if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value);
+  } catch { /* storage unavailable: the page still works until it is reloaded */ }
+  return null;
+}
+/* el("p", "small", "text")  - text is always added as text, never as HTML */
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text != null) node.textContent = text;
+  return node;
+}
+async function door(name, body) {
+  const response = await fetch(API + "/rest/v1/rpc/" + name, {
+    method: "POST", headers: { apikey: KEY, "Content-Type": "application/json" }, body: JSON.stringify(body),
+    signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined
+  });
+  if (!response.ok) throw { http: response.status };
+  return response.json();
+}
+const randomHex = bytes => Array.from(crypto.getRandomValues(new Uint8Array(bytes)), b => b.toString(16).padStart(2, "0")).join("");
+async function fingerprint(text) {
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, "0")).join("");
+}
+
+/* ---------- 4. What the page currently knows -------------------------- */
+let lang   = store("lang") === "en" ? "en" : "ms";
+let secret = store("display_secret");          // the long secret; it never leaves this browser except to collect
+let view   = { state: "starting" };            // starting | waiting | showing | ended | busy | old
+let lost   = false;                            // could not reach the database on the last try
+let goodUntil = 0;                             // when the QR on screen stops being accepted
+let timer = null, lock = null;
+
+/* ---------- 5. Drawing ------------------------------------------------- */
+function draw(restartBarMs) {
+  document.documentElement.lang = lang;
+  document.title = t("pageTitle");
+  document.querySelectorAll(".lang button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
+  $("#fullText").textContent = t(document.fullscreenElement ? "fullExit" : "full");
+  $("#full").setAttribute("aria-label", $("#fullText").textContent);
+
+  const panel = el("div", "panel");
+  if (view.state === "waiting") {
+    panel.append(el("p", "lead", t("waitTitle")), el("div", "code", view.code));
+    const steps = el("ol", "steps");
+    for (const key of ["step1", "step2", "step3"]) { const li = document.createElement("li"); li.innerHTML = t(key); steps.append(li); }
+    panel.append(steps, el("p", "small", t("waitLead")));
+  } else if (view.state === "showing") {
+    panel.classList.add("show");
+    const tile = el("div", "tile");
+    if (view.token && Date.now() < goodUntil) tile.append(qrPicture(STAFF_PAGE + "?e=" + encodeURIComponent(view.event_code) + "&t=" + encodeURIComponent(view.token), view.event_name));
+    else tile.textContent = t("lost");                                   // never leave a dead code on screen
+    const bar = el("div", "barline"); bar.setAttribute("aria-hidden", "true"); const fillBar = document.createElement("i"); bar.append(fillBar);
+    if (restartBarMs) { fillBar.style.animationDuration = restartBarMs + "ms"; fillBar.className = "run"; }
+    const count = el("p", "count"); count.append(el("b", "", String(view.present)), " " + t("present") + " " + t("of", { n: view.total }));
+    const hint = el("div", "hint"); hint.append(el("p", "lead", t("scan")),
+      el("p", "small", t("until", { time: new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour: "2-digit", minute: "2-digit" }).format(new Date(view.ends_at)) })));
+    panel.append(el("h1", "", view.event_name), tile, bar, count, hint);
+  } else if (view.state === "ended") {
+    const again = el("button", "btn primary", t("again")); again.type = "button"; again.addEventListener("click", startOver);
+    panel.append(el("h1", "", t("endedTitle")), el("p", "lead", t("endedLead")), again);
+  } else {
+    panel.append(el("p", "lead", t(view.state === "busy" ? "busy" : view.state === "old" ? "old" : "starting")));
+  }
+  if (lost && view.state !== "showing") panel.append(el("p", "note", t("lost")));
+  $("#stage").replaceChildren(panel);
+}
+
+function qrPicture(text, label) {
+  const qr = qrcode(0, "M"); qr.addData(text); qr.make();
+  const n = qr.getModuleCount(), quiet = 4;
+  let path = "";
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) path += `M${c + quiet} ${r + quiet}h1v1h-1z`;
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", `0 0 ${n + quiet * 2} ${n + quiet * 2}`); svg.setAttribute("shape-rendering", "crispEdges");
+  svg.setAttribute("role", "img"); svg.setAttribute("aria-label", "QR: " + label);
+  svg.innerHTML = `<path d="${path}" fill="#000"/>`;
+  return svg;
+}
+
+/* ---------- 6. The loop ------------------------------------------------ */
+async function register() {
+  if (!secret) { secret = randomHex(32); store("display_secret", secret); }
+  const reply = await door("display_register", { p_secret_hash: await fingerprint(secret) });
+  if (reply.ok) { view = { state: "waiting", code: reply.code }; return; }
+  if (reply.reason === "already_used") { secret = null; store("display_secret", null); return register(); }   // this secret has had its turn
+  view = { state: "busy" };
+}
+
+async function tick() {
+  clearTimeout(timer);
+  if (document.hidden) return;                 // tab not visible: wait. It restarts when the tab is shown again.
+  let next = WAIT_MS, restartBar = 0;
+  try {
+    // No secret yet (first visit, or the last display ended): ask for a pairing code.
+    // A secret already kept (the page was reloaded): go straight to collecting, so a running display survives a reload.
+    if (!secret || view.state === "busy") await register();
+    else {
+      const reply = await door("display_poll", { p_secret: secret });
+      if (reply.state === "showing") {
+        view = reply; goodUntil = Date.now() + reply.valid_seconds * 1000;
+        next = restartBar = Math.min(ROTATE_MS, reply.valid_seconds * 500);
+        keepAwake();
+      } else if (reply.state === "waiting") view = { state: "waiting", code: reply.code };
+      else if (reply.state === "ended") { view = { state: "ended" }; secret = null; store("display_secret", null); }
+      else { secret = null; store("display_secret", null); view = { state: "starting" }; next = 200; }                 // unknown: start again
+    }
+    lost = false;
+    if (view.state === "busy") next = 15000;
+  } catch (error) {
+    if (error && error.http === 404) view = { state: "old" };            // the database has no display doors yet
+    else { lost = true; next = 5000; }
+  }
+  draw(restartBar);
+  if (view.state !== "ended" && view.state !== "old") timer = setTimeout(tick, next);
+}
+
+function startOver() { secret = null; store("display_secret", null); view = { state: "starting" }; draw(); tick(); }
+
+/* Ask the device not to dim or sleep while the QR is showing. Not every browser can. */
+async function keepAwake() {
+  if (lock || !("wakeLock" in navigator)) return;
+  try { lock = await navigator.wakeLock.request("screen"); lock.addEventListener("release", () => { lock = null; }); }
+  catch { /* the screen may sleep; nothing else breaks */ }
+}
+
+/* ---------- 7. Start --------------------------------------------------- */
+$("#full").addEventListener("click", () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+});
+document.addEventListener("fullscreenchange", () => draw());
+document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
+document.querySelectorAll(".lang button").forEach(b => b.addEventListener("click", () => { lang = b.dataset.lang; store("lang", lang); draw(); }));
+
+draw();
+tick();
+</script>
+</body>
+</html>

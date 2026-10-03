@@ -10,7 +10,7 @@ web
 
 - **Staff** of Sek. Ren. Islam Al-Irsyad Balok, about 70 people (permanent staff plus a few interns and contract staff). They record their own attendance on their own device while physically at the location. Phones are the main device; tablets and computers must also work.
 - **Two situations of equal weight:** daily attendance at school, and separate events and programmes (meetings, courses, off-site activities).
-- **Admins** show the rotating QR at the location and read the attendance log. Who the admins are is an open decision (see below).
+- **Admins**, at three levels. An owner controls everything. A manager runs events, hours and staff. An operator only shows the QR and views attendance. Two or three admins are expected.
 - **Maintainer:** one member of the school's staff who is not a professional programmer, can read code, and works through a browser with GitHub and Supabase.
 
 ## Product Purpose
@@ -46,18 +46,35 @@ The database decides, not the page. The phone only reports measured facts (posit
 **Admin page (`admin.html`)**
 
 - Sign-in with a Supabase account that is listed in the `admins` table. The session lasts for the browser tab only.
+- Three levels: owner, manager, operator. The database enforces them; the page only hides what a level cannot do.
 - QR screen: a code that changes every 20 seconds, a live count of who is present, full-screen mode, and a switch to require the QR for that event.
 - Attendance: by date, event and session, with three lists (present, not checked in, rejected), GPS and device details, and CSV download.
-- Events and attendance hours: add, change, remove; hours can repeat on chosen weekdays or cover chosen dates.
-- Staff: add, change, set inactive, remove.
-- Settings: organisation name, GPS accuracy limit, QR lifetime.
+- Events and attendance hours: add, change, remove; hours can repeat on chosen weekdays or cover chosen dates. Lists show current events by default, with search and an archive view.
+- Staff: add, change, set inactive, remove. The list opens on active staff.
+- Settings (owner): organisation name, GPS accuracy limit, QR lifetime, the other admins and their levels, and the activity record.
+
+**Display page (`display.html`)**
+
+- Shows the rotating QR on a big screen with no login. It shows a short code; an admin enters the code on their own signed-in phone, picks the event and a duration, and can stop it from the phone.
+- It shows the event name and a head count only. It can read nothing else.
+
+**Archive, not delete**
+
+- Removing an event or session that already has attendance archives it. It leaves the staff page, the QR screen and the normal lists, cannot be checked in to, and can be restored. Its attendance rows keep their names.
+- An archived event's code can be reused for a new event.
+- Removing a staff member who has attendance sets them inactive.
+- Things with no attendance are really deleted.
+
+**Activity record**
+
+- Every add, change and removal of staff, events, hours, settings and admins is recorded with who and when. Only an owner can read it. Nobody can edit it from the website.
 
 **Deliberately not possible from the website**
 
 - Changing or deleting an attendance row. The log is evidence.
-- Adding or removing an admin. That is done in Supabase.
+- Creating an admin's account or password. That is done in Supabase; the page only assigns a level to an existing account.
+- Leaving the system with no owner.
 - Creating or dropping database tables. Structure changes go through numbered SQL files run in the Supabase SQL Editor.
-- Removing a staff member, event or session that already has attendance. It is set inactive instead.
 
 **Planned**
 
@@ -90,14 +107,14 @@ The database decides, not the page. The phone only reports measured facts (posit
 
 **Open decisions**
 
-- Who the admins will be (one person or several). The page supports any number.
-- Which device will show the rotating QR. The QR screen works on a phone, a tablet or a large screen.
 - Whether the school's official colours must be used.
+- What the link to the official website (irsyadbalok.com.my) on the staff page becomes later; another plan for it is expected.
+- Reporting across a date range (a month or a term). Today attendance is viewed one day at a time.
 - Whether a formal accessibility standard applies.
 
 ## Brand Commitments
 
-- The school is named on the page as "Sek. Ren. Islam Al-Irsyad Balok".
+- The school is named on the page as "Sek. Ren. Islam Al-Irsyad Balok". The logo and name on the staff page link to the official website, https://irsyadbalok.com.my/, and the staff page has a small link to the admin sign-in.
 - Interface text exists in both Bahasa Melayu and English, with Bahasa Melayu first.
 - The school logo appears in the page header and as the browser tab icon, from a single `logo.png` beside the page.
 - No colour or typeface has been made binding.
@@ -105,7 +122,7 @@ The database decides, not the page. The phone only reports measured facts (posit
 ## Evidence on Hand
 
 - Live staff page: https://pijipie.github.io/attendance-app/
-- Source: `index.html`, `admin.html`, `qrcode.js` (third-party, MIT), and the SQL files `database/01_schema.sql` to `database/04_admin.sql`, run in number order.
+- Source: `index.html`, `admin.html`, `display.html`, `qrcode.js` (third-party, MIT), and the SQL files `database/01_schema.sql` to `database/05_roles_archive_displays.sql`, run in number order.
 - A working database with the real staff list and six real events, plus test rows that must be removed before the pilot.
 - One real phone test on 3 Oct 2026: one accepted check-in at 7 m, one rejected at 7,825 m.
 - There are no usage figures, user feedback, testimonials or screenshots from real use yet. Do not invent any.

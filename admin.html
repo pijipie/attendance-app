@@ -42,6 +42,7 @@ body{
 h1{margin:0; font-size:1.45rem; line-height:1.2; letter-spacing:-.01em}
 h2{margin:0; font-size:1.1rem; line-height:1.25}
 p{margin:0}
+a{color:var(--brand); text-underline-offset:3px}
 .mute{color:var(--mute)}
 .small{font-size:.88rem}
 
@@ -168,6 +169,9 @@ td.edit{padding:14px; white-space:normal; background:var(--bg)}
   @keyframes shrink{from{transform:scaleX(1)} to{transform:scaleX(0)}}
 }
 
+.pair summary{cursor:pointer; font-weight:600; padding:.35rem 0; border-radius:6px}
+.pair[open] summary{margin-bottom:.7rem}
+
 /* ---------- events list ---------- */
 .list{display:grid; gap:10px}
 .item{background:var(--card); border:1px solid var(--line); border-radius:14px}
@@ -267,6 +271,7 @@ td.edit{padding:14px; white-space:normal; background:var(--bg)}
    </div>
    <button class="btn primary" id="loginGo" type="submit" data-t="signIn"></button>
   </form>
+  <p class="small"><a href="./" data-t="backToStaff"></a></p>
  </section>
 
  <!-- The five screens. Their contents are drawn by the script. -->
@@ -291,8 +296,15 @@ td.edit{padding:14px; white-space:normal; background:var(--bg)}
 <script src="qrcode.js"></script>
 <script>
 /* =====================================================================
-   ADMIN PAGE  v1
+   ADMIN PAGE  v2
    Sign in  ->  QR screen | Attendance | Events + time windows | Staff | Settings
+
+   THREE LEVELS (set in Settings > Admins by an owner)
+     owner    : everything
+     manager  : QR, attendance, events, hours, staff
+     operator : QR and attendance only
+   The page hides what a level cannot do, but that is only for tidiness.
+   The real lock is in the database: it refuses the request whatever the page shows.
 
    SAFETY MODEL (the same idea as the staff page)
    This page is public code. What protects the data is the database:
@@ -308,6 +320,7 @@ const TIME_ZONE     = "Asia/Kuala_Lumpur";
 const QR_ROTATE_MS  = 20000;      // draw a fresh QR this often
 const LOG_REFRESH_MS = 30000;     // reload the attendance list this often
 const STAFF_PAGE    = new URL("./", location.href).href;   // the check-in page lives next to this file
+const DISPLAY_PAGE  = STAFF_PAGE + "display.html";          // the no-login page for a big screen
 
 
 /* ---------- 2. All words on the page, in both languages --------------- */
@@ -321,6 +334,33 @@ const TEXT = {
     remove: "Padam", removeAsk: "Padam selama-lamanya?", removeYes: "Ya, padam", close: "Tutup mesej",
     active: "Aktif", inactive: "Tidak aktif", yes: "Ya", no: "Tidak", all: "Semua",
     refresh: "Muat semula", updatedAt: "Dikemas kini {time}",
+
+    levelOwner: "Pemilik", levelManager: "Pengurus", levelOperator: "Petugas",
+    levelOwnerHelp: "Boleh membuat semua perkara, termasuk tetapan dan mengurus pentadbir.",
+    levelManagerHelp: "Boleh memaparkan QR, melihat kehadiran, dan mengubah acara, waktu serta staf.",
+    levelOperatorHelp: "Boleh memaparkan QR dan melihat kehadiran sahaja.",
+    setLevel: "Tahap anda: {level}.", backToStaff: "Halaman kehadiran staf",
+    pairTitle: "Papar di skrin lain, tanpa log masuk di sana",
+    pairHelp: "Pada skrin besar, buka {url}. Ia memaparkan satu kod 6 aksara. Masukkan kod itu di sini.",
+    pairCode: "Kod pada skrin", pairFor: "Tempoh", pairGo: "Mula di skrin itu", pairMin: "{n} minit", pairHour: "{n} jam",
+    pairRunning: "Skrin yang sedang memaparkan", pairUntil: "{event} · hingga {time}", pairStop: "Henti",
+    okPaired: "Skrin itu kini memaparkan kod", okStopped: "Paparan dihentikan",
+    errPairCode: "Kod itu tidak ditemui atau sudah tamat. Semak kod pada skrin dan cuba lagi.", errPairEvent: "Pilih acara yang aktif dahulu.",
+    evShow: "Papar", evCurrent: "Semasa", evArchived: "Diarkib", evSearch: "Cari nama atau kod",
+    evArchivedOn: "diarkib {d}", evRestore: "Pulihkan", evNoMatch: "Tiada acara sepadan dengan carian ini.", evNoArchived: "Tiada acara dalam arkib.",
+    removeArchiveAsk: "Padam? Jika sudah ada rekod kehadiran, ia diarkibkan dan rekod dikekalkan.",
+    okArchived: "Diarkibkan", okArchivedText: "Sudah ada rekod kehadiran, jadi ia dipindahkan ke arkib. Rekod kehadiran dikekalkan.",
+    okRestored: "Dipulihkan", okRestoredText: "Acara ini masih tidak aktif. Aktifkan apabila bersedia.",
+    okInactive: "Ditandakan tidak aktif", okInactiveText: "Staf ini sudah ada rekod kehadiran, jadi tidak dipadam.",
+    errRestoreCode: "Kod acara ini sedang digunakan oleh acara lain. Tukar kod acara itu dahulu.",
+    admTitle: "Pentadbir", admHelp: "Langkah 1: cipta akaun di Supabase > Authentication > Users > Add user. Langkah 2: masukkan e-mel yang sama di sini dan pilih tahap.",
+    admEmail: "E-mel akaun", admLevel: "Tahap", admAdd: "Tambah pentadbir", admYou: "anda",
+    errNoUser: "Tiada akaun dengan e-mel itu. Cipta akaun di Supabase dahulu.", errLastOwner: "Mesti ada sekurang-kurangnya seorang pemilik.",
+    actTitle: "Rekod aktiviti", actHelp: "Setiap tambahan, perubahan dan pemadaman dicatat sendiri. Tiada sesiapa boleh mengubah rekod ini dari laman web.",
+    actLoad: "Papar 50 terkini", actEmpty: "Belum ada aktiviti direkodkan.", actSql: "Supabase (SQL)",
+    act_insert: "Tambah", act_update: "Ubah", act_delete: "Padam", act_archive: "Arkib", act_restore: "Pulih",
+    tg_staff: "staf", tg_events: "acara", tg_event_windows: "waktu", tg_org_settings: "tetapan", tg_admins: "pentadbir",
+    colWhen: "Bila", colWho: "Siapa", colWhat: "Apa", setDisplayLink: "Pautan halaman paparan (skrin besar)",
 
     qrTitle: "Kod QR di lokasi", qrHelp: "Paparkan skrin ini di lokasi. Kod bertukar sendiri setiap {s} saat, jadi gambar kod yang dihantar kepada orang lain tidak boleh digunakan.",
     qrEvent: "Acara", qrChoose: "Pilih acara…", qrNoEvents: "Tiada acara aktif. Tambah acara dahulu.",
@@ -367,12 +407,12 @@ const TEXT = {
     setTitle: "Tetapan", setOrg: "Nama organisasi", setAccuracy: "Had ketepatan GPS (meter)",
     setAccuracyHelp: "Kehadiran ditolak jika ketepatan GPS telefon lebih buruk daripada nilai ini. Nilai biasa: 30.",
     setQrSeconds: "Tempoh sah kod QR (saat)", setQrSecondsHelp: "Berapa lama satu kod yang diimbas masih diterima. Antara 10 dan 600. Cadangan: 90.",
-    setAccount: "Akaun", setSignedIn: "Log masuk sebagai {email}.", setAdmins: "Pentadbir ditambah atau dibuang di Supabase, bukan di halaman ini. Itu sengaja, supaya tiada sesiapa boleh menjadikan dirinya pentadbir dari laman web.",
+    setAccount: "Akaun", setSignedIn: "Log masuk sebagai {email}.", setAdmins: "Tahap anda ditetapkan oleh pemilik.",
     setStaffLink: "Pautan halaman staf", setCopy: "Salin pautan", copied: "Pautan disalin",
 
     okSaved: "Disimpan", okRemoved: "Dipadam", okQrOn: "QR kini diwajibkan", okQrOff: "QR tidak lagi diwajibkan",
     errTitle: "Tidak berjaya", errLogin: "E-mel atau kata laluan salah.", errTooMany: "Terlalu banyak percubaan. Tunggu sebentar dan cuba lagi.",
-    errNotAdmin: "Akaun ini bukan pentadbir. Minta pentadbir sedia ada menambah anda di Supabase.",
+    errNotAdmin: "Akaun ini bukan pentadbir. Minta pemilik menambah anda dalam Tetapan > Pentadbir.",
     errSession: "Sesi anda telah tamat. Sila log masuk semula.", errNetwork: "Sambungan gagal. Semak internet anda dan cuba lagi.",
     errInUse: "Tidak boleh dipadam kerana sudah ada rekod kehadiran yang merujuknya. Tandakan sebagai tidak aktif.",
     errDuplicate: "Kod itu sudah digunakan. Pilih kod lain.", errCheck: "Satu nilai tidak dibenarkan. Semak nombor dan masa.",
@@ -392,6 +432,33 @@ const TEXT = {
     remove: "Delete", removeAsk: "Delete for good?", removeYes: "Yes, delete", close: "Close message",
     active: "Active", inactive: "Inactive", yes: "Yes", no: "No", all: "All",
     refresh: "Refresh", updatedAt: "Updated {time}",
+
+    levelOwner: "Owner", levelManager: "Manager", levelOperator: "Operator",
+    levelOwnerHelp: "Can do everything, including settings and managing admins.",
+    levelManagerHelp: "Can show the QR, view attendance, and edit events, hours and staff.",
+    levelOperatorHelp: "Can show the QR and view attendance only.",
+    setLevel: "Your level: {level}.", backToStaff: "Staff attendance page",
+    pairTitle: "Show on another screen, without signing in there",
+    pairHelp: "On the big screen, open {url}. It shows a 6-character code. Enter that code here.",
+    pairCode: "Code on the screen", pairFor: "Duration", pairGo: "Start on that screen", pairMin: "{n} minutes", pairHour: "{n} hours",
+    pairRunning: "Screens showing now", pairUntil: "{event} · until {time}", pairStop: "Stop",
+    okPaired: "That screen is now showing the code", okStopped: "Display stopped",
+    errPairCode: "That code was not found or has run out. Check the code on the screen and try again.", errPairEvent: "Choose an active event first.",
+    evShow: "Show", evCurrent: "Current", evArchived: "Archived", evSearch: "Search name or code",
+    evArchivedOn: "archived {d}", evRestore: "Restore", evNoMatch: "No events match this search.", evNoArchived: "Nothing in the archive.",
+    removeArchiveAsk: "Delete? If it already has attendance records it is archived and the records are kept.",
+    okArchived: "Archived", okArchivedText: "It already has attendance records, so it was moved to the archive. The records are kept.",
+    okRestored: "Restored", okRestoredText: "This event is still inactive. Activate it when ready.",
+    okInactive: "Marked inactive", okInactiveText: "This staff member already has attendance records, so was not deleted.",
+    errRestoreCode: "This event code is in use by another event. Change that event's code first.",
+    admTitle: "Admins", admHelp: "Step 1: create the account in Supabase > Authentication > Users > Add user. Step 2: enter the same email here and choose a level.",
+    admEmail: "Account email", admLevel: "Level", admAdd: "Add admin", admYou: "you",
+    errNoUser: "No account has that email. Create the account in Supabase first.", errLastOwner: "There must be at least one owner.",
+    actTitle: "Activity record", actHelp: "Every addition, change and deletion is written down automatically. Nobody can alter this record from the website.",
+    actLoad: "Show latest 50", actEmpty: "No activity recorded yet.", actSql: "Supabase (SQL)",
+    act_insert: "Add", act_update: "Change", act_delete: "Delete", act_archive: "Archive", act_restore: "Restore",
+    tg_staff: "staff", tg_events: "event", tg_event_windows: "hours", tg_org_settings: "settings", tg_admins: "admin",
+    colWhen: "When", colWho: "Who", colWhat: "What", setDisplayLink: "Display page link (big screen)",
 
     qrTitle: "QR code at the location", qrHelp: "Show this screen at the location. The code changes by itself every {s} seconds, so a photo of it sent to someone else cannot be used.",
     qrEvent: "Event", qrChoose: "Choose an event…", qrNoEvents: "No active events. Add an event first.",
@@ -438,12 +505,12 @@ const TEXT = {
     setTitle: "Settings", setOrg: "Organisation name", setAccuracy: "GPS accuracy limit (metres)",
     setAccuracyHelp: "Attendance is refused when the phone's GPS accuracy is worse than this. Usual value: 30.",
     setQrSeconds: "QR code lifetime (seconds)", setQrSecondsHelp: "How long a scanned code is still accepted. Between 10 and 600. Suggested: 90.",
-    setAccount: "Account", setSignedIn: "Signed in as {email}.", setAdmins: "Admins are added or removed in Supabase, not on this page. That is on purpose, so nobody can make themselves an admin from the website.",
+    setAccount: "Account", setSignedIn: "Signed in as {email}.", setAdmins: "Your level is set by an owner.",
     setStaffLink: "Staff page link", setCopy: "Copy link", copied: "Link copied",
 
     okSaved: "Saved", okRemoved: "Deleted", okQrOn: "QR is now required", okQrOff: "QR is no longer required",
     errTitle: "Unsuccessful", errLogin: "Wrong email or password.", errTooMany: "Too many attempts. Wait a moment and try again.",
-    errNotAdmin: "This account is not an admin. Ask an existing admin to add you in Supabase.",
+    errNotAdmin: "This account is not an admin. Ask an owner to add you under Settings > Admins.",
     errSession: "Your session has ended. Please sign in again.", errNetwork: "Connection failed. Check your internet and try again.",
     errInUse: "Cannot be deleted because attendance records already refer to it. Mark it inactive instead.",
     errDuplicate: "That code is already in use. Choose another.", errCheck: "A value is not allowed. Check the numbers and times.",
@@ -521,12 +588,14 @@ const todayKL  = () => new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE })
 const clockKL  = iso => new Intl.DateTimeFormat("en-GB", { timeZone: TIME_ZONE, hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date(iso));
 const showDate = ymd => ymd ? ymd.split("-").reverse().join("/") : "";                                             // 03/10/2026
 const hhmm     = time => (time || "").slice(0, 5);
+const dateKL   = iso => showDate(new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE }).format(new Date(iso)));
 
 
 /* ---------- 4. What the page currently knows -------------------------- */
 const state = {
   lang: store(localStorage, "lang") === "en" ? "en" : "ms",
   session: null,                 // { access_token, refresh_token, expires_at, email }
+  role: null,                    // "owner" | "manager" | "operator"
   view: "qr",
   staff: [], events: [], windows: [], settings: null,
   openNow: {},                   // event_code -> true/false, from list_events()
@@ -535,8 +604,14 @@ const state = {
   qr:  { eventId: store(sessionStorage, "qr_event") || "", token: null, goodUntil: 0, lost: false, present: null, timer: null, busy: false, run: 0, lock: null },
   log: { date: todayKL(), eventId: "", windowId: "", tab: "present", rows: [], capped: false, loadedAt: null, loading: false,
          details: window.matchMedia("(min-width: 900px)").matches, timer: null },
-  staffFilter: { text: "", show: "all" }
+  staffFilter: { text: "", show: "active" },
+  evFilter: { text: "", show: "current" },
+  displays: [], canPair: false, pairOpen: false,     // screen pairing
+  admins: [], activity: null                         // owner only
 };
+
+const canManage = () => state.role === "owner" || state.role === "manager";
+const isOwner   = () => state.role === "owner";
 
 
 /* ---------- 5. The floating notification ------------------------------ */
@@ -556,7 +631,7 @@ function toast(kind, title, text) {
   $("#announce").textContent = title + (text ? ". " + text : "");
   if (toastEl.hidden) { toastEl.hidden = false; if (canLift) toastEl.showPopover(); }
   else { toastEl.style.animation = "none"; void toastEl.offsetWidth; toastEl.style.animation = ""; }
-  if (kind === "ok") toastTimer = setTimeout(hideToast, 4000);       // good news leaves by itself; problems stay
+  if (kind === "ok") toastTimer = setTimeout(hideToast, text ? 7000 : 4000);   // good news leaves by itself; problems stay
 }
 function hideToast() {
   clearTimeout(toastTimer);
@@ -627,7 +702,7 @@ async function renewSession() {
 function endSession(messageKey) {
   const token = state.session && state.session.access_token;
   if (token) fetch(API + "/auth/v1/logout", { method: "POST", headers: { apikey: KEY, Authorization: "Bearer " + token } }).catch(() => {});
-  setSession(null);
+  setSession(null); state.role = null; state.admins = []; state.activity = null; state.displays = [];
   stopQr(); clearTimeout(state.log.timer);
   state.staff = []; state.events = []; state.windows = []; state.settings = null; state.log.rows = [];
   showLogin();
@@ -643,9 +718,8 @@ async function signIn(event) {
   try {
     setSession(await authCall("password", { email, password }));
     $("#password").value = "";
-    if (!(await api("rpc/is_admin", { method: "POST", body: {} })).data) {
-      setSession(null); toast("bad", t("errTitle"), t("errNotAdmin")); return;
-    }
+    state.role = await fetchRole();
+    if (!state.role) { setSession(null); toast("bad", t("errTitle"), t("errNotAdmin")); return; }
     hideToast();
     await enterApp();
   } catch (error) {
@@ -688,6 +762,26 @@ async function api(path, { method = "GET", body } = {}) {
   return { data };
 }
 
+/* Which level is the signed-in person? null means "not an admin". */
+async function fetchRole() {
+  try { return (await api("rpc/admin_role", { method: "POST", body: {} })).data; }
+  catch (error) {
+    if (error.status !== 404) throw error;
+    // The database has not had 05_roles_archive_displays.sql run yet: fall back to the old yes/no question.
+    return (await api("rpc/is_admin", { method: "POST", body: {} })).data ? "owner" : null;
+  }
+}
+
+/* Remove through one of the database's "remove" doors. It answers "deleted" or "archived". */
+async function removeViaDoor(door, body, plainPath) {
+  try { return (await api("rpc/" + door, { method: "POST", body })).data; }
+  catch (error) {
+    if (error.status !== 404) throw error;
+    await api(plainPath, { method: "DELETE" });       // older database without that door
+    return "deleted";
+  }
+}
+
 async function loadBasics() {
   const [staff, events, windows, settings] = await Promise.all([
     api("staff?select=*&order=full_name.asc"),
@@ -696,11 +790,13 @@ async function loadBasics() {
     api("org_settings?select=*&id=eq.1")
   ]);
   state.staff = staff.data; state.events = events.data; state.windows = windows.data; state.settings = settings.data[0] || null;
+  await loadDisplays();
 }
 const eventById   = id => state.events.find(e => e.id === id);
 const staffById   = id => state.staff.find(s => s.id === id);
 const windowById  = id => state.windows.find(w => w.id === id);
-const windowsOf   = eventId => state.windows.filter(w => w.event_id === eventId);
+const windowsOf   = eventId => state.windows.filter(w => w.event_id === eventId && !w.archived_at);   // current sessions only
+const liveEvents  = () => state.events.filter(e => !e.archived_at);                                     // everything not in the archive
 
 
 /* ---------- 8. Moving between screens --------------------------------- */
@@ -714,12 +810,14 @@ function showLogin() {
 
 async function enterApp() {
   $("#view-login").hidden = true; $("#tabs").hidden = false; $("#logout").hidden = false;
+  document.querySelectorAll("#tabs a").forEach(a => { a.hidden = !allowedViews().includes(a.getAttribute("href").slice(1)); });
   showView(viewFromHash(), true);
   try { await loadBasics(); } catch (error) { if (error.kind !== "session") fail(error); return; }
   showView(viewFromHash());
 }
 
-const viewFromHash = () => VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "qr";
+const allowedViews = () => canManage() ? VIEWS : ["qr", "log", "settings"];
+const viewFromHash = () => allowedViews().includes(location.hash.slice(1)) ? location.hash.slice(1) : "qr";
 
 function showView(name, loading) {
   if (!state.session) return;
@@ -739,15 +837,18 @@ function showView(name, loading) {
 const redraw = () => showView(state.view);
 
 /* A Delete button that asks once more, in the page, before it acts. */
-function removeButton(id, action) {
+function removeButton(id, action, question) {
   if (state.confirm !== id) {
     return h("button", { class: "btn small danger", type: "button", onclick: () => { state.confirm = id; redraw(); } }, t("remove"));
   }
   return h("span", { class: "actions" },
-    h("span", { class: "small" }, t("removeAsk")),
+    h("span", { class: "small" }, question || t("removeAsk")),
     h("button", { class: "btn small danger", type: "button", onclick: async () => {
-      try { const stayOpen = await action(); state.confirm = null; state.edit = stayOpen || null; toast("ok", t("okRemoved")); }
-      catch (error) { state.confirm = null; fail(error); }
+      try {
+        const result = (await action()) || {};          // may say { stay: which editor stays open, message: [title, text] }
+        state.confirm = null; state.edit = result.stay || null;
+        toast("ok", ...(result.message || [t("okRemoved")]));
+      } catch (error) { state.confirm = null; fail(error); }
       redraw();
     } }, t("removeYes")),
     h("button", { class: "btn small", type: "button", onclick: () => { state.confirm = null; redraw(); } }, t("cancel")));
@@ -771,7 +872,7 @@ const CODE_OK = /^[A-Za-z0-9_-]{1,20}$/;
    and draws it as a QR. Staff scan it, which opens the check-in page with
    that token. Old tokens stop working after the lifetime in Settings.   */
 function drawQrScreen() {
-  const active = state.events.filter(e => e.active);
+  const active = liveEvents().filter(e => e.active);
   if (!active.some(e => e.id === state.qr.eventId)) state.qr.eventId = "";
   const ev = eventById(state.qr.eventId);
   const picker = h("select", { id: "qrEvent", value: state.qr.eventId, onchange: e => { state.qr.eventId = e.target.value; store(sessionStorage, "qr_event", e.target.value); stopQr(); drawQrScreen(); } },
@@ -785,10 +886,10 @@ function drawQrScreen() {
     h("p", { class: "mute small", id: "qrHint" }, ev ? t("qrScan") : ""),
     h("p", { class: "qr-count", id: "qrCount" }));
 
-  const pick = h("div", { class: "card qr-pick" }, field(t("qrEvent"), picker));
+  const pick = h("div", { class: "card form qr-pick" }, field(t("qrEvent"), picker), ev && state.canPair && pairPanel(ev));
   const side = h("div", { class: "qr-side" },
     ev && h("div", { class: "card form" },
-      h("div", null,
+      canManage() && h("div", null,                       // only a manager or owner may change the rule
         check("qrRequire", t("qrRequire"), ev.require_qr),
         h("p", { class: "help" }, t("qrRequireHelp"))),
       h("button", { class: "btn", type: "button", id: "qrFull", onclick: toggleFullscreen }, icon("full"), t("qrFull"))),
@@ -799,7 +900,8 @@ function drawQrScreen() {
     h("div", { class: "qr-layout" }, pick, stage, side));
 
   if (ev) {
-    $("#qrRequire").addEventListener("change", async e => {
+    const box = $("#qrRequire");
+    if (box) box.addEventListener("change", async e => {
       const on = e.target.checked;
       try {
         const { data } = await api("events?id=eq." + ev.id, { method: "PATCH", body: { require_qr: on } });
@@ -807,9 +909,63 @@ function drawQrScreen() {
       } catch (error) { e.target.checked = !on; fail(error); }
       paintQr();
     });
+    paintDisplays();
     if (state.qr.token) paintQr();
     if (!state.qr.timer && !state.qr.busy) qrTick();
   }
+}
+
+/* "Show on another screen": the admin types the code that display.html is showing.
+   Nobody has to sign in on the big screen. */
+function pairPanel(ev) {
+  const code = h("input", { id: "pairCode", class: "code", maxlength: 8, autocomplete: "off", autocapitalize: "characters", spellcheck: "false" });
+  const mins = h("select", { id: "pairMins", value: "120" },
+    [30, 60, 120, 240, 480].map(m => h("option", { value: String(m) }, m < 60 ? t("pairMin", { n: m }) : t("pairHour", { n: m / 60 }))));
+  const go = h("button", { class: "btn primary", type: "submit" }, t("pairGo"));
+  return h("details", { class: "pair", id: "pairBox", open: state.pairOpen, ontoggle: e => { state.pairOpen = e.target.open; } },
+    h("summary", null, t("pairTitle")),
+    h("form", { class: "form", novalidate: true, onsubmit: async e => {
+      e.preventDefault();
+      if (!code.value.trim()) return toast("bad", t("errTitle"), t("errRequired"));
+      go.disabled = true;
+      try {
+        const { data } = await api("rpc/display_approve", { method: "POST", body: { p_pair_code: code.value, p_event_code: ev.event_code, p_minutes: Number(mins.value) } });
+        if (!data.ok) throw { text: t({ unknown_event: "errPairEvent", not_admin: "errNotAllowed" }[data.reason] || "errPairCode") };
+        code.value = ""; toast("ok", t("okPaired"));
+        await loadDisplays();
+      } catch (error) { fail(error); }
+      go.disabled = false;
+    } },
+      h("p", { class: "help" }, t("pairHelp", { url: DISPLAY_PAGE })),
+      h("div", { class: "row" }, field(t("pairCode"), code), field(t("pairFor"), mins)),
+      h("div", { class: "actions" }, go)),
+    h("div", { id: "pairList", class: "form", style: "margin-top:14px" }));
+}
+
+/* Which big screens are showing a code right now? */
+async function loadDisplays() {
+  try {
+    const { data } = await api("qr_displays?select=id,event_id,expires_at&event_id=not.is.null&stopped_at=is.null&expires_at=gt."
+      + encodeURIComponent(new Date().toISOString()) + "&order=expires_at.asc");
+    state.displays = data; state.canPair = true;
+  } catch (error) {
+    if (error.status === 404) state.canPair = false;      // database without screen pairing yet
+  }
+  paintDisplays();
+}
+
+function paintDisplays() {
+  const box = $("#pairList");
+  if (!box) return;
+  box.replaceChildren(...(!state.displays.length ? [] : [
+    h("p", { class: "label" }, t("pairRunning")),
+    h("div", { class: "windows" }, state.displays.map(d => h("div", { class: "window" },
+      h("div", null, t("pairUntil", { event: (eventById(d.event_id) || {}).name || "", time: clockKL(d.expires_at).slice(0, 5) })),
+      h("button", { class: "btn small", type: "button", onclick: async () => {
+        try { await api("rpc/display_stop", { method: "POST", body: { p_display_id: d.id } }); toast("ok", t("okStopped")); }
+        catch (error) { fail(error); }
+        loadDisplays();
+      } }, t("pairStop")))))]));
 }
 
 async function qrTick() {
@@ -918,7 +1074,7 @@ async function loadLog(quiet) {
   if (!quiet) { L.loading = true; drawLog(); }
   try {
     const { data } = await api("attendance?select=id,checked_in_at,status,reason,distance_m,gps_accuracy_m,device_id,staff_id,event_id,window_id"
-      + "&attendance_date=eq." + L.date + (L.eventId ? "&event_id=eq." + L.eventId : "") + "&order=checked_in_at.asc");
+      + "&attendance_date=eq." + L.date + "&order=checked_in_at.asc");       // the whole day; the event filter is applied in the page
     L.rows = data; L.capped = data.length >= 1000; L.loadedAt = new Date();
   } catch (error) {
     L.loading = false;
@@ -935,9 +1091,9 @@ async function loadLog(quiet) {
 /* Work out the three lists from the rows we loaded. */
 function logLists() {
   const L = state.log;
-  const inSession = r => !L.windowId || r.window_id === L.windowId;
-  const present  = L.rows.filter(r => r.status === "present" && inSession(r));
-  const rejected = L.rows.filter(r => r.status === "rejected" && inSession(r));
+  const chosen = r => (!L.eventId || r.event_id === L.eventId) && (!L.windowId || r.window_id === L.windowId);
+  const present  = L.rows.filter(r => r.status === "present" && chosen(r));
+  const rejected = L.rows.filter(r => r.status === "rejected" && chosen(r));
   const here = new Set(present.map(r => r.staff_id));
   const absent = L.eventId ? state.staff.filter(s => s.active && !here.has(s.id)) : null;
   return { present, rejected, absent };
@@ -971,13 +1127,17 @@ function logColumns(tab, forFile) {
 
 function drawLog() {
   const L = state.log, lists = logLists();
-  const sessions = L.eventId ? windowsOf(L.eventId) : [];
+  // Offer current events, plus any archived event that has rows on this date. After years the list stays short.
+  const used = new Set(L.rows.map(r => r.event_id)), usedSessions = new Set(L.rows.map(r => r.window_id));
+  const eventChoices = state.events.filter(e => !e.archived_at || used.has(e.id) || e.id === L.eventId);
+  const sessions = L.eventId ? state.windows.filter(w => w.event_id === L.eventId && (!w.archived_at || usedSessions.has(w.id))) : [];
   if (!sessions.some(w => w.id === L.windowId)) L.windowId = "";
 
   const tools = h("div", { class: "card tools" },
     field(t("logDate"), h("input", { id: "logDate", type: "date", value: L.date, max: todayKL(), onchange: e => { L.date = e.target.value || todayKL(); L.rows = []; loadLog(); } })),
-    field(t("logEvent"), h("select", { id: "logEvent", value: L.eventId, onchange: e => { L.eventId = e.target.value; L.windowId = ""; L.rows = []; loadLog(); } },
-      h("option", { value: "" }, t("logAllEvents")), state.events.map(e => h("option", { value: e.id }, e.name + (e.active ? "" : " (" + t("inactive") + ")"))))),
+    field(t("logEvent"), h("select", { id: "logEvent", value: L.eventId, onchange: e => { L.eventId = e.target.value; L.windowId = ""; drawLog(); } },
+      h("option", { value: "" }, t("logAllEvents")),
+      eventChoices.map(e => h("option", { value: e.id }, e.name + (e.archived_at ? " (" + t("evArchived") + ")" : e.active ? "" : " (" + t("inactive") + ")"))))),
     sessions.length > 1 && field(t("logSession"), h("select", { id: "logSession", value: L.windowId, onchange: e => { L.windowId = e.target.value; drawLog(); } },
       h("option", { value: "" }, t("logAllSessions")), sessions.map(w => h("option", { value: w.id }, w.label + " " + hhmm(w.start_time) + "–" + hhmm(w.end_time))))),
     h("div", { class: "fixed actions" },
@@ -1047,8 +1207,31 @@ function windowSummary(w) {
 }
 
 function drawEvents() {
+  const F = state.evFilter;
   const editing = state.edit && state.edit.kind === "event" ? state.edit.id : null;
-  const items = state.events.map(ev => {
+  const search = h("input", { id: "evSearch", type: "search", value: F.text, autocomplete: "off", oninput: e => { F.text = e.target.value; drawEventRows(); } });
+  const show = h("select", { id: "evShow", value: F.show, onchange: e => { F.show = e.target.value; state.edit = null; drawEventRows(); } },
+    h("option", { value: "current" }, t("evCurrent")), h("option", { value: "archived" }, t("evArchived")));
+
+  fillView("events",
+    h("div", { class: "head" },
+      h("div", null, h("h1", null, t("evTitle")), h("p", null, t("evHelp"))),
+      h("button", { class: "btn primary", type: "button", id: "evAdd", onclick: () => { F.show = "current"; state.edit = { kind: "event", id: "new" }; drawEvents(); } }, icon("plus"), t("evAdd"))),
+    editing === "new" && h("div", { class: "editor" }, h("h2", { style: "margin-bottom:14px" }, t("evNew")), eventForm(null)),
+    h("div", { class: "card tools" }, field(t("evSearch"), search), h("div", { class: "fixed", style: "min-width:150px" }, h("label", { for: "evShow" }, t("evShow")), show)),
+    h("div", { id: "evRows" }));
+  drawEventRows();
+
+  /* Only the list is redrawn while typing, so the search box keeps its cursor. */
+  function drawEventRows() {
+    const needle = F.text.trim().toLowerCase(), wantArchived = F.show === "archived";
+    const list = state.events.filter(e => !!e.archived_at === wantArchived &&
+      (!needle || e.name.toLowerCase().includes(needle) || e.event_code.toLowerCase().includes(needle)));
+    $("#evRows").replaceChildren(list.length ? h("div", { class: "list" }, list.map(ev => wantArchived ? archivedItem(ev) : eventItem(ev)))
+      : h("div", { class: "card empty" }, t(needle ? "evNoMatch" : wantArchived ? "evNoArchived" : "evEmpty")));
+  }
+
+  function eventItem(ev) {
     const windows = windowsOf(ev.id), open = editing === ev.id || (state.edit && state.edit.eventId === ev.id);
     return h("div", { class: "item", "data-code": ev.event_code },
       h("div", { class: "item-head" },
@@ -1058,14 +1241,23 @@ function drawEvents() {
         !windows.length && h("span", { class: "pill warn" }, t("evNoWindow")),
         h("button", { class: "btn small", type: "button", "aria-expanded": String(!!open), onclick: () => { state.edit = open ? null : { kind: "event", id: ev.id }; state.confirm = null; drawEvents(); } }, t(open ? "cancel" : "edit"))),
       open && h("div", { class: "item-body" }, eventForm(ev), windowList(ev, windows)));
-  });
+  }
 
-  fillView("events", 
-    h("div", { class: "head" },
-      h("div", null, h("h1", null, t("evTitle")), h("p", null, t("evHelp"))),
-      h("button", { class: "btn primary", type: "button", id: "evAdd", onclick: () => { state.edit = { kind: "event", id: "new" }; drawEvents(); } }, icon("plus"), t("evAdd"))),
-    editing === "new" && h("div", { class: "editor" }, h("h2", { style: "margin-bottom:14px" }, t("evNew")), eventForm(null)),
-    items.length ? h("div", { class: "list" }, items) : editing !== "new" && h("div", { class: "card empty" }, t("evEmpty")));
+  /* An archived event: out of every normal list, but its attendance rows still show its name. */
+  function archivedItem(ev) {
+    return h("div", { class: "item", "data-code": ev.event_code },
+      h("div", { class: "item-head" },
+        h("div", { class: "item-title" }, h("strong", null, ev.name),
+          h("span", { class: "mute small" }, ev.event_code + " · " + t("evArchivedOn", { d: dateKL(ev.archived_at) }))),
+        h("span", { class: "pill off" }, t("evArchived")),
+        h("button", { class: "btn small", type: "button", onclick: async () => {
+          try {
+            Object.assign(ev, (await api("events?id=eq." + ev.id, { method: "PATCH", body: { archived_at: null } })).data[0]);
+            F.show = "current"; toast("ok", t("okRestored"), t("okRestoredText"));
+          } catch (error) { fail(error.code === "23505" ? { text: t("errRestoreCode") } : error); }
+          drawEvents();
+        } }, t("evRestore"))));
+  }
 }
 
 function eventForm(ev) {
@@ -1108,9 +1300,12 @@ function eventForm(ev) {
     h("div", { class: "actions" }, save,
       h("button", { class: "btn", type: "button", onclick: () => { state.edit = null; state.confirm = null; drawEvents(); } }, t("cancel")),
       ev && h("span", { class: "push" }, removeButton("event-" + ev.id, async () => {
-        await api("events?id=eq." + ev.id, { method: "DELETE" });
+        if (await removeViaDoor("remove_event", { p_event_id: ev.id }, "events?id=eq." + ev.id) === "archived") {
+          ev.archived_at = new Date().toISOString(); ev.active = false;      // it has attendance: kept, but out of sight
+          return { message: [t("okArchived"), t("okArchivedText")] };
+        }
         state.events = state.events.filter(e => e.id !== ev.id); state.windows = state.windows.filter(w => w.event_id !== ev.id);
-      }))));
+      }, t("removeArchiveAsk")))));
 }
 
 function windowList(ev, windows) {
@@ -1125,10 +1320,14 @@ function windowList(ev, windows) {
           h("div", null, h("strong", null, w.label), h("div", { class: "mute small" }, windowSummary(w))),
           h("button", { class: "btn small", type: "button", onclick: () => { state.edit = { kind: "window", id: w.id, eventId: ev.id }; state.confirm = null; drawEvents(); } }, t("edit")),
           removeButton("window-" + w.id, async () => {
-            await api("event_windows?id=eq." + w.id, { method: "DELETE" });
+            const stay = { kind: "event", id: ev.id };                 // keep this event open after removing one of its hours
+            if (await removeViaDoor("remove_window", { p_window_id: w.id }, "event_windows?id=eq." + w.id) === "archived") {
+              w.archived_at = new Date().toISOString();                // kept for the old attendance rows, hidden here
+              return { stay, message: [t("okArchived"), t("okArchivedText")] };
+            }
             state.windows = state.windows.filter(x => x.id !== w.id);
-            return { kind: "event", id: ev.id };                       // keep this event open after removing one of its hours
-          })))),
+            return { stay };
+          }, t("removeArchiveAsk"))))),
     editing === "new" && h("div", { class: "editor" }, h("h2", { style: "margin-bottom:14px" }, t("winNew")), windowForm(ev, null)));
 }
 
@@ -1232,43 +1431,161 @@ function staffForm(s) {
     h("div", { class: "actions" }, save,
       h("button", { class: "btn", type: "button", onclick: () => { state.edit = null; state.confirm = null; drawStaff(); } }, t("cancel")),
       s && h("span", { class: "push" }, removeButton("staff-" + s.id, async () => {
-        await api("staff?id=eq." + s.id, { method: "DELETE" });
+        try { await api("staff?id=eq." + s.id, { method: "DELETE" }); }
+        catch (error) {
+          if (error.code !== "23503") throw error;
+          // Attendance rows point at this person, so the row must stay. Inactive is the staff "archive".
+          Object.assign(s, (await api("staff?id=eq." + s.id, { method: "PATCH", body: { active: false } })).data[0]);
+          return { message: [t("okInactive"), t("okInactiveText")] };
+        }
         state.staff = state.staff.filter(x => x.id !== s.id);
       }))));
 }
 
 
 /* ---------- 13. Settings ------------------------------------------------ */
+const LEVELS = ["owner", "manager", "operator"];
+const levelName = role => t({ owner: "levelOwner", manager: "levelManager", operator: "levelOperator" }[role] || "levelOperator");
+const levelSelect = (id, value, onchange) => h("select", { id, value, onchange }, LEVELS.map(r => h("option", { value: r }, levelName(r))));
+
 function drawSettings() {
+  const copyRow = (id, label, url) => h("div", null, h("label", { for: id }, label),
+    h("div", { class: "tools" },
+      h("div", null, h("input", { id, readonly: true, value: url, onfocus: e => e.target.select() })),
+      h("div", { class: "fixed" }, h("button", { class: "btn", type: "button", onclick: async () => {
+        try { await navigator.clipboard.writeText(url); toast("ok", t("copied")); } catch { $("#" + id).focus(); $("#" + id).select(); }
+      } }, t("setCopy")))));
+
+  fillView("settings",
+    h("div", { class: "head" }, h("h1", null, t("setTitle"))),
+    isOwner() && settingsForm(),
+    h("div", { class: "card form", style: "max-width:760px" },
+      copyRow("setLink", t("setStaffLink"), STAFF_PAGE),
+      state.canPair && copyRow("setDisplay", t("setDisplayLink"), DISPLAY_PAGE)),
+    h("div", { class: "card form", style: "max-width:760px" },
+      h("h2", null, t("setAccount")),
+      h("p", null, t("setSignedIn", { email: state.session.email })),
+      h("p", { id: "setLevel" }, t("setLevel", { level: levelName(state.role) }) + " " + t({ owner: "levelOwnerHelp", manager: "levelManagerHelp", operator: "levelOperatorHelp" }[state.role])),
+      !isOwner() && h("p", { class: "mute small" }, t("setAdmins"))),
+    isOwner() && adminsCard(),
+    isOwner() && activityCard());
+  if (isOwner()) { paintAdmins(); loadAdmins(); paintActivity(); }
+}
+
+function settingsForm() {
   const S = state.settings || {};
   const org = h("input", { id: "setOrg", required: true, maxlength: 120, value: S.organization_name || "" });
   const acc = h("input", { id: "setAcc", type: "number", min: 1, step: 1, required: true, inputmode: "numeric", value: S.max_gps_accuracy_m ?? 30 });
   const sec = h("input", { id: "setSec", type: "number", min: 10, max: 600, step: 1, required: true, inputmode: "numeric", value: S.qr_valid_seconds ?? 60 });
   const save = h("button", { class: "btn primary", type: "submit" }, t("save"));
-  const link = h("input", { id: "setLink", readonly: true, value: STAFF_PAGE, onfocus: e => e.target.select() });
+  return h("form", { class: "card form", id: "setForm", novalidate: true, style: "max-width:760px", onsubmit: e => {
+    e.preventDefault();
+    const row = { organization_name: org.value.trim(), max_gps_accuracy_m: Math.round(Number(acc.value)), qr_valid_seconds: Math.round(Number(sec.value)) };
+    if (!row.organization_name) return toast("bad", t("errTitle"), t("errRequired"));
+    if (!(row.max_gps_accuracy_m > 0 && row.qr_valid_seconds >= 10 && row.qr_valid_seconds <= 600)) return toast("bad", t("errTitle"), t("errSettings"));
+    saving(save, async () => { state.settings = (await api("org_settings?id=eq.1", { method: "PATCH", body: row })).data[0]; });
+  } },
+    field(t("setOrg"), org),
+    h("div", { class: "row" }, field(t("setAccuracy"), acc, t("setAccuracyHelp")), field(t("setQrSeconds"), sec, t("setQrSecondsHelp"))),
+    h("div", { class: "actions" }, save));
+}
 
-  fillView("settings", 
-    h("div", { class: "head" }, h("h1", null, t("setTitle"))),
-    h("form", { class: "card form", novalidate: true, style: "max-width:640px", onsubmit: e => {
+/* --- Admins (owner only) ---
+   The account itself is created in Supabase. Here the owner says "this account is an admin, at this level". */
+function adminsCard() {
+  const email = h("input", { id: "admEmail", type: "email", autocomplete: "off", spellcheck: "false" });
+  const level = levelSelect("admLevel", "operator");
+  return h("div", { class: "card form", id: "admBox", style: "max-width:760px" },
+    h("h2", null, t("admTitle")),
+    h("div", { id: "admList", class: "windows" }),
+    h("form", { class: "form", novalidate: true, onsubmit: async e => {
       e.preventDefault();
-      const row = { organization_name: org.value.trim(), max_gps_accuracy_m: Math.round(Number(acc.value)), qr_valid_seconds: Math.round(Number(sec.value)) };
-      if (!row.organization_name) return toast("bad", t("errTitle"), t("errRequired"));
-      if (!(row.max_gps_accuracy_m > 0 && row.qr_valid_seconds >= 10 && row.qr_valid_seconds <= 600)) return toast("bad", t("errTitle"), t("errSettings"));
-      saving(save, async () => { state.settings = (await api("org_settings?id=eq.1", { method: "PATCH", body: row })).data[0]; });
+      if (!email.value.trim()) return toast("bad", t("errTitle"), t("errRequired"));
+      if (await setAdmin(email.value.trim(), level.value)) email.value = "";
     } },
-      field(t("setOrg"), org),
-      h("div", { class: "row" }, field(t("setAccuracy"), acc, t("setAccuracyHelp")), field(t("setQrSeconds"), sec, t("setQrSecondsHelp"))),
-      h("div", { class: "actions" }, save)),
-    h("div", { class: "card form", style: "max-width:640px" },
-      h("h2", null, t("setStaffLink")),
-      h("div", { class: "tools" }, h("div", null, h("label", { for: "setLink", class: "sr-only" }, t("setStaffLink")), link),
-        h("div", { class: "fixed" }, h("button", { class: "btn", type: "button", onclick: async () => {
-          try { await navigator.clipboard.writeText(STAFF_PAGE); toast("ok", t("copied")); } catch { link.focus(); link.select(); }
-        } }, t("setCopy"))))),
-    h("div", { class: "card form", style: "max-width:640px" },
-      h("h2", null, t("setAccount")),
-      h("p", null, t("setSignedIn", { email: state.session.email })),
-      h("p", { class: "mute small" }, t("setAdmins"))));
+      h("p", { class: "help" }, t("admHelp")),
+      h("div", { class: "row" }, field(t("admEmail"), email), field(t("admLevel"), level)),
+      h("div", { class: "actions" }, h("button", { class: "btn primary", type: "submit" }, icon("plus"), t("admAdd")))));
+}
+
+const adminReason = reason => ({ text: t({ no_such_user: "errNoUser", last_owner: "errLastOwner" }[reason] || "errNotAllowed") });
+
+async function setAdmin(email, role) {
+  let done = false;
+  try {
+    const { data } = await api("rpc/admin_set", { method: "POST", body: { p_email: email, p_role: role } });
+    if (!data.ok) throw adminReason(data.reason);
+    toast("ok", t("okSaved")); done = true;
+  } catch (error) { fail(error); }
+  await afterAdminChange();
+  return done;
+}
+
+/* An owner may have just changed their own level, so ask the database again who we are. */
+async function afterAdminChange() {
+  try {
+    const role = await fetchRole();
+    if (!role) { endSession(); return; }
+    if (role !== state.role) { state.role = role; await enterApp(); return; }
+  } catch { /* keep what we have */ }
+  await loadAdmins();
+}
+
+async function loadAdmins() {
+  try { state.admins = (await api("rpc/admin_list", { method: "POST", body: {} })).data; }
+  catch (error) { if (error.kind !== "session") fail(error); return; }
+  paintAdmins();
+}
+
+function paintAdmins() {
+  const box = $("#admList");
+  if (!box) return;
+  box.replaceChildren(...state.admins.map(a => h("div", { class: "window", "data-email": a.email },
+    h("div", null, h("strong", null, a.email), a.is_me && h("span", { class: "mute small" }, " (" + t("admYou") + ")")),
+    h("div", { class: "fixed", style: "min-width:140px" },
+      h("label", { class: "sr-only", for: "lvl-" + a.user_id }, t("admLevel")),
+      levelSelect("lvl-" + a.user_id, a.role, e => setAdmin(a.email, e.target.value))),
+    !a.is_me && removeButton("admin-" + a.user_id, async () => {        // nobody removes themselves by a slip of the finger
+      const { data } = await api("rpc/admin_remove", { method: "POST", body: { p_user_id: a.user_id } });
+      if (!data.ok) throw adminReason(data.reason);
+      state.admins = state.admins.filter(x => x.user_id !== a.user_id);
+    }))));
+}
+
+/* --- Activity record (owner only) --- */
+function activityCard() {
+  return h("div", { class: "card form", id: "actBox" },
+    h("h2", null, t("actTitle")),
+    h("p", { class: "mute small" }, t("actHelp")),
+    h("div", { class: "actions" }, h("button", { class: "btn", type: "button", id: "actLoad", onclick: async () => {
+      try { state.activity = (await api("admin_audit?select=id,at,actor_email,action,target,summary,detail&order=id.desc&limit=50")).data; }
+      catch (error) { fail(error); return; }
+      paintActivity();
+    } }, icon("refresh"), t("actLoad"))),
+    h("div", { id: "actList" }));
+}
+
+function activityLine(row) {
+  const d = row.detail || {};
+  let action = row.action, changes = "";
+  if (action === "update") {
+    if (d.archived_at) action = d.archived_at[1] ? "archive" : "restore";
+    const plain = value => value === null ? "–" : typeof value === "object" ? JSON.stringify(value) : String(value);
+    changes = Object.entries(d).filter(([key]) => key !== "archived_at").map(([key, [before, after]]) => key + ": " + plain(before) + " → " + plain(after)).join("; ");
+  }
+  return [t("act_" + action), t("tg_" + row.target), row.summary || "", changes && "(" + changes + ")"].filter(Boolean).join(" ");
+}
+
+function paintActivity() {
+  const box = $("#actList");
+  if (!box || !state.activity) return;
+  box.replaceChildren(!state.activity.length ? h("div", { class: "empty" }, t("actEmpty")) :
+    h("div", { class: "tablewrap" }, h("table", { class: "stack" },
+      h("thead", null, h("tr", null, h("th", null, t("colWhen")), h("th", null, t("colWho")), h("th", null, t("colWhat")))),
+      h("tbody", null, state.activity.map(row => h("tr", null,
+        h("td", { class: "inline" }, dateKL(row.at).slice(0, 5) + " " + clockKL(row.at).slice(0, 5)),
+        h("td", { class: "inline code" }, row.actor_email || t("actSql")),
+        h("td", { class: "wrap wide" }, activityLine(row))))))));
 }
 
 
@@ -1299,7 +1616,8 @@ document.querySelectorAll(".lang button").forEach(b => b.addEventListener("click
   setSession(saved);                                              // same tab was reloaded: carry on without asking for the password
   try {
     if (saved.expires_at * 1000 < Date.now() + 60000 && (await renewSession()) !== "ok") { setSession(null); showLogin(); return; }
-    if (!(await api("rpc/is_admin", { method: "POST", body: {} })).data) { setSession(null); showLogin(); return; }
+    state.role = await fetchRole();
+    if (!state.role) { setSession(null); showLogin(); return; }
     await enterApp();
   } catch { setSession(null); showLogin(); }
 })();
