@@ -122,7 +122,10 @@ h1{margin:0; font-size:clamp(1.5rem, 5vmin, 3.4rem); line-height:1.15; letter-sp
 <script src="menu.js"></script>
 <script>
 /* =====================================================================
-   DISPLAY PAGE  v1.2  -  the QR on a big screen, with NO login
+   DISPLAY PAGE  v1.3  -  the QR on a big screen, with NO login
+   (1.3: the counter follows the session - "Petang: 4 of 70 submitted" - instead of counting the
+         whole day, so it starts again from 0 when check-out opens. Needs SQL file 07; with an
+         older database the old "present today" line is shown, so either can be put in first)
    (1.2: fixes from the security review of 3 Oct 2026 - only one request to the database at a
          time, a drawing slip can no longer stop the loop, the QR token rides after "#")
    1. This page invents a long secret and keeps it in this browser.
@@ -150,6 +153,7 @@ const TEXT = {
     step2: "Pilih acara, kemudian ketik <strong>Papar di skrin lain</strong>.",
     step3: "Masukkan kod di atas.",
     scan: "Imbas dengan kamera telefon untuk merekod kehadiran.", present: "hadir hari ini", of: "daripada {n}",
+    counted: "daripada {n} telah hantar", winClosed: "ditutup", winUpcoming: "belum dibuka",
     until: "Paparan ini berhenti sendiri pada {time}.",
     endedTitle: "Paparan tamat", endedLead: "Pentadbir telah menghentikannya, atau masanya sudah habis.", again: "Dapatkan kod baharu",
     lost: "Sambungan terputus. Mencuba semula…",
@@ -164,6 +168,7 @@ const TEXT = {
     step2: "Choose the event, then tap <strong>Show on another screen</strong>.",
     step3: "Enter the code above.",
     scan: "Scan with your phone camera to record attendance.", present: "present today", of: "of {n}",
+    counted: "of {n} submitted", winClosed: "closed", winUpcoming: "not open yet",
     until: "This display stops by itself at {time}.",
     endedTitle: "Display ended", endedLead: "An admin stopped it, or its time ran out.", again: "Get a new code",
     lost: "Connection lost. Retrying…",
@@ -236,7 +241,14 @@ function draw(restartBarMs) {
     else tile.textContent = t("lost");                                   // never leave a dead code on screen
     const bar = el("div", "barline"); bar.setAttribute("aria-hidden", "true"); const fillBar = document.createElement("i"); bar.append(fillBar);
     if (restartBarMs) { fillBar.style.animationDuration = restartBarMs + "ms"; fillBar.className = "run"; }
-    const count = el("p", "count"); count.append(el("b", "", String(view.present)), " " + t("present") + " " + t("of", { n: view.total }));
+    // The counter belongs to ONE session (the database picks which: see counter_for() in SQL file 07).
+    // "Petang: 4 of 70 submitted", or "Pagi (closed): 5 of 70 submitted" between sessions.
+    // No session name in the reply (older database, or no session today): the old whole-day line.
+    const count = el("p", "count");
+    if (view.window_label) {
+      const note = view.window_state === "closed" ? t("winClosed") : view.window_state === "upcoming" ? t("winUpcoming") : "";
+      count.append(view.window_label + (note ? " (" + note + ")" : "") + ": ", el("b", "", String(view.present)), " " + t("counted", { n: view.total }));
+    } else count.append(el("b", "", String(view.present)), " " + t("present") + " " + t("of", { n: view.total }));
     const hint = el("div", "hint"); hint.append(el("p", "lead", t("scan")),
       el("p", "small", t("until", { time: new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour: "2-digit", minute: "2-digit" }).format(new Date(view.ends_at)) })));
     panel.append(el("h1", "", view.event_name), tile, bar, count, hint);

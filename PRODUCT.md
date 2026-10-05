@@ -42,6 +42,7 @@ The database decides, not the page. The phone only reports measured facts (posit
 - The answer appears as a floating notification; the form is never cleared.
 - Server checks in this order: QR, time window, GPS accuracy, distance, then duplicates.
 - One check-in per person per session per day; one person per device per session per day.
+- Check-out is a second session of the same event (for example Pagi for check-in, Petang for check-out). The counter on the display page and the admin QR screen counts one session at a time: the open one, else the one that finished last, else the next to open. It names the session ("Petang: 4 of 70 submitted") and starts again from 0 when the next session opens. An attempt outside every session is stored as rejected and belongs to no session.
 - A refused duplicate is kept as a rejected row, and the row for "device already used" shows whose device it was.
 
 **Admin page (`admin.html`)**
@@ -127,7 +128,7 @@ The database decides, not the page. The phone only reports measured facts (posit
 ## Evidence on Hand
 
 - Live staff page: https://pijipie.github.io/attendance-app/
-- Source: `index.html`, `admin.html`, `display.html`, `menu.js`, `qrcode.js` (third-party, MIT), `leaflet.js` and `leaflet.css` (third-party, BSD-2-Clause), and the SQL files `database/01_schema.sql` to `database/06_security_hardening.sql`, run in number order.
+- Source: `index.html`, `admin.html`, `display.html`, `menu.js`, `qrcode.js` (third-party, MIT), `leaflet.js` and `leaflet.css` (third-party, BSD-2-Clause), and the SQL files `database/01_schema.sql` to `database/07_window_counter.sql`, run in number order.
 - A security and code review dated 3 Oct 2026, and the fixes for it in `06_security_hardening.sql` and page versions index 2.5, admin 3.2, display 1.2.
 - A working database with the real staff list and six real events, plus test rows that must be removed before the pilot.
 - One real phone test on 3 Oct 2026: one accepted check-in at 7 m, one rejected at 7,825 m.

@@ -22,7 +22,19 @@
 --      keeps working.
 -- =====================================================================
 
+-- ---------------------------------------------------------------------
+-- GUARD (added 5 Oct 2026). This file is OLDER than 07_window_counter.sql.
+-- Running it again after that file would put back the older check_in()
+-- and display_poll(). So it checks first, and stops without changing
+-- anything.
+-- ---------------------------------------------------------------------
 begin;      -- all or nothing: if any part fails, nothing in this file is kept
+do $$
+begin
+  if to_regprocedure('public.counter_for(uuid)') is not null then
+    raise exception 'STOP: 07_window_counter.sql is already installed. Running this older file again would undo it. Nothing was changed.';
+  end if;
+end $$;
 
 
 -- =====================================================================

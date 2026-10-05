@@ -328,7 +328,9 @@ td.edit{padding:14px; white-space:normal; background:var(--bg)}
                      3.1: sign-out still reaches the server when the tab closes straight after;
                      3.2: fixes from the security review of 3 Oct 2026 - sign-out empties the page and ends
                           only this device's session, the attendance list loads every row and shows a clear
-                          error instead of "0 present", staff and events are re-read while the page is open)
+                          error instead of "0 present", staff and events are re-read while the page is open;
+                     3.3: the QR screen counter follows the session, the same number as the display page.
+                          Needs SQL file 07; with an older database it counts the whole day as before)
    Sign in  ->  QR screen | Attendance | Events + time windows | Staff | Settings
 
    THREE LEVELS (set in Settings > Admins by an owner)
@@ -411,6 +413,7 @@ const TEXT = {
     qrTitle: "Kod QR di lokasi", qrHelp: "Paparkan skrin ini di lokasi. Kod bertukar sendiri setiap {s} saat, jadi gambar kod yang dihantar kepada orang lain tidak boleh digunakan.",
     qrEvent: "Acara", qrChoose: "Pilih acara…", qrNoEvents: "Tiada acara aktif. Tambah acara dahulu.",
     qrPresent: "hadir hari ini", qrOf: "daripada {n}",
+    qrCounted: "daripada {n} telah hantar", qrWinClosed: "ditutup", qrWinUpcoming: "belum dibuka",
     qrRequire: "Wajibkan imbasan QR untuk acara ini", qrRequireHelp: "Jika dimatikan, staf boleh merekod kehadiran tanpa mengimbas, dengan memilih acara daripada senarai.",
     qrOptionalNote: "QR belum diwajibkan untuk acara ini. Staf masih boleh hadir tanpa mengimbas.",
     qrClosedNote: "Acara ini di luar waktu kehadiran sekarang. Imbasan akan ditolak.",
@@ -521,6 +524,7 @@ const TEXT = {
     qrTitle: "QR code at the location", qrHelp: "Show this screen at the location. The code changes by itself every {s} seconds, so a photo of it sent to someone else cannot be used.",
     qrEvent: "Event", qrChoose: "Choose an event…", qrNoEvents: "No active events. Add an event first.",
     qrPresent: "present today", qrOf: "of {n}",
+    qrCounted: "of {n} submitted", qrWinClosed: "closed", qrWinUpcoming: "not open yet",
     qrRequire: "Require the QR scan for this event", qrRequireHelp: "When off, staff can record attendance without scanning, by choosing the event from the list.",
     qrOptionalNote: "The QR is not required for this event yet. Staff can still check in without scanning.",
     qrClosedNote: "This event is outside its attendance hours right now. Scans will be refused.",
@@ -679,7 +683,8 @@ const state = {
   openNow: {},                   // event_code -> true/false, from list_events()
   edit: null,                    // which inline editor is open, e.g. { kind:"staff", id:"new" }
   confirm: null,                 // which Delete button is asking "are you sure?"
-  qr:  { eventId: store("session", "qr_event") || "", token: null, goodUntil: 0, lost: false, present: null, timer: null, busy: false, run: 0, lock: null },
+  qr:  { eventId: store("session", "qr_event") || "", token: null, goodUntil: 0, lost: false, present: null, timer: null, busy: false, run: 0, lock: null,
+         session: null },         // which session the count belongs to: { label, state }. null = whole day (older database)
   log: { date: todayKL(), followToday: true,   // followToday: the date moves on by itself at midnight
          eventId: "", windowId: "", tab: "present", rows: [], capped: false, loadedAt: null, loading: false,
          error: null,                // the last load failed: show that, never an empty "0 present"
@@ -1207,12 +1212,22 @@ async function qrTick() {
 
 async function qrExtras(ev, run) {
   try {
-    const [present, open] = await Promise.all([
-      api(`attendance?select=staff_id&event_id=eq.${ev.id}&attendance_date=eq.${todayKL()}&status=eq.present`),
+    // The count comes from the database (event_counter, SQL file 07), which also says WHICH session it counted.
+    // The display page gets its number from the same place, so the two screens always agree.
+    const [counter, open] = await Promise.all([
+      api("rpc/event_counter", { method: "POST", body: { p_event_code: ev.event_code } })
+        .catch(error => { if (error.status !== 404) throw error; return null; }),      // 404: SQL file 07 has not been run yet
       api("rpc/list_events", { method: "POST", body: {} })
     ]);
     if (run !== state.qr.run) return;
-    state.qr.present = new Set(present.data.map(r => r.staff_id)).size;
+    if (counter && counter.data) {
+      state.qr.present = counter.data.present;
+      state.qr.session = counter.data.window_label ? { label: counter.data.window_label, state: counter.data.window_state } : null;
+    } else {                                                                           // older database: count the whole day, as before
+      const present = await api(`attendance?select=staff_id&event_id=eq.${ev.id}&attendance_date=eq.${todayKL()}&status=eq.present`);
+      if (run !== state.qr.run) return;
+      state.qr.present = new Set(present.data.map(r => r.staff_id)).size; state.qr.session = null;
+    }
     state.openNow = Object.fromEntries(open.data.map(e => [e.event_code, e.open_now]));
     paintQr();
   } catch { /* the QR itself still works */ }
@@ -1246,7 +1261,12 @@ function paintQr(restartBarMs) {
     bar.style.animationDuration = restartBarMs + "ms"; bar.className = "run";
   }
   const total = state.staff.filter(s => s.active).length;
-  $("#qrCount").replaceChildren(...(state.qr.present == null ? [] : [h("b", null, String(state.qr.present)), " " + t("qrPresent") + " " + t("qrOf", { n: total })]));
+  // "Petang: 4 of 70 submitted", or "Pagi (closed): 5 of 70 submitted" between sessions. No session known: the old whole-day line.
+  const session = state.qr.session;
+  const sessionNote = !session ? "" : session.state === "closed" ? t("qrWinClosed") : session.state === "upcoming" ? t("qrWinUpcoming") : "";
+  $("#qrCount").replaceChildren(...(state.qr.present == null ? []
+    : session ? [session.label + (sessionNote ? " (" + sessionNote + ")" : "") + ": ", h("b", null, String(state.qr.present)), " " + t("qrCounted", { n: total })]
+    : [h("b", null, String(state.qr.present)), " " + t("qrPresent") + " " + t("qrOf", { n: total })]));
   const notes = [];
   if (state.qr.lost) notes.push(h("p", { class: "note warn" }, t("qrLost")));
   if (!ev.require_qr) notes.push(h("p", { class: "note warn" }, t("qrOptionalNote")));
@@ -1255,7 +1275,7 @@ function paintQr(restartBarMs) {
 }
 
 function stopQr() {
-  clearTimeout(state.qr.timer); state.qr.timer = null; state.qr.token = null; state.qr.present = null; state.qr.lost = false;
+  clearTimeout(state.qr.timer); state.qr.timer = null; state.qr.token = null; state.qr.present = null; state.qr.session = null; state.qr.lost = false;
   state.qr.run++; state.qr.busy = false;                          // anything still waiting for the database is now out of date
   if (state.qr.lock) { state.qr.lock.release().catch(() => {}); state.qr.lock = null; }
 }
