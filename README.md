@@ -29,8 +29,9 @@ All SQL lives in the `database/` folder. Run each file once in Supabase > SQL Ed
 | `06_security_hardening.sql` | Fixes from the security review of 3 Oct 2026: limits and a brake on `check_in()`, replies that give less away, confirmed accounts only for admins, never zero owners, pairing that cannot be jammed, table rights cut down, indexes. |
 | `07_window_counter.sql` | The counter on the big screen and the admin QR screen follows the session (for example Pagi, Petang) instead of the whole day, so it starts again from 0 when check-out opens. `check_in()` now always picks the same session when two overlap. |
 | `08_staff_counter.sql` | Opens `event_counter()` to staff phones, so the staff page can show the same counter under the Submit button. It gives numbers only: no names, no staff codes. |
+| `09_late_stamp.sql` | A session can have a "late after" time. A check-in after it is still accepted until the session ends, and is stamped with the minutes late (`attendance.late_minutes`). Nothing behaves differently until an admin fills the time in. |
 
-Each file from `01` to `07` begins with a guard: if a later file is already installed, it stops and changes nothing. Running an old file again would otherwise put back older, weaker rules. The newest file (`08`) is safe to run again.
+Each file from `01` to `08` begins with a guard: if a later file is already installed, it stops and changes nothing. Running an old file again would otherwise put back older, weaker rules. The newest file (`09`) is safe to run again.
 
 ## How the safety works
 

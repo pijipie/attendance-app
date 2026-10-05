@@ -330,7 +330,11 @@ td.edit{padding:14px; white-space:normal; background:var(--bg)}
                           only this device's session, the attendance list loads every row and shows a clear
                           error instead of "0 present", staff and events are re-read while the page is open;
                      3.3: the QR screen counter follows the session, the same number as the display page.
-                          Needs SQL file 07; with an older database it counts the whole day as before)
+                          Needs SQL file 07; with an older database it counts the whole day as before;
+                     3.4: a session can have a "late after" time (Events > hours); the attendance list and
+                          the CSV show who was late and by how many minutes. Needs SQL file 09: with an
+                          older database the list still loads, only without the late column.
+                          The staff list can be narrowed by type (staff / intern or contract))
    Sign in  ->  QR screen | Attendance | Events + time windows | Staff | Settings
 
    THREE LEVELS (set in Settings > Admins by an owner)
@@ -447,12 +451,15 @@ const TEXT = {
     evEmpty: "Belum ada acara. Tekan Tambah acara untuk bermula.",
     winTitle: "Waktu kehadiran", winAdd: "Tambah waktu", winNew: "Waktu baharu", winLabel: "Nama sesi", winLabelHelp: "Contoh: Pagi, Petang, Mesyuarat.",
     winDays: "Hari", winDaysHelp: "Tiada hari dipilih bermaksud setiap hari.", winStart: "Mula", winEnd: "Tamat",
+    winLate: "Lewat selepas (pilihan)", winLateHelp: "Kehadiran selepas masa ini masih diterima sehingga masa Tamat, tetapi ditanda lewat. Kosongkan jika sesi ini tiada lewat. Contoh: Mula 03:00, Lewat selepas 07:40, Tamat 09:00.",
+    winLateSummary: "lewat selepas {t}", errLate: "Masa lewat mesti berada antara masa mula dan masa tamat.",
+    colLate: "Lewat", colLateMin: "Lewat (minit)", lateMin: "{n} min",
     winFrom: "Dari tarikh (pilihan)", winTo: "Hingga tarikh (pilihan)", winDatesHelp: "Kosongkan kedua-duanya untuk berulang tanpa had. Untuk acara sehari, isi tarikh yang sama.",
     winEveryDay: "Setiap hari", winOn: "pada {d}", winFromTo: "{a} hingga {b}", winSince: "dari {a}", winUntil: "hingga {b}",
     d1: "Isn", d2: "Sel", d3: "Rab", d4: "Kha", d5: "Jum", d6: "Sab", d7: "Ahd",
 
     stTitle: "Staf", stHelp: "Staf yang tidak aktif tidak boleh merekod kehadiran dan tidak dikira sebagai belum hadir.",
-    stAdd: "Tambah staf", stNew: "Staf baharu", stSearch: "Cari nama atau kod", stShow: "Papar",
+    stAdd: "Tambah staf", stNew: "Staf baharu", stSearch: "Cari nama atau kod", stAllTypes: "Semua jenis", stShow: "Papar",
     stCode: "Kod staf", stName: "Nama penuh", stEmail: "E-mel (pilihan)", stType: "Jenis", stTypeStaff: "Staf", stTypeIntern: "Pelatih / kontrak",
     stActive: "Aktif (boleh merekod kehadiran)", stCount: "{n} orang", stEmpty: "Tiada staf sepadan dengan carian ini.",
 
@@ -558,12 +565,15 @@ const TEXT = {
     evEmpty: "No events yet. Press Add event to start.",
     winTitle: "Attendance hours", winAdd: "Add hours", winNew: "New hours", winLabel: "Session name", winLabelHelp: "For example: Morning, Afternoon, Meeting.",
     winDays: "Days", winDaysHelp: "No day chosen means every day.", winStart: "Start", winEnd: "End",
+    winLate: "Late after (optional)", winLateHelp: "A check-in after this time is still accepted until the End time, but is marked late. Leave empty if this session has no late. Example: Start 03:00, Late after 07:40, End 09:00.",
+    winLateSummary: "late after {t}", errLate: "The late time must be between the start time and the end time.",
+    colLate: "Late", colLateMin: "Late (minutes)", lateMin: "{n} min",
     winFrom: "From date (optional)", winTo: "To date (optional)", winDatesHelp: "Leave both empty to repeat with no end. For a one-day event, enter the same date in both.",
     winEveryDay: "Every day", winOn: "on {d}", winFromTo: "{a} to {b}", winSince: "from {a}", winUntil: "until {b}",
     d1: "Mon", d2: "Tue", d3: "Wed", d4: "Thu", d5: "Fri", d6: "Sat", d7: "Sun",
 
     stTitle: "Staff", stHelp: "Inactive staff cannot record attendance and are not counted as not checked in.",
-    stAdd: "Add staff", stNew: "New staff member", stSearch: "Search name or code", stShow: "Show",
+    stAdd: "Add staff", stNew: "New staff member", stSearch: "Search name or code", stAllTypes: "All types", stShow: "Show",
     stCode: "Staff code", stName: "Full name", stEmail: "Email (optional)", stType: "Type", stTypeStaff: "Staff", stTypeIntern: "Intern / contract",
     stActive: "Active (can record attendance)", stCount: "{n} people", stEmpty: "No staff match this search.",
 
@@ -694,7 +704,7 @@ const state = {
          shown: LOG_SHOW,            // how many rows are drawn on screen
          known: { date: "", events: new Set(), sessions: new Set() },   // events and sessions seen with rows on this date
          details: window.matchMedia("(min-width: 900px)").matches, timer: null },
-  staffFilter: { text: "", show: "active" },
+  staffFilter: { text: "", show: "active", type: "all" },
   evFilter: { text: "", show: "current" },
   displays: [], canPair: false, pairOpen: false,     // screen pairing
   admins: [], activity: null                         // owner only
@@ -1330,9 +1340,19 @@ async function loadLog(quiet) {
   try {
     // The event filter is applied by the database, so one event's rows can never push another's off the list.
     // Present and rejected are read separately for the same reason: a flood of rejected attempts cannot hide a real check-in.
-    const base = "attendance?select=id,checked_in_at,status,reason,distance_m,gps_accuracy_m,device_id,staff_id,event_id,window_id"
-      + "&attendance_date=eq." + date + (eventId ? "&event_id=eq." + eventId : "") + "&order=checked_in_at.asc,id.asc";
-    const [present, rejected] = await Promise.all([fetchAllRows(base + "&status=eq.present"), fetchAllRows(base + "&status=eq.rejected")]);
+    const read = withLate => {
+      const base = "attendance?select=id,checked_in_at,status,reason,distance_m,gps_accuracy_m,device_id,staff_id,event_id,window_id" + (withLate ? ",late_minutes" : "")
+        + "&attendance_date=eq." + date + (eventId ? "&event_id=eq." + eventId : "") + "&order=checked_in_at.asc,id.asc";
+      return Promise.all([fetchAllRows(base + "&status=eq.present"), fetchAllRows(base + "&status=eq.rejected")]);
+    };
+    let present, rejected;
+    try { [present, rejected] = await read(!L.noLate); }
+    catch (error) {
+      // 42703 = "no such column": SQL file 09 has not been run yet. Read the list without it, and stop asking.
+      if (L.noLate || error.kind !== "db" || error.code !== "42703") throw error;
+      L.noLate = true;
+      [present, rejected] = await read(false);
+    }
     if (ticket !== L.ticket) return;                             // a newer load (another date, another event) has taken over
     L.rows = [...present.rows, ...rejected.rows]; L.capped = present.capped || rejected.capped;
     L.loadedAt = new Date(); L.loadedKey = key; L.error = null; L.stale = false;
@@ -1383,6 +1403,8 @@ function logColumns(tab, forFile) {
   const cols = [["colTime", r => clockKL(r.checked_in_at)], ...who];
   if (!L.eventId || forFile) cols.push(["colEvent", r => (eventById(r.event_id) || {}).name || ""]);
   cols.push(["colSession", r => (windowById(r.window_id) || {}).label || ""]);
+  // Late: only an accepted check-in can be late. On screen "12 min"; in the file the plain number, so it can be summed.
+  if (tab === "present" && !L.noLate) cols.push(forFile ? ["colLateMin", r => r.late_minutes || ""] : ["colLate", r => r.late_minutes ? t("lateMin", { n: r.late_minutes }) : ""]);
   if (tab === "rejected") cols.push(["colReason", r => deviceOwner(r) || reasonText(r.reason), "wrap wide"]);
   if (details) cols.push(["colDistance", r => metres(r.distance_m), "num"], ["colAccuracy", r => r.gps_accuracy_m == null ? "" : "±" + Math.round(r.gps_accuracy_m) + " m", "num"],
                          ["colDevice", r => forFile ? r.device_id : "…" + r.device_id.slice(-8)]);     // the file keeps the full ID; the screen shows the end, enough to compare
@@ -1483,7 +1505,8 @@ function windowSummary(w) {
   if (w.starts_on && w.ends_on) dates = w.starts_on === w.ends_on ? t("winOn", { d: showDate(w.starts_on) }) : t("winFromTo", { a: showDate(w.starts_on), b: showDate(w.ends_on) });
   else if (w.starts_on) dates = t("winSince", { a: showDate(w.starts_on) });
   else if (w.ends_on) dates = t("winUntil", { b: showDate(w.ends_on) });
-  return [hhmm(w.start_time) + "–" + hhmm(w.end_time), days, dates].filter(Boolean).join(" · ");
+  const late = w.late_after ? t("winLateSummary", { t: hhmm(w.late_after) }) : "";
+  return [hhmm(w.start_time) + "–" + hhmm(w.end_time), late, days, dates].filter(Boolean).join(" · ");
 }
 
 function drawEvents() {
@@ -1694,6 +1717,7 @@ function windowForm(ev, w) {
   const label = h("input", { id: pre + "label", required: true, maxlength: 60, value: w ? w.label : "" });
   const start = h("input", { id: pre + "start", type: "time", required: true, value: w ? hhmm(w.start_time) : "07:00" });
   const end   = h("input", { id: pre + "end", type: "time", required: true, value: w ? hhmm(w.end_time) : "08:30" });
+  const late  = h("input", { id: pre + "late", type: "time", value: w && w.late_after ? hhmm(w.late_after) : "" });   // empty = this session has no "late"
   const from  = h("input", { id: pre + "from", type: "date", value: w && w.starts_on ? w.starts_on : "" });
   const to    = h("input", { id: pre + "to", type: "date", value: w && w.ends_on ? w.ends_on : "" });
   const chosen = new Set(w && w.weekdays ? w.weekdays : []);
@@ -1708,6 +1732,10 @@ function windowForm(ev, w) {
                   weekdays: picked.length === 0 || picked.length === 7 ? null : picked, starts_on: from.value || null, ends_on: to.value || null };
     if (!row.label || !row.start_time || !row.end_time) return toast("bad", t("errTitle"), t("errRequired"));
     if (row.end_time <= row.start_time) return toast("bad", t("errTitle"), t("errTimes"));
+    // "Late after" is sent when it is filled in, or when this session already has the column (so it can be emptied again).
+    // Left out otherwise, so saving still works on a database without SQL file 09.
+    if (late.value || (w && "late_after" in w)) row.late_after = late.value || null;
+    if (row.late_after && (row.late_after < row.start_time || row.late_after >= row.end_time)) return toast("bad", t("errTitle"), t("errLate"));
     if (row.starts_on && row.ends_on && row.ends_on < row.starts_on) return toast("bad", t("errTitle"), t("errDates"));
     saving(save, async () => {
       if (w) Object.assign(w, (await api("event_windows?id=eq." + w.id, { method: "PATCH", body: row })).data[0]);
@@ -1717,7 +1745,8 @@ function windowForm(ev, w) {
   } },
     field(t("winLabel"), label, t("winLabelHelp")),
     h("div", null, h("p", { class: "label" }, t("winDays")), h("div", { class: "days", role: "group", "aria-label": t("winDays") }, days), h("p", { class: "help" }, t("winDaysHelp"))),
-    h("div", { class: "row" }, field(t("winStart"), start), field(t("winEnd"), end)),
+    h("div", { class: "row" }, field(t("winStart"), start), field(t("winLate"), late), field(t("winEnd"), end)),
+    h("p", { class: "help" }, t("winLateHelp")),
     h("div", null, h("div", { class: "row" }, field(t("winFrom"), from), field(t("winTo"), to)), h("p", { class: "help" }, t("winDatesHelp"))),
     h("div", { class: "actions" }, save, h("button", { class: "btn", type: "button", onclick: () => { back(); drawEvents(); } }, t("cancel"))));
 }
@@ -1728,6 +1757,7 @@ function staffShown() {
   const F = state.staffFilter, needle = F.text.trim().toLowerCase();
   return state.staff.filter(s =>
     (F.show === "all" || (F.show === "active") === s.active) &&
+    (F.type === "all" || s.staff_type === F.type) &&                 // the Type dropdown: staff / intern or contract
     (!needle || s.full_name.toLowerCase().includes(needle) || s.staff_code.toLowerCase().includes(needle)));
 }
 
@@ -1738,13 +1768,17 @@ function drawStaff() {
   const search = h("input", { id: "stSearch", type: "search", value: F.text, autocomplete: "off", oninput: e => { F.text = e.target.value; drawStaffRows(); } });
   const show = h("select", { id: "stShow", value: F.show, onchange: e => { F.show = e.target.value; drawStaffRows(); } },
     h("option", { value: "all" }, t("all")), h("option", { value: "active" }, t("active")), h("option", { value: "inactive" }, t("inactive")));
+  const type = h("select", { id: "stTypeShow", value: F.type, onchange: e => { F.type = e.target.value; drawStaffRows(); } },
+    h("option", { value: "all" }, t("stAllTypes")), h("option", { value: "staff" }, t("stTypeStaff")), h("option", { value: "intern_contract" }, t("stTypeIntern")));
 
   fillView("staff", 
     h("div", { class: "head" },
       h("div", null, h("h1", null, t("stTitle")), h("p", null, t("stHelp"))),
       h("button", { class: "btn primary", type: "button", id: "stAdd", onclick: () => { state.edit = { kind: "staff", id: "new" }; drawStaff(); } }, icon("plus"), t("stAdd"))),
     editing === "new" && h("div", { class: "editor" }, h("h2", { style: "margin-bottom:14px" }, t("stNew")), staffForm(null)),
-    h("div", { class: "card tools" }, field(t("stSearch"), search), h("div", { class: "fixed", style: "min-width:150px" }, h("label", { for: "stShow" }, t("stShow")), show)),
+    h("div", { class: "card tools" }, field(t("stSearch"), search),
+      h("div", { class: "fixed", style: "min-width:150px" }, h("label", { for: "stTypeShow" }, t("stType")), type),
+      h("div", { class: "fixed", style: "min-width:150px" }, h("label", { for: "stShow" }, t("stShow")), show)),
     h("p", { class: "mute small", id: "stCount" }),
     h("div", { id: "stRows" }));
   drawStaffRows();

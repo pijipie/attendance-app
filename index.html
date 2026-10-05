@@ -85,6 +85,7 @@ input,select{
   background:var(--bg); color:var(--ink);
 }
 input{text-transform:uppercase}
+input::placeholder{text-transform:none; color:var(--mute); opacity:1}     /* the example in the empty staff code box */
 select{text-overflow:ellipsis}
 select:user-invalid,input:user-invalid{border-color:var(--bad)}
 .locked{margin:0; padding:.8rem .9rem; border:1.5px dashed var(--line); border-radius:10px}
@@ -252,7 +253,11 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
                          2.6: once an event is chosen, the counter of its session is shown under the
                               button - "Petang: 4 of 70 submitted" - and renews itself every 20 seconds.
                               Needs SQL file 08; with an older database no counter is shown, so either
-                              can be put in first)
+                              can be put in first;
+                         2.7: the staff code is no longer remembered: the box starts empty every time and
+                              shows "Example: MNHA". A check-in after the session's "late after" time is
+                              answered with "Recorded as late" (needs SQL file 09; an older database never
+                              says "late", so either can be put in first))
    The page only collects facts and shows the answer.
    The database function check_in() makes every decision.
    ===================================================================== */
@@ -275,6 +280,7 @@ const TEXT = {
     event: "Acara",
     eventCode: "Kod acara",
     staff: "Kod staf",
+    staffExample: "Contoh: MNHA",
     submit: "Hantar kehadiran",
     choose: "Pilih acara…",
     loading: "Memuatkan senarai acara…",
@@ -300,6 +306,7 @@ const TEXT = {
     event: "Event",
     eventCode: "Event code",
     staff: "Staff code",
+    staffExample: "Example: MNHA",
     submit: "Submit attendance",
     choose: "Choose an event…",
     loading: "Loading the event list…",
@@ -323,6 +330,7 @@ const TEXT = {
 const MESSAGES = {
   ms: {
     ok:          ["ok",   "Kehadiran direkodkan", "{name} · {event} · {m} m dari lokasi"],
+    ok_late:     ["warn", "Direkodkan sebagai lewat", "{name} · {event} · lewat {min} minit (selepas {after})"],
 
     qr_invalid_or_expired:            ["warn", "Kod QR tamat tempoh", "Imbas semula QR yang dipaparkan di lokasi, kemudian cuba lagi."],
     outside_time_window:              ["warn", "Di luar waktu kehadiran", "Acara ini tidak menerima kehadiran pada masa ini."],
@@ -347,6 +355,7 @@ const MESSAGES = {
   },
   en: {
     ok:          ["ok",   "Attendance recorded", "{name} · {event} · {m} m from the location"],
+    ok_late:     ["warn", "Recorded as late", "{name} · {event} · {min} min late (after {after})"],
 
     qr_invalid_or_expired:            ["warn", "QR code expired", "Scan the QR shown at the location again, then retry."],
     outside_time_window:              ["warn", "Outside attendance hours", "This event is not accepting attendance right now."],
@@ -561,6 +570,7 @@ function drawLanguage() {
   document.querySelectorAll("[data-t-html]").forEach(el => { el.innerHTML = t(el.dataset.tHtml); });
   document.querySelectorAll(".lang button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
   $("#siteLink").title = t("siteTitle");
+  $("#staff").placeholder = t("staffExample");
   if (window.SiteMenu) SiteMenu.draw(lang); else $("#foot").hidden = false;     // no menu.js: fall back to the plain link
   drawEventPicker();
   drawCount();
@@ -684,8 +694,7 @@ async function submit(event) {
   }
   if (!staffCode) { showMessage("need_staff"); $("#staff").focus(); return; }
 
-  remember("staff_code", staffCode);
-  if (mode === "select") remember("event_code", eventCode);
+  if (mode === "select") remember("event_code", eventCode);          // the event is remembered; the staff code is not (see section 9)
   showMessage(null);
 
   const button = $("#go");
@@ -736,7 +745,9 @@ async function submit(event) {
 
     // 8d. Show the answer. The form stays exactly as it was.
     if (reply && reply.ok) {
-      showMessage("ok", { name: reply.name, event: reply.event, m: reply.distance_m });
+      // Accepted. If the database says "late" (after the session's late time), say so: it is recorded, but stamped.
+      if (reply.late) showMessage("ok_late", { name: reply.name, event: reply.event, min: reply.late_minutes, after: reply.late_after });
+      else showMessage("ok", { name: reply.name, event: reply.event, m: reply.distance_m });
     } else {
       // "detail" is the more exact reason, when the database gives one (for example which kind of duplicate).
       const reason = reply && (reply.detail in MESSAGES[lang] ? reply.detail : reply.reason);
@@ -752,7 +763,9 @@ async function submit(event) {
 
 
 /* ---------- 9. Start --------------------------------------------------- */
-$("#staff").value = remember("staff_code") || "";
+// The staff code box starts empty every time, so the example is visible and a borrowed phone never
+// shows the last person's code. (Up to v2.6 the code was remembered on the phone: wipe that old copy.)
+try { localStorage.removeItem("staff_code"); } catch { /* storage blocked: there was nothing to wipe */ }
 $("#f").addEventListener("submit", submit);
 $("#event").addEventListener("change", () => { showMessage(null); drawHint(); loadCount(); });   // new choice: clear the old answer, fetch its counter
 // A second scan of the same event can land in this same tab. Only the part after "#" differs then,
