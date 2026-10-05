@@ -31,7 +31,20 @@
 --    (The staff page then simply shows no counter. Nothing else breaks.)
 -- =====================================================================
 
+-- ---------------------------------------------------------------------
+-- GUARD (added 5 Oct 2026). This file is OLDER than 09_late_stamp.sql.
+-- Every file except the newest checks first and stops without changing
+-- anything, so an old file can never be run over newer work by mistake.
+-- (The sign that 09 is installed: attendance has a late_minutes column.)
+-- ---------------------------------------------------------------------
 begin;      -- all or nothing: if any part fails, nothing in this file is kept
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'attendance' and column_name = 'late_minutes') then
+    raise exception 'STOP: 09_late_stamp.sql is already installed. This older file is not needed again. Nothing was changed.';
+  end if;
+end $$;
 
 
 -- =====================================================================

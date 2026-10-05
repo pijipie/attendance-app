@@ -12,7 +12,7 @@ Read `PRODUCT.md` first. It holds the product facts and the open decisions.
 - `qrcode.js` — vendored third-party QR library (MIT). Never edit it.
 - `leaflet.js`, `leaflet.css` — vendored third-party map library, Leaflet 1.9.4 (BSD-2-Clause). Never edit them. Only `admin.html` loads them.
 - `logo.png`, `apple-touch-icon.png` — school logo.
-- `database/01_schema.sql` … `database/08_staff_counter.sql` — the database, in run order. A change to the database is always a NEW numbered file that is safe to run twice; never edit a file that has already been run. The one exception is the guard: every file except the newest starts with `begin;` and a `do` block that stops it when a later file is installed (re-running an old file would restore weaker functions and policies). When you add file N+1, add that guard (and the closing `commit;` before its quick check) to file N.
+- `database/01_schema.sql` … `database/09_late_stamp.sql` — the database, in run order. A change to the database is always a NEW numbered file that is safe to run twice; never edit a file that has already been run. The one exception is the guard: every file except the newest starts with `begin;` and a `do` block that stops it when a later file is installed (re-running an old file would restore weaker functions and policies). When you add file N+1, add that guard (and the closing `commit;` before its quick check) to file N.
 
 ## Rules
 - Public repo. Never commit staff names, CSV exports, venue coordinates, or any `service_role`/`sb_secret_` key.
@@ -27,6 +27,8 @@ Read `PRODUCT.md` first. It holds the product facts and the open decisions.
 - Never hard-delete an event or session that has attendance. Use `remove_event()` / `remove_window()`, which archive (`archived_at`) instead. Every query that feeds a staff-facing list or `check_in()` must skip archived rows.
 - Any new table that admins can change needs the `audit_row()` trigger.
 - `check_in()` and `list_events()` share the same time-window test. Change both together.
+- Late is a stamp, never a refusal. A session is open from `start_time` to `end_time`; `late_after` (optional, inside those hours) only decides whether an ACCEPTED check-in gets `late_minutes`. The whole minute of `late_after` is on time. `late_minutes` is written once by `check_in()` and never recalculated, so editing a session later does not rewrite history. Only a `present` row may carry it.
+- The staff page does not remember the staff code: the box starts empty and shows the example. Do not bring the remembering back without asking; the event and the language are still remembered.
 - The counter on the staff page, the display page and the admin QR screen counts ONE session, chosen by `counter_for()`: open now (started last), else finished last, else next to open. All three get it from the database (`event_counter()` for the staff and admin pages, `display_poll()` for the display); never count in the page. `check_in()` picks its session with `order by w.start_time desc, w.id`, which must stay the same as rule 1 in `counter_for()`.
 - `event_counter()` is a PUBLIC door (no login). It may only ever return numbers and the session name. Never add names, staff codes, lists of who has or has not submitted, or anything about other days to it; build a separate admin-only function for that.
 - The staff page must keep working if it and the SQL are deployed in either order. Add new reply fields; do not rename existing `reason` values.
