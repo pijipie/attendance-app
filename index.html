@@ -99,6 +99,9 @@ select:user-invalid,input:user-invalid{border-color:var(--bad)}
 }
 .primary[disabled]{opacity:.65; cursor:progress}
 input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid var(--brand); outline-offset:2px}
+/* the counter under the button: the same line the big screen shows, e.g. "Petang: 4 of 70 submitted" */
+.count{margin:.8rem 0 0; color:var(--mute); font-size:.95rem; text-align:center; overflow-wrap:anywhere}
+.count b{color:var(--ink); font-size:1.15em; font-variant-numeric:tabular-nums}
 .gps{min-height:1.5em; margin:.7rem 0 0; color:var(--mute); font-size:.9rem; text-align:center}
 
 /* ---------- the floating notification (green / amber / red) ----------
@@ -215,6 +218,8 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
    </div>
 
    <button class="primary" id="go" type="submit" data-t="submit"></button>
+   <!-- The counter for the chosen event. Filled in by drawCount(); hidden when there is nothing to show. -->
+   <p class="count" id="count" hidden></p>
    <p class="gps" id="gps" aria-live="off"></p>
   </form>
  </section>
@@ -241,16 +246,20 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
 <script src="menu.js"></script>
 <script>
 /* =====================================================================
-   STAFF CHECK-IN PAGE  v2.5 (v2.4 + fixes from the security review of 3 Oct 2026:
+   STAFF CHECK-IN PAGE  v2.6 (v2.4 + fixes from the security review of 3 Oct 2026:
                               the QR token is read from the "#" part of the link and wiped from the
-                              address bar; the event list is re-read before "QR scan required" is shown)
+                              address bar; the event list is re-read before "QR scan required" is shown;
+                         2.6: once an event is chosen, the counter of its session is shown under the
+                              button - "Petang: 4 of 70 submitted" - and renews itself every 20 seconds.
+                              Needs SQL file 08; with an older database no counter is shown, so either
+                              can be put in first)
    The page only collects facts and shows the answer.
    The database function check_in() makes every decision.
    ===================================================================== */
 
 /* ---------- 1. Where the database lives -------------------------------
-   The publishable key is meant to be public. It can only open the two
-   doors we granted to "anon": list_events() and check_in().            */
+   The publishable key is meant to be public. It can only open the three
+   doors we granted to "anon": list_events(), check_in() and event_counter(). */
 const API = "https://xtrgefkopnqgektrllra.supabase.co";
 const KEY = "sb_publishable_AzY4sFUQgYQvQRSrFT3qwg_Y6068Gv5";
 
@@ -277,6 +286,7 @@ const TEXT = {
     locating: "Mencari lokasi…",
     sending: "Menghantar…",
     gps: "Ketepatan GPS: ±{m} m",
+    counted: "daripada {n} telah hantar", winClosed: "ditutup", winUpcoming: "belum dibuka",
     close: "Tutup mesej",
     adminLink: "Log masuk pentadbir",
     siteTitle: "Laman web rasmi (dibuka dalam tab baharu)"
@@ -301,6 +311,7 @@ const TEXT = {
     locating: "Finding your location…",
     sending: "Sending…",
     gps: "GPS accuracy: ±{m} m",
+    counted: "of {n} submitted", winClosed: "closed", winUpcoming: "not open yet",
     close: "Close message",
     adminLink: "Admin sign-in",
     siteTitle: "Official website (opens in a new tab)"
@@ -552,6 +563,7 @@ function drawLanguage() {
   $("#siteLink").title = t("siteTitle");
   if (window.SiteMenu) SiteMenu.draw(lang); else $("#foot").hidden = false;     // no menu.js: fall back to the plain link
   drawEventPicker();
+  drawCount();
   if (lastMsg) showMessage(lastMsg.id, lastMsg.values);
 }
 
@@ -575,6 +587,53 @@ async function loadEvents(again) {
   }
   drawEventPicker();
   return true;
+}
+
+
+/* ---------- 6b. The counter under the button --------------------------
+   Once an event is chosen, ask the database how many people have submitted for its session, and ask
+   again every 20 seconds while the page is on screen. The database picks the session and does the
+   counting (counter_for() in SQL file 07): the big screen and the admin QR screen show the same number.
+   The page never counts anything itself.
+   Nothing to show (no event chosen, no session today, no connection, older database): the line is hidden. */
+const COUNT_MS = 20000;
+let count      = null;      // the last answer: { code, data }
+let countTimer = null;
+let countRound = 0;         // each request takes a number; only the newest one may change the screen
+let countOff   = false;     // the database has no counter door for staff phones (SQL file 08 not run): stop asking
+
+function drawCount() {
+  const box  = $("#count");
+  const code = currentEventCode().toLowerCase();
+  const data = count && count.code === code ? count.data : null;
+  if (!data || !data.window_label) { box.hidden = true; box.replaceChildren(); return; }
+  const note   = data.window_state === "closed" ? t("winClosed") : data.window_state === "upcoming" ? t("winUpcoming") : "";
+  const number = document.createElement("b");
+  number.textContent = String(data.present);
+  // Words from the database (the session name) go in as text, never as HTML.
+  box.replaceChildren(data.window_label + (note ? " (" + note + ")" : "") + ": ", number, " " + fill(t("counted"), { n: data.total }));
+  box.hidden = false;
+}
+
+async function loadCount() {
+  clearTimeout(countTimer);
+  const mine = ++countRound;
+  // Only for an event from the list or from a scanned QR. Not while a code is being typed by hand
+  // (that only happens when the list could not be loaded), and not while the page is out of sight.
+  const code = mode === "select" || mode === "locked" ? currentEventCode() : "";
+  if (!code || countOff || document.hidden) { drawCount(); return; }
+  let answer = null;
+  try {
+    const data = await callDatabase("event_counter", { p_event_code: code });
+    if (data && typeof data === "object") answer = { code: code.toLowerCase(), data };
+  } catch (error) {
+    // 404: no such door. 401 / 403: the door exists but is for admins only (SQL file 07 without 08).
+    if (error && [401, 403, 404].includes(error.http)) countOff = true;
+  }
+  if (mine !== countRound) return;                    // a newer request is in charge
+  count = answer;                                     // no answer: hide the line instead of showing an old number
+  drawCount();
+  if (!countOff) countTimer = setTimeout(loadCount, COUNT_MS);
 }
 
 
@@ -687,6 +746,7 @@ async function submit(event) {
   } finally {
     busy = false; button.disabled = false; button.textContent = t("submit");
     $("#gps").textContent = "";
+    loadCount();                                      // the number has probably just changed: show it straight away
   }
 }
 
@@ -694,7 +754,7 @@ async function submit(event) {
 /* ---------- 9. Start --------------------------------------------------- */
 $("#staff").value = remember("staff_code") || "";
 $("#f").addEventListener("submit", submit);
-$("#event").addEventListener("change", () => { showMessage(null); drawHint(); });   // new choice: clear the old answer
+$("#event").addEventListener("change", () => { showMessage(null); drawHint(); loadCount(); });   // new choice: clear the old answer, fetch its counter
 // A second scan of the same event can land in this same tab. Only the part after "#" differs then,
 // so the browser does not reload the page: pick the new secret up here.
 window.addEventListener("hashchange", () => { if (takeToken()) { showMessage(null); drawHint(); } });
@@ -702,6 +762,7 @@ window.addEventListener("hashchange", () => { if (takeToken()) { showMessage(nul
 // so "closed now" and "needs the QR" are not yesterday's news. Not while the list is open under a finger.
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && !busy && eventsAt && Date.now() - eventsAt > 60000 && document.activeElement !== $("#event")) loadEvents(true);
+  if (!document.hidden) loadCount();                  // the counter rests while the page is out of sight, and starts again here
 });
 $("#toastClose").addEventListener("click", () => showMessage(null));
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !toast.hidden) showMessage(null); });
@@ -712,7 +773,7 @@ document.querySelectorAll(".lang button").forEach(b => b.addEventListener("click
 }));
 
 drawLanguage();
-loadEvents();
+loadEvents().then(loadCount);                         // the event remembered from last time gets its counter at once
 </script>
 </body>
 </html>

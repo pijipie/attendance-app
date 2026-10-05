@@ -28,13 +28,14 @@ All SQL lives in the `database/` folder. Run each file once in Supabase > SQL Ed
 | `05_roles_archive_displays.sql` | Three admin levels, archive instead of delete, the activity record, and screen pairing. |
 | `06_security_hardening.sql` | Fixes from the security review of 3 Oct 2026: limits and a brake on `check_in()`, replies that give less away, confirmed accounts only for admins, never zero owners, pairing that cannot be jammed, table rights cut down, indexes. |
 | `07_window_counter.sql` | The counter on the big screen and the admin QR screen follows the session (for example Pagi, Petang) instead of the whole day, so it starts again from 0 when check-out opens. `check_in()` now always picks the same session when two overlap. |
+| `08_staff_counter.sql` | Opens `event_counter()` to staff phones, so the staff page can show the same counter under the Submit button. It gives numbers only: no names, no staff codes. |
 
-Each file from `01` to `06` begins with a guard: if a later file is already installed, it stops and changes nothing. Running an old file again would otherwise put back older, weaker rules. The newest file (`07`) is safe to run again.
+Each file from `01` to `07` begins with a guard: if a later file is already installed, it stops and changes nothing. Running an old file again would otherwise put back older, weaker rules. The newest file (`08`) is safe to run again.
 
 ## How the safety works
 
 - The pages are public code. The database is what protects the data.
-- Staff phones can only call two functions: `list_events()` and `check_in()`. They cannot read any table.
+- Staff phones can only call three functions: `list_events()`, `check_in()` and `event_counter()`. They cannot read any table. `event_counter()` answers with numbers only (the session name, how many have submitted, how many active staff): never a name or a staff code. To close it again: `revoke execute on function event_counter(text) from anon;`
 - The big screen can only call `display_register()` and `display_poll()`. It never holds a login.
 - Admin requests carry a sign-in token. The database checks on every row that the person is in the `admins` table and what their level allows.
 - Nobody can change or delete an attendance row from the website.

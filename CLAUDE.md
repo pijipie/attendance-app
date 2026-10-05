@@ -5,14 +5,14 @@ Version 2 of the staff attendance system, rebuilding `attendance-geo-sraib` (Goo
 Read `PRODUCT.md` first. It holds the product facts and the open decisions.
 
 ## Layout
-- `index.html` — staff check-in page. Calls the Supabase RPCs `list_events()` and `check_in(...)` with the **publishable** key, which is safe to be public.
+- `index.html` — staff check-in page. Calls the Supabase RPCs `list_events()`, `check_in(...)` and `event_counter(...)` with the **publishable** key, which is safe to be public.
 - `admin.html` — admin page. Signs in through Supabase Auth, then reads and writes tables directly through PostgREST with the user's token. Row-level security decides what is allowed.
 - `display.html` — no-login page for a big screen. Pairs with an admin through `display_register()` / `display_approve()` / `display_poll()`.
 - `menu.js` — the three-line menu shared by every page. It holds the ONE list of pages (`PAGES`).
 - `qrcode.js` — vendored third-party QR library (MIT). Never edit it.
 - `leaflet.js`, `leaflet.css` — vendored third-party map library, Leaflet 1.9.4 (BSD-2-Clause). Never edit them. Only `admin.html` loads them.
 - `logo.png`, `apple-touch-icon.png` — school logo.
-- `database/01_schema.sql` … `database/07_window_counter.sql` — the database, in run order. A change to the database is always a NEW numbered file that is safe to run twice; never edit a file that has already been run. The one exception is the guard: every file except the newest starts with `begin;` and a `do` block that stops it when a later file is installed (re-running an old file would restore weaker functions and policies). When you add file N+1, add that guard (and the closing `commit;` before its quick check) to file N.
+- `database/01_schema.sql` … `database/08_staff_counter.sql` — the database, in run order. A change to the database is always a NEW numbered file that is safe to run twice; never edit a file that has already been run. The one exception is the guard: every file except the newest starts with `begin;` and a `do` block that stops it when a later file is installed (re-running an old file would restore weaker functions and policies). When you add file N+1, add that guard (and the closing `commit;` before its quick check) to file N.
 
 ## Rules
 - Public repo. Never commit staff names, CSV exports, venue coordinates, or any `service_role`/`sb_secret_` key.
@@ -27,7 +27,8 @@ Read `PRODUCT.md` first. It holds the product facts and the open decisions.
 - Never hard-delete an event or session that has attendance. Use `remove_event()` / `remove_window()`, which archive (`archived_at`) instead. Every query that feeds a staff-facing list or `check_in()` must skip archived rows.
 - Any new table that admins can change needs the `audit_row()` trigger.
 - `check_in()` and `list_events()` share the same time-window test. Change both together.
-- The counter on the display page and the admin QR screen counts ONE session, chosen by `counter_for()`: open now (started last), else finished last, else next to open. Both screens get it from the database (`display_poll()`, `event_counter()`); never count in the page. `check_in()` picks its session with `order by w.start_time desc, w.id`, which must stay the same as rule 1 in `counter_for()`.
+- The counter on the staff page, the display page and the admin QR screen counts ONE session, chosen by `counter_for()`: open now (started last), else finished last, else next to open. All three get it from the database (`event_counter()` for the staff and admin pages, `display_poll()` for the display); never count in the page. `check_in()` picks its session with `order by w.start_time desc, w.id`, which must stay the same as rule 1 in `counter_for()`.
+- `event_counter()` is a PUBLIC door (no login). It may only ever return numbers and the session name. Never add names, staff codes, lists of who has or has not submitted, or anything about other days to it; build a separate admin-only function for that.
 - The staff page must keep working if it and the SQL are deployed in either order. Add new reply fields; do not rename existing `reason` values.
 - UI text exists in English and Bahasa Melayu. English is the default; a device that chose BM keeps BM. Every new string needs both.
 - Every new page gets a line in `PAGES` in `menu.js` on the day it is created, and loads `menu.js` itself, so no page is ever unreachable while the layout is still being decided.

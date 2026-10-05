@@ -25,7 +25,21 @@
 --      still runs the older page keeps working.
 -- =====================================================================
 
+-- ---------------------------------------------------------------------
+-- GUARD (added 5 Oct 2026). This file is OLDER than 08_staff_counter.sql.
+-- Running it again after that file would turn event_counter() back into
+-- the admins-only version and the staff page would lose its counter.
+-- So it checks first, and stops without changing anything.
+-- (08 adds no new function, so the sign that it is installed is this:
+--  staff phones, "anon", are allowed to call event_counter().)
+-- ---------------------------------------------------------------------
 begin;      -- all or nothing: if any part fails, nothing in this file is kept
+do $$
+begin
+  if has_function_privilege('anon', to_regprocedure('public.event_counter(text)')::oid, 'execute') then
+    raise exception 'STOP: 08_staff_counter.sql is already installed. Running this older file again would undo it. Nothing was changed.';
+  end if;
+end $$;
 
 
 -- =====================================================================
