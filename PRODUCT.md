@@ -55,6 +55,8 @@ The database decides, not the page. The phone only reports measured facts (posit
 - Three levels: owner, manager, operator. The database enforces them; the page only hides what a level cannot do.
 - QR screen: a code that changes every 20 seconds, a live count of who is present, full-screen mode, a switch to require the QR for that event, and a button that opens the display page.
 - Attendance: by date, event and session, with three lists (present, not checked in, rejected), GPS and device details, and CSV download. Every row of the day is loaded, however many; a failed load is shown as a failure, never as an empty list. At most 10 refused attempts per person are stored in any 10 minutes.
+- Hours worked: a session can be marked as check-in or check-out (the daily event: Pagi is check-in, Petang is check-out). The Attendance screen then has a fourth list, Hours, with one line per person: time in, time out, the actual length, the length inside working hours, and the minutes late. Both lengths are shown because both were asked for: in 06:58 and out 15:42 is 8 h 44 min actual and 7 h 50 min inside working hours (07:40 to 15:30). Working hours run from the check-in session's "late after" time to the moment the check-out session opens, so a day with its own sessions (Friday) has its own hours. The CSV gives the lengths in minutes.
+- A missing check-in or check-out is shown as "No check-in" or "No check-out" and no length is worked out. Nothing is guessed. An owner or manager can add the missing time by hand with a reason (forgot, phone was flat, GPS failed). It is shown as manual with the reason and the account that entered it, it is written to the activity record, it can be removed but not edited, and it cannot replace a recorded check-in or lie in the future. There is no penalty for forgetting.
 - Events and attendance hours: add, change, remove; hours can repeat on chosen weekdays or cover chosen dates. Lists show current events by default, with search and an archive view.
 - Event location: set on a map (OpenStreetMap) by clicking, dragging the pin or searching for a place, with the allowed radius drawn as a circle. Latitude and longitude can still be typed.
 - Staff: add, change, set inactive, remove. The list opens on active staff.
@@ -78,7 +80,8 @@ The database decides, not the page. The phone only reports measured facts (posit
 
 **Deliberately not possible from the website**
 
-- Changing or deleting an attendance row. The log is evidence.
+- Changing or deleting an attendance row. The log is evidence. A time added by hand is kept in a separate table and is always labelled manual.
+- Filling in a missing check-in or check-out automatically with a default time. Decided against on 6 Oct 2026: it would put a time nobody recorded into an official record.
 - Creating an admin's account or password. That is done in Supabase; the page only assigns a level to an existing account.
 - Leaving the system with no owner.
 - Creating or dropping database tables. Structure changes go through numbered SQL files run in the Supabase SQL Editor.
@@ -87,6 +90,7 @@ The database decides, not the page. The phone only reports measured facts (posit
 
 - Real attendance hours entered for each event. Today every event is "anytime".
 - QR switched on for the events that need it. Today it is off on every event.
+- A staff "I forgot" request: the staff member asks from the staff page for a missing check-in or check-out to be added, and an admin approves or refuses it. Until then only an owner or manager can add a manual time.
 - Later: linked-device binding, per-staff PIN, one-time passcodes.
 
 **Decided against**
@@ -132,11 +136,13 @@ The database decides, not the page. The phone only reports measured facts (posit
 ## Evidence on Hand
 
 - Live staff page: https://pijipie.github.io/attendance-app/
-- Source: `index.html`, `admin.html`, `display.html`, `menu.js`, `qrcode.js` (third-party, MIT), `leaflet.js` and `leaflet.css` (third-party, BSD-2-Clause), and the SQL files `database/01_schema.sql` to `database/09_late_stamp.sql`, run in number order.
+- Source: `index.html`, `admin.html`, `display.html`, `menu.js`, `qrcode.js` (third-party, MIT), `leaflet.js` and `leaflet.css` (third-party, BSD-2-Clause), and the SQL files `database/01_schema.sql` to `database/10_work_hours.sql`, run in number order.
 - A security and code review dated 3 Oct 2026, and the fixes for it in `06_security_hardening.sql` and page versions index 2.5, admin 3.2, display 1.2.
 - A working database with the real staff list and six real events, plus test rows that must be removed before the pilot.
 - One real phone test on 3 Oct 2026: one accepted check-in at 7 m, one rejected at 7,825 m.
-- There are no usage figures, user feedback, testimonials or screenshots from real use yet. Do not invent any.
+- A pilot with real staff began on 5 Oct 2026. In its first two days seven staff tried the system, and on the first day three of six had both a check-in and a check-out, which is why a missing half is handled explicitly.
+- The daily event keeps its 40 m radius after the pilot showed refusals at 41 m and 88 m: staff are expected to walk to the check-in point (decided 6 Oct 2026).
+- Beyond that, there is no user feedback, no testimonials and no screenshots from real use yet. Do not invent any.
 
 ## Product Principles
 
