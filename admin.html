@@ -149,6 +149,11 @@ td.num,th.num{text-align:right}
 td.end{text-align:right}
 td.code{font-weight:600}
 td.edit{padding:14px; white-space:normal; background:var(--bg)}
+.hours td{vertical-align:middle}
+.hours td.wrap{overflow-wrap:anywhere}
+.hours .btn.small{margin-left:.15rem}
+.fixnote{display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px}
+.fixnote + .fixnote{margin-top:6px}
 
 /* ---------- segmented tabs inside a view ---------- */
 .seg{display:flex; flex-wrap:wrap; gap:6px}
@@ -334,7 +339,12 @@ td.edit{padding:14px; white-space:normal; background:var(--bg)}
                      3.4: a session can have a "late after" time (Events > hours); the attendance list and
                           the CSV show who was late and by how many minutes. Needs SQL file 09: with an
                           older database the list still loads, only without the late column.
-                          The staff list can be narrowed by type (staff / intern or contract))
+                          The staff list can be narrowed by type (staff / intern or contract);
+                     3.5: a session can be marked check-in or check-out (Events > hours). The Attendance
+                          screen then has an Hours list: time in, time out, the actual length and the
+                          length inside working hours. An owner or manager can add a missing time by
+                          hand, with a reason; it is always shown as manual. Needs SQL file 10: with an
+                          older database the Hours list simply does not appear)
    Sign in  ->  QR screen | Attendance | Events + time windows | Staff | Settings
 
    THREE LEVELS (set in Settings > Admins by an owner)
@@ -411,7 +421,7 @@ const TEXT = {
     actTitle: "Rekod aktiviti", actHelp: "Setiap tambahan, perubahan dan pemadaman dicatat sendiri. Tiada sesiapa boleh mengubah rekod ini dari laman web.",
     actLoad: "Papar 50 terkini", actEmpty: "Belum ada aktiviti direkodkan.", actSql: "Supabase (SQL)",
     act_insert: "Tambah", act_update: "Ubah", act_delete: "Padam", act_archive: "Arkib", act_restore: "Pulih",
-    tg_staff: "staf", tg_events: "acara", tg_event_windows: "waktu", tg_org_settings: "tetapan", tg_admins: "pentadbir",
+    tg_staff: "staf", tg_events: "acara", tg_event_windows: "waktu", tg_org_settings: "tetapan", tg_admins: "pentadbir", tg_attendance_corrections: "masa manual",
     colWhen: "Bila", colWho: "Siapa", colWhat: "Apa", setDisplayLink: "Pautan halaman paparan (skrin besar)",
 
     qrTitle: "Kod QR di lokasi", qrHelp: "Paparkan skrin ini di lokasi. Kod bertukar sendiri setiap {s} saat, jadi gambar kod yang dihantar kepada orang lain tidak boleh digunakan.",
@@ -425,7 +435,7 @@ const TEXT = {
     qrFull: "Skrin penuh", qrFullExit: "Keluar skrin penuh", qrScan: "Imbas dengan kamera telefon",
 
     logTitle: "Kehadiran", logDate: "Tarikh", logEvent: "Acara", logSession: "Sesi", logAllEvents: "Semua acara", logAllSessions: "Semua sesi",
-    logPresent: "Hadir", logAbsent: "Belum hadir", logRejected: "Ditolak",
+    logPresent: "Hadir", logAbsent: "Belum hadir", logRejected: "Ditolak", logHours: "Jam bekerja",
     logDetails: "Tunjuk butiran GPS dan peranti", logDownload: "Muat turun CSV",
     colTime: "Masa", colCode: "Kod", colName: "Nama", colType: "Jenis", colEvent: "Acara", colSession: "Sesi", colReason: "Sebab",
     colDistance: "Jarak", colAccuracy: "Ketepatan GPS", colDevice: "Peranti", colStatus: "Status",
@@ -454,6 +464,27 @@ const TEXT = {
     winLate: "Lewat selepas (pilihan)", winLateHelp: "Kehadiran selepas masa ini masih diterima sehingga masa Tamat, tetapi ditanda lewat. Kosongkan jika sesi ini tiada lewat. Contoh: Mula 03:00, Lewat selepas 07:40, Tamat 09:00.",
     winLateSummary: "lewat selepas {t}", errLate: "Masa lewat mesti berada antara masa mula dan masa tamat.",
     colLate: "Lewat", colLateMin: "Lewat (minit)", lateMin: "{n} min",
+    winCounts: "Sesi ini ialah", winCountsNone: "Sesi biasa", winCountsIn: "Daftar masuk (mula bekerja)", winCountsOut: "Daftar keluar (tamat bekerja)",
+    winCountsHelp: "Untuk mengira jam bekerja, tandakan sesi pagi sebagai daftar masuk dan sesi petang sebagai daftar keluar. Waktu bekerja bermula pada masa \"Lewat selepas\" sesi daftar masuk dan tamat apabila sesi daftar keluar dibuka.",
+    winInSummary: "daftar masuk", winOutSummary: "daftar keluar",
+    colIn: "Masuk", colOut: "Keluar", colActual: "Sebenar", colOfficial: "Dalam waktu bekerja", colNote: "Catatan", colDate: "Tarikh",
+    colActualMin: "Sebenar (minit)", colOfficialMin: "Dalam waktu bekerja (minit)", colInSource: "Sumber masuk", colOutSource: "Sumber keluar",
+    srcRecorded: "direkod", srcManual: "manual", hrsMin: "{h} j {m} min",
+    hrsNoIn: "Tiada daftar masuk", hrsNoOut: "Tiada daftar keluar", hrsWrong: "Semak masa",
+    hs_complete: "lengkap", hs_no_check_in: "tiada daftar masuk", hs_no_check_out: "tiada daftar keluar", hs_times_wrong: "semak masa",
+    hrsHelp: "Satu baris bagi setiap orang: daftar masuk dipadankan dengan daftar keluar. Saat tidak dikira.",
+    hrsSpan: "Waktu bekerja pada tarikh ini: {a} hingga {b}.",
+    emptyHours: "Belum ada daftar masuk atau daftar keluar direkodkan untuk acara ini pada tarikh ini.",
+    fixAdd: "Tambah masa manual", fixAddShort: "Tambah", fixTitle: "Masa manual",
+    fixHelp: "Guna hanya apabila seseorang tidak dapat mendaftar sendiri. Ia dipaparkan sebagai manual, bersama sebab dan akaun anda, dan tidak sekali-kali menggantikan daftar yang direkodkan.",
+    fixStaff: "Staf", fixChoose: "Pilih…", fixHalf: "Masa yang mana", fixIn: "Daftar masuk", fixOut: "Daftar keluar",
+    fixTime: "Masa", fixReason: "Sebab", fixReasonHelp: "Contoh: terlupa, telefon kehabisan bateri, GPS gagal.",
+    fixFor: "{date} · {event}", fixNote: "{half} (manual): {reason} · {who}",
+    errFixReason: "Beri sebab sekurang-kurangnya 3 aksara.",
+    errFixDuplicate: "Masa manual untuk itu sudah ada. Padam dahulu, kemudian tambah yang baharu.",
+    db_fix_future: "Masa itu belum berlaku.",
+    db_fix_already_recorded: "Orang ini sudah ada masa yang direkodkan untuk itu. Masa manual tidak boleh menggantikannya.",
+    errNeedsSql: "Pangkalan data belum ada ciri ini. Jalankan fail SQL terbaharu dahulu.",
     winFrom: "Dari tarikh (pilihan)", winTo: "Hingga tarikh (pilihan)", winDatesHelp: "Kosongkan kedua-duanya untuk berulang tanpa had. Untuk acara sehari, isi tarikh yang sama.",
     winEveryDay: "Setiap hari", winOn: "pada {d}", winFromTo: "{a} hingga {b}", winSince: "dari {a}", winUntil: "hingga {b}",
     d1: "Isn", d2: "Sel", d3: "Rab", d4: "Kha", d5: "Jum", d6: "Sab", d7: "Ahd",
@@ -525,7 +556,7 @@ const TEXT = {
     actTitle: "Activity record", actHelp: "Every addition, change and deletion is written down automatically. Nobody can alter this record from the website.",
     actLoad: "Show latest 50", actEmpty: "No activity recorded yet.", actSql: "Supabase (SQL)",
     act_insert: "Add", act_update: "Change", act_delete: "Delete", act_archive: "Archive", act_restore: "Restore",
-    tg_staff: "staff", tg_events: "event", tg_event_windows: "hours", tg_org_settings: "settings", tg_admins: "admin",
+    tg_staff: "staff", tg_events: "event", tg_event_windows: "hours", tg_org_settings: "settings", tg_admins: "admin", tg_attendance_corrections: "manual time",
     colWhen: "When", colWho: "Who", colWhat: "What", setDisplayLink: "Display page link (big screen)",
 
     qrTitle: "QR code at the location", qrHelp: "Show this screen at the location. The code changes by itself every {s} seconds, so a photo of it sent to someone else cannot be used.",
@@ -539,7 +570,7 @@ const TEXT = {
     qrFull: "Full screen", qrFullExit: "Exit full screen", qrScan: "Scan with your phone camera",
 
     logTitle: "Attendance", logDate: "Date", logEvent: "Event", logSession: "Session", logAllEvents: "All events", logAllSessions: "All sessions",
-    logPresent: "Present", logAbsent: "Not checked in", logRejected: "Rejected",
+    logPresent: "Present", logAbsent: "Not checked in", logRejected: "Rejected", logHours: "Hours",
     logDetails: "Show GPS and device details", logDownload: "Download CSV",
     colTime: "Time", colCode: "Code", colName: "Name", colType: "Type", colEvent: "Event", colSession: "Session", colReason: "Reason",
     colDistance: "Distance", colAccuracy: "GPS accuracy", colDevice: "Device", colStatus: "Status",
@@ -568,6 +599,27 @@ const TEXT = {
     winLate: "Late after (optional)", winLateHelp: "A check-in after this time is still accepted until the End time, but is marked late. Leave empty if this session has no late. Example: Start 03:00, Late after 07:40, End 09:00.",
     winLateSummary: "late after {t}", errLate: "The late time must be between the start time and the end time.",
     colLate: "Late", colLateMin: "Late (minutes)", lateMin: "{n} min",
+    winCounts: "This session is", winCountsNone: "An ordinary session", winCountsIn: "Check-in (start of work)", winCountsOut: "Check-out (end of work)",
+    winCountsHelp: "To get hours worked, mark the morning session as check-in and the afternoon session as check-out. Work starts at the check-in session's \"Late after\" time and ends when the check-out session opens.",
+    winInSummary: "check-in", winOutSummary: "check-out",
+    colIn: "In", colOut: "Out", colActual: "Actual", colOfficial: "In working hours", colNote: "Note", colDate: "Date",
+    colActualMin: "Actual (minutes)", colOfficialMin: "In working hours (minutes)", colInSource: "In source", colOutSource: "Out source",
+    srcRecorded: "recorded", srcManual: "manual", hrsMin: "{h} h {m} min",
+    hrsNoIn: "No check-in", hrsNoOut: "No check-out", hrsWrong: "Check the times",
+    hs_complete: "complete", hs_no_check_in: "no check-in", hs_no_check_out: "no check-out", hs_times_wrong: "check the times",
+    hrsHelp: "One line per person: the check-in paired with the check-out. Seconds are not counted.",
+    hrsSpan: "Working hours on this date: {a} to {b}.",
+    emptyHours: "No check-in or check-out has been recorded for this event on this date.",
+    fixAdd: "Add a manual time", fixAddShort: "Add", fixTitle: "Manual time",
+    fixHelp: "Use this only when someone could not check in or out themselves. It is shown as manual, with your reason and your account, and it never replaces a recorded check-in.",
+    fixStaff: "Staff member", fixChoose: "Choose…", fixHalf: "Which time", fixIn: "Check-in", fixOut: "Check-out",
+    fixTime: "Time", fixReason: "Reason", fixReasonHelp: "For example: forgot, phone was flat, GPS failed.",
+    fixFor: "{date} · {event}", fixNote: "{half} (manual): {reason} · {who}",
+    errFixReason: "Give a reason of at least 3 characters.",
+    errFixDuplicate: "A manual time for that already exists. Delete it first, then add the new one.",
+    db_fix_future: "That time has not happened yet.",
+    db_fix_already_recorded: "This person already has a recorded time for that. A manual time cannot replace it.",
+    errNeedsSql: "The database does not have this feature yet. Run the newest SQL file first.",
     winFrom: "From date (optional)", winTo: "To date (optional)", winDatesHelp: "Leave both empty to repeat with no end. For a one-day event, enter the same date in both.",
     winEveryDay: "Every day", winOn: "on {d}", winFromTo: "{a} to {b}", winSince: "from {a}", winUntil: "until {b}",
     d1: "Mon", d2: "Tue", d3: "Wed", d4: "Thu", d5: "Fri", d6: "Sat", d7: "Sun",
@@ -697,6 +749,7 @@ const state = {
          session: null },         // which session the count belongs to: { label, state }. null = whole day (older database)
   log: { date: todayKL(), followToday: true,   // followToday: the date moves on by itself at midnight
          eventId: "", windowId: "", tab: "present", rows: [], capped: false, loadedAt: null, loading: false,
+         hours: [],                  // the paired lines (time in, time out, lengths) from the work_hours view, for the event and date on screen
          error: null,                // the last load failed: show that, never an empty "0 present"
          stale: false,               // a background refresh failed: the list on screen is older than it looks
          ticket: 0,                  // each load takes a number; only the newest one may fill the list
@@ -750,7 +803,10 @@ function explain(error) {
   if (error.text) return error.text;
   if (error.kind === "network") return t("errNetwork");
   if (error.kind === "session") return t("errSession");
+  // P0001: the database refused on purpose and gave a short reason word (for example "fix_future").
+  if (error.code === "P0001" && TEXT[state.lang]["db_" + error.message]) return t("db_" + error.message);
   switch (error.code) {
+    case "PGRST204": case "42703": return t("errNeedsSql");      // "no such column": the page is newer than the database
     case "23503": return t("errInUse");
     case "23505": return t("errDuplicate");
     case "23514": return t("errCheck");
@@ -838,7 +894,7 @@ function endSession(messageKey, values) {
   stopQr(); clearTimeout(state.log.timer); closeMap();
   Object.assign(state, { role: null, staff: [], events: [], windows: [], settings: null, basicsAt: 0, openNow: {},
                          edit: null, confirm: null, displays: [], canPair: false, pairOpen: false, admins: [], activity: null });
-  Object.assign(state.log, { eventId: "", windowId: "", tab: "present", rows: [], capped: false, loadedAt: null, loading: false,
+  Object.assign(state.log, { eventId: "", windowId: "", tab: "present", rows: [], hours: [], capped: false, loadedAt: null, loading: false,
                              error: null, stale: false, loadedKey: "", shown: LOG_SHOW, known: { date: "", events: new Set(), sessions: new Set() } });
   state.log.ticket++;                                                       // any attendance list still on its way is now out of date
   state.staffFilter.text = ""; state.evFilter.text = "";
@@ -1353,8 +1409,19 @@ async function loadLog(quiet) {
       L.noLate = true;
       [present, rejected] = await read(false);
     }
+    // Hours: only for an event whose sessions are marked check-in / check-out. The pairing and the sums are done
+    // by the database (the work_hours view); the page only shows them.
+    let hours = [];
+    if (hoursOn(eventId)) {
+      try { hours = (await fetchAllRows("work_hours?select=" + HOURS_FIELDS + "&work_date=eq." + date + "&event_id=eq." + eventId + "&order=staff_id.asc")).rows; }
+      catch (error) {
+        // "No such view": SQL file 10 has not been run yet. Carry on without the Hours list, and stop asking.
+        if (error.kind !== "db" || !(error.status === 404 || error.code === "42P01" || error.code === "PGRST205")) throw error;
+        L.noHours = true;
+      }
+    }
     if (ticket !== L.ticket) return;                             // a newer load (another date, another event) has taken over
-    L.rows = [...present.rows, ...rejected.rows]; L.capped = present.capped || rejected.capped;
+    L.rows = [...present.rows, ...rejected.rows]; L.capped = present.capped || rejected.capped; L.hours = hours;
     L.loadedAt = new Date(); L.loadedKey = key; L.error = null; L.stale = false;
     if (L.known.date !== date) L.known = { date, events: new Set(), sessions: new Set() };
     for (const r of L.rows) { L.known.events.add(r.event_id); L.known.sessions.add(r.window_id); }
@@ -1363,11 +1430,12 @@ async function loadLog(quiet) {
     L.loading = false;
     if (error.kind === "session") return;
     if (quiet && L.loadedKey === key && !L.error) L.stale = true; // background refresh failed: keep the last good list for this date and event, but say that it is old
-    else { L.error = error; L.rows = []; L.capped = false; }     // anything else failed: say so. Never show an empty list as if nobody came.
+    else { L.error = error; L.rows = []; L.hours = []; L.capped = false; }     // anything else failed: say so. Never show an empty list as if nobody came.
   }
   L.loading = false;
   if (state.view !== "log") return;
-  if (!(quiet && busyChoosing())) drawLog();                      // do not yank a date picker or dropdown away from the person using it
+  // Do not yank a date picker or dropdown away from the person using it, and never redraw under an open "manual time" form.
+  if (!(quiet && (busyChoosing() || (state.edit && state.edit.kind === "fix")))) drawLog();
   again();
   if (quiet) refreshBasics();                                    // names of staff added since sign-in
 }
@@ -1380,8 +1448,22 @@ function logLists() {
   const rejected = L.rows.filter(r => r.status === "rejected" && chosen(r));
   const here = new Set(present.map(r => r.staff_id));
   const absent = L.eventId ? state.staff.filter(s => s.active && !here.has(s.id)) : null;
-  return { present, rejected, absent };
+  // Hours: days with a missing half come first (they are the ones that need attention), then by name.
+  const hours = hoursOn(L.eventId) ? [...L.hours].sort((a, b) => (a.status === "complete") - (b.status === "complete") || (a.full_name || "").localeCompare(b.full_name || "")) : null;
+  return { present, rejected, absent, hours };
 }
+
+/* Does this event pair a check-in session with a check-out session? Only then is there an Hours list.
+   (Archived sessions count too, so an old date still shows its hours.) */
+const hoursOn = eventId => !!eventId && !state.log.noHours && state.windows.some(w => w.event_id === eventId && w.counts_as);
+const HOURS_FIELDS = "staff_id,staff_code,full_name,status,time_in,in_source,time_out,out_source,minutes_actual,minutes_official,late_minutes,"
+                   + "official_start,official_end,in_note,in_entered_by,in_correction_id,out_note,out_entered_by,out_correction_id";
+const shortKL  = iso => iso ? clockKL(iso).slice(0, 5) : "";                                        // 07:29 (the sums ignore seconds, so the screen does too)
+const duration = minutes => minutes == null ? "" : t("hrsMin", { h: Math.floor(minutes / 60), m: String(minutes % 60).padStart(2, "0") });   // 8 h 04 min
+const sourceText = source => source ? t(source === "manual" ? "srcManual" : "srcRecorded") : "";
+/* The reason and the account behind each manual time on a line, as plain text. */
+const fixNotes = r => ["in", "out"].filter(half => r[half + "_source"] === "manual")
+  .map(half => t("fixNote", { half: t(half === "in" ? "fixIn" : "fixOut"), reason: r[half + "_note"] || "", who: r[half + "_entered_by"] || "–" }));
 
 const reasonText = reason => TEXT[state.lang]["r_" + reason] || reason || "";
 const typeText   = type => t(type === "intern_contract" ? "stTypeIntern" : "stTypeStaff");
@@ -1400,6 +1482,11 @@ function logColumns(tab, forFile) {
   const L = state.log, details = forFile || L.details;
   const who = [["colCode", r => (staffById(r.staff_id) || {}).staff_code || ""], ["colName", r => (staffById(r.staff_id) || {}).full_name || "", "wrap"]];
   if (tab === "absent") return [["colCode", s => s.staff_code], ["colName", s => s.full_name, "wrap"], ["colType", s => typeText(s.staff_type)]];
+  // Hours, for the file. Lengths are plain minutes so a spreadsheet can add them up. (The screen is drawn by hoursTable().)
+  if (tab === "hours") return [["colDate", () => showDate(L.date)], ["colCode", r => r.staff_code || ""], ["colName", r => r.full_name || ""],
+    ["colIn", r => shortKL(r.time_in)], ["colInSource", r => sourceText(r.in_source)], ["colOut", r => shortKL(r.time_out)], ["colOutSource", r => sourceText(r.out_source)],
+    ["colActualMin", r => r.minutes_actual ?? ""], ["colOfficialMin", r => r.minutes_official ?? ""], ["colLateMin", r => r.late_minutes || ""],
+    ["colStatus", r => t("hs_" + r.status)], ["colNote", r => fixNotes(r).join("; ")]];
   const cols = [["colTime", r => clockKL(r.checked_in_at)], ...who];
   if (!L.eventId || forFile) cols.push(["colEvent", r => (eventById(r.event_id) || {}).name || ""]);
   cols.push(["colSession", r => (windowById(r.window_id) || {}).label || ""]);
@@ -1419,12 +1506,16 @@ function drawLog() {
   const eventChoices = state.events.filter(e => !e.archived_at || used.has(e.id) || e.id === L.eventId);
   const sessions = L.eventId ? state.windows.filter(w => w.event_id === L.eventId && (!w.archived_at || usedSessions.has(w.id))) : [];
   if (!sessions.some(w => w.id === L.windowId)) L.windowId = "";
+  const showHours = !!lists.hours;                                // this event pairs check-in with check-out
+  if (L.tab === "hours" && !showHours) L.tab = "present";
+  const fix = L.tab === "hours" && state.edit && state.edit.kind === "fix" ? state.edit : null;     // the "manual time" form, when open
+  const leave = () => { if (state.edit && state.edit.kind === "fix") state.edit = null; state.confirm = null; };   // moving away closes that form
 
   const tools = h("div", { class: "card tools" },
     field(t("logDate"), h("input", { id: "logDate", type: "date", value: L.date, max: todayKL(), onchange: e => {
       L.date = /^\d{4}-\d{2}-\d{2}$/.test(e.target.value) ? e.target.value : todayKL();
-      L.followToday = L.date === todayKL(); L.rows = []; L.shown = LOG_SHOW; loadLog(); } })),
-    field(t("logEvent"), h("select", { id: "logEvent", value: L.eventId, onchange: e => { L.eventId = e.target.value; L.windowId = ""; L.rows = []; L.shown = LOG_SHOW; loadLog(); } },
+      L.followToday = L.date === todayKL(); L.rows = []; L.hours = []; L.shown = LOG_SHOW; leave(); loadLog(); } })),
+    field(t("logEvent"), h("select", { id: "logEvent", value: L.eventId, onchange: e => { L.eventId = e.target.value; L.windowId = ""; L.rows = []; L.hours = []; L.shown = LOG_SHOW; leave(); loadLog(); } },
       h("option", { value: "" }, t("logAllEvents")),
       eventChoices.map(e => h("option", { value: e.id }, e.name + (e.archived_at ? " (" + t("evArchived") + ")" : e.active ? "" : " (" + t("inactive") + ")"))))),
     sessions.length > 1 && field(t("logSession"), h("select", { id: "logSession", value: L.windowId, onchange: e => { L.windowId = e.target.value; L.shown = LOG_SHOW; drawLog(); } },
@@ -1434,12 +1525,12 @@ function drawLog() {
       // No download while the list is still loading or failed to load: the file would be empty or half full.
       h("button", { class: "btn", type: "button", id: "logDownload", disabled: L.loading || !!L.error, onclick: downloadCsv }, icon("download"), t("logDownload"))));
 
-  const count = L.loading ? { present: "…", absent: "…", rejected: "…" }
-              : L.error   ? { present: "–", absent: "–", rejected: "–" }
-              : { present: lists.present.length, absent: lists.absent ? lists.absent.length : "–", rejected: lists.rejected.length };
+  const count = L.loading ? { present: "…", absent: "…", rejected: "…", hours: "…" }
+              : L.error   ? { present: "–", absent: "–", rejected: "–", hours: "–" }
+              : { present: lists.present.length, absent: lists.absent ? lists.absent.length : "–", rejected: lists.rejected.length, hours: showHours ? lists.hours.length : "–" };
   const seg = h("div", { class: "seg", role: "group", "aria-label": t("logTitle") },
-    [["present", "logPresent"], ["absent", "logAbsent"], ["rejected", "logRejected"]].map(([tab, key]) =>
-      h("button", { type: "button", "aria-pressed": String(L.tab === tab), "data-tab": tab, onclick: () => { L.tab = tab; L.shown = LOG_SHOW; drawLog(); } }, t(key) + " (" + count[tab] + ")")));
+    [["present", "logPresent"], ["absent", "logAbsent"], ["rejected", "logRejected"], showHours && ["hours", "logHours"]].filter(Boolean).map(([tab, key]) =>
+      h("button", { type: "button", "aria-pressed": String(L.tab === tab), "data-tab": tab, onclick: () => { L.tab = tab; L.shown = LOG_SHOW; leave(); drawLog(); } }, t(key) + " (" + count[tab] + ")")));
 
   let body, more = null;
   const rows = lists[L.tab];
@@ -1449,7 +1540,8 @@ function drawLog() {
     h("div", { class: "actions", style: "justify-content:center; margin-top:14px" },
       h("button", { class: "btn primary", type: "button", onclick: () => loadLog() }, icon("refresh"), t("logRetry"))));
   else if (L.tab === "absent" && !rows) body = h("div", { class: "card empty" }, t("absentPick"));
-  else if (!rows.length) body = h("div", { class: "card empty" }, t({ present: "emptyPresent", absent: "emptyAbsent", rejected: "emptyRejected" }[L.tab]));
+  else if (!rows.length) body = h("div", { class: "card empty" }, t({ present: "emptyPresent", absent: "emptyAbsent", rejected: "emptyRejected", hours: "emptyHours" }[L.tab]));
+  else if (L.tab === "hours") body = hoursTable(rows.slice(0, L.shown));
   else {
     const cols = logColumns(L.tab);
     const lead = ["colTime", "colCode", "colName"];                 // on a phone these three share the first line of each row
@@ -1459,8 +1551,10 @@ function drawLog() {
         const value = get(r), first = lead.includes(key);
         return h("td", { class: [cls, key === "colCode" && "code", first && "inline", value === "" && "nil"].filter(Boolean).join(" ") || null, "data-label": first ? null : t(key) }, value);
       }))))));
+  }
+  if (!L.loading && !L.error && rows && rows.length > L.shown) {
     // A very long list is drawn a part at a time so a phone stays quick. The CSV always holds every row.
-    if (rows.length > L.shown) more = h("div", { class: "actions", id: "logMore" },
+    more = h("div", { class: "actions", id: "logMore" },
       h("span", { class: "mute small" }, t("logShowing", { a: L.shown.toLocaleString("en"), b: rows.length.toLocaleString("en") })),
       h("button", { class: "btn small", type: "button", onclick: () => { L.shown += LOG_SHOW; drawLog(); } }, t("logMore")));
   }
@@ -1470,12 +1564,85 @@ function drawLog() {
       h("p", { id: "logStamp" }, L.loadedAt && !L.error ? t("updatedAt", { time: clockKL(L.loadedAt) }) : ""))),
     tools,
     h("div", { class: "head" }, seg,
-      L.tab !== "absent" && check("logDetails", t("logDetails"), L.details)),
+      L.tab === "hours" ? canManage() && !fix && h("button", { class: "btn small", type: "button", id: "fixAdd", onclick: () => { state.edit = { kind: "fix", staffId: "", half: "in" }; state.confirm = null; drawLog(); } }, icon("plus"), t("fixAdd"))
+                        : L.tab !== "absent" && check("logDetails", t("logDetails"), L.details)),
+    L.tab === "hours" && h("p", { class: "mute small", id: "hrsHelp" }, hoursHelp(lists.hours)),
+    fix && h("div", { class: "editor", id: "fixBox" }, h("h2", { style: "margin-bottom:6px" }, t("fixTitle")), fixForm(fix)),
     L.stale && !L.loading && !L.error && h("p", { class: "note warn", id: "logStale" }, t("logStale", { time: L.loadedAt ? clockKL(L.loadedAt) : "–" })),
     L.capped && !L.loading && !L.error && h("p", { class: "note warn" }, t("logCapped", { n: (LOG_PAGE * LOG_MAX_PAGES).toLocaleString("en") })),
     body, more);
   const box = $("#logDetails");
   if (box) box.addEventListener("change", e => { L.details = e.target.checked; drawLog(); });
+}
+
+/* The sentence under the tabs of the Hours list. It also says which working hours the "in working hours" column used. */
+function hoursHelp(rows) {
+  const r = (rows || []).find(x => x.official_start && x.official_end);
+  return t("hrsHelp") + (r ? " " + t("hrsSpan", { a: hhmm(r.official_start), b: hhmm(r.official_end) }) : "");
+}
+
+/* The Hours list on screen: one line per person, check-in beside check-out.
+   A missing half is said plainly and never filled in. An owner or manager gets an "Add" button there. */
+function hoursTable(rows) {
+  const manage = canManage();
+  const open = (staffId, half) => { state.edit = { kind: "fix", staffId, half }; state.confirm = null; drawLog(); $("#fixBox").scrollIntoView({ block: "nearest" }); };
+  const half = (r, which) => {
+    if (!r["time_" + which]) return [h("span", { class: "pill warn" }, t(which === "in" ? "hrsNoIn" : "hrsNoOut")),
+                                     manage && " ", manage && h("button", { class: "btn small", type: "button", "data-add": which, onclick: () => open(r.staff_id, which) }, t("fixAddShort"))];
+    return [shortKL(r["time_" + which]), r[which + "_source"] === "manual" && [" ", h("span", { class: "pill off" }, t("srcManual"))]];
+  };
+  // Removing a manual time asks once more, in the row. (Not removeButton(): that one reloads the whole screen for the question.)
+  const removeFix = id => !manage ? null : state.confirm !== "fix-" + id
+    ? h("button", { class: "btn small danger", type: "button", onclick: () => { state.confirm = "fix-" + id; state.edit = null; drawLog(); } }, t("remove"))
+    : h("span", { class: "actions" }, h("span", { class: "small" }, t("removeAsk")),
+        h("button", { class: "btn small danger", type: "button", onclick: async e => {
+          e.target.disabled = true;
+          try { await api("attendance_corrections?id=eq." + id, { method: "DELETE" }); state.confirm = null; toast("ok", t("okRemoved")); loadLog(); }
+          catch (error) { state.confirm = null; fail(error); drawLog(); }
+        } }, t("removeYes")),
+        h("button", { class: "btn small", type: "button", onclick: () => { state.confirm = null; drawLog(); } }, t("cancel")));
+  const notes = r => ["in", "out"].filter(which => r[which + "_source"] === "manual").map((which, i) =>
+    h("div", { class: "fixnote" }, fixNotes(r)[i], " ", removeFix(r[which + "_correction_id"])));
+
+  const cols = [["colCode", r => r.staff_code || "", "code inline"], ["colName", r => r.full_name || "", "wrap inline"],
+    ["colIn", r => half(r, "in")], ["colOut", r => half(r, "out")],
+    ["colActual", r => r.status === "times_wrong" ? h("span", { class: "pill bad" }, t("hrsWrong")) : duration(r.minutes_actual), "num"],
+    ["colOfficial", r => duration(r.minutes_official), "num"],
+    ["colLate", r => r.late_minutes ? t("lateMin", { n: r.late_minutes }) : "", "num"],
+    ["colNote", r => { const list = notes(r); return list.length ? list : ""; }, "wrap"]];
+  return h("div", { class: "tablewrap" }, h("table", { class: "stack hours" },
+    h("thead", null, h("tr", null, cols.map(([key, , cls]) => h("th", { class: cls === "num" ? "num" : null }, t(key))))),
+    h("tbody", null, rows.map(r => h("tr", { "data-code": r.staff_code }, cols.map(([key, get, cls]) => {
+      const value = get(r), first = key === "colCode" || key === "colName";
+      return h("td", { class: [cls, value === "" && "nil"].filter(Boolean).join(" ") || null, "data-label": first ? null : t(key) }, value);
+    }))))));
+}
+
+/* The small form that adds one manual time, for the date and event on screen. The database stamps who and when,
+   refuses a time in the future, and refuses to put a manual time beside a recorded check-in. */
+function fixForm(fix) {
+  const L = state.log, ev = eventById(L.eventId);
+  const staff = h("select", { id: "fixStaff", required: true, value: fix.staffId || "" },
+    h("option", { value: "" }, t("fixChoose")),
+    state.staff.filter(s => s.active || s.id === fix.staffId).map(s => h("option", { value: s.id }, s.staff_code + " · " + s.full_name)));
+  const half   = h("select", { id: "fixHalf", value: fix.half === "out" ? "out" : "in" }, h("option", { value: "in" }, t("fixIn")), h("option", { value: "out" }, t("fixOut")));
+  const time   = h("input", { id: "fixTime", type: "time", required: true });
+  const reason = h("input", { id: "fixReason", required: true, maxlength: 200, autocomplete: "off" });
+  const save   = h("button", { class: "btn primary", type: "submit" }, t("save"));
+  return h("form", { class: "form", novalidate: true, onsubmit: e => {
+    e.preventDefault();
+    const row = { staff_id: staff.value, event_id: L.eventId, work_date: L.date, half: half.value, clock_time: time.value, reason: reason.value.trim() };
+    if (!row.staff_id || !row.clock_time) return toast("bad", t("errTitle"), t("errRequired"));
+    if (row.reason.length < 3) return toast("bad", t("errTitle"), t("errFixReason"));
+    saving(save, async () => {
+      try { await api("attendance_corrections", { method: "POST", body: row }); }
+      catch (error) { if (error.code === "23505") throw { text: t("errFixDuplicate") }; throw error; }   // 23505 here means "that half already has a manual time"
+    });
+  } },
+    h("p", { class: "mute small" }, h("strong", null, t("fixFor", { date: showDate(L.date), event: ev ? ev.name : "" })), h("br"), t("fixHelp")),
+    h("div", { class: "row" }, field(t("fixStaff"), staff), field(t("fixHalf"), half), field(t("fixTime"), time)),
+    field(t("fixReason"), reason, t("fixReasonHelp")),
+    h("div", { class: "actions" }, save, h("button", { class: "btn", type: "button", onclick: () => { state.edit = null; drawLog(); } }, t("cancel"))));
 }
 
 /* Save the list that is showing as a file Excel and Google Sheets can open. */
@@ -1506,7 +1673,8 @@ function windowSummary(w) {
   else if (w.starts_on) dates = t("winSince", { a: showDate(w.starts_on) });
   else if (w.ends_on) dates = t("winUntil", { b: showDate(w.ends_on) });
   const late = w.late_after ? t("winLateSummary", { t: hhmm(w.late_after) }) : "";
-  return [hhmm(w.start_time) + "–" + hhmm(w.end_time), late, days, dates].filter(Boolean).join(" · ");
+  const counts = w.counts_as === "in" ? t("winInSummary") : w.counts_as === "out" ? t("winOutSummary") : "";
+  return [counts, hhmm(w.start_time) + "–" + hhmm(w.end_time), late, days, dates].filter(Boolean).join(" · ");
 }
 
 function drawEvents() {
@@ -1720,6 +1888,8 @@ function windowForm(ev, w) {
   const late  = h("input", { id: pre + "late", type: "time", value: w && w.late_after ? hhmm(w.late_after) : "" });   // empty = this session has no "late"
   const from  = h("input", { id: pre + "from", type: "date", value: w && w.starts_on ? w.starts_on : "" });
   const to    = h("input", { id: pre + "to", type: "date", value: w && w.ends_on ? w.ends_on : "" });
+  const counts = h("select", { id: pre + "counts", value: w && w.counts_as ? w.counts_as : "" },                  // empty = an ordinary session, not paired
+    h("option", { value: "" }, t("winCountsNone")), h("option", { value: "in" }, t("winCountsIn")), h("option", { value: "out" }, t("winCountsOut")));
   const chosen = new Set(w && w.weekdays ? w.weekdays : []);
   const days = [1, 2, 3, 4, 5, 6, 7].map(d => h("label", null, h("input", { type: "checkbox", class: "sr-only", value: String(d), checked: chosen.has(d) }), h("span", null, t("d" + d))));
   const save = h("button", { class: "btn primary", type: "submit" }, t("save"));
@@ -1736,6 +1906,9 @@ function windowForm(ev, w) {
     // Left out otherwise, so saving still works on a database without SQL file 09.
     if (late.value || (w && "late_after" in w)) row.late_after = late.value || null;
     if (row.late_after && (row.late_after < row.start_time || row.late_after >= row.end_time)) return toast("bad", t("errTitle"), t("errLate"));
+    // "Counts as" follows the same rule as "late after": sent when chosen, or when this session already has the column
+    // (so it can be set back to ordinary). Left out otherwise, so saving still works on a database without SQL file 10.
+    if (counts.value || (w && "counts_as" in w)) row.counts_as = counts.value || null;
     if (row.starts_on && row.ends_on && row.ends_on < row.starts_on) return toast("bad", t("errTitle"), t("errDates"));
     saving(save, async () => {
       if (w) Object.assign(w, (await api("event_windows?id=eq." + w.id, { method: "PATCH", body: row })).data[0]);
@@ -1747,6 +1920,7 @@ function windowForm(ev, w) {
     h("div", null, h("p", { class: "label" }, t("winDays")), h("div", { class: "days", role: "group", "aria-label": t("winDays") }, days), h("p", { class: "help" }, t("winDaysHelp"))),
     h("div", { class: "row" }, field(t("winStart"), start), field(t("winLate"), late), field(t("winEnd"), end)),
     h("p", { class: "help" }, t("winLateHelp")),
+    field(t("winCounts"), counts, t("winCountsHelp")),
     h("div", null, h("div", { class: "row" }, field(t("winFrom"), from), field(t("winTo"), to)), h("p", { class: "help" }, t("winDatesHelp"))),
     h("div", { class: "actions" }, save, h("button", { class: "btn", type: "button", onclick: () => { back(); drawEvents(); } }, t("cancel"))));
 }

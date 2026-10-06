@@ -1,6 +1,6 @@
 # attendance-app — notes for Claude
 
-Version 2 of the staff attendance system, rebuilding `attendance-geo-sraib` (Google Sheets + Apps Script) on Supabase. Still in development; not yet piloted with real staff.
+Version 2 of the staff attendance system, rebuilding `attendance-geo-sraib` (Google Sheets + Apps Script) on Supabase. In pilot with real staff since 5 Oct 2026, so the database holds real attendance: treat every change as a change to a live system.
 
 Read `PRODUCT.md` first. It holds the product facts and the open decisions.
 
@@ -12,7 +12,7 @@ Read `PRODUCT.md` first. It holds the product facts and the open decisions.
 - `qrcode.js` — vendored third-party QR library (MIT). Never edit it.
 - `leaflet.js`, `leaflet.css` — vendored third-party map library, Leaflet 1.9.4 (BSD-2-Clause). Never edit them. Only `admin.html` loads them.
 - `logo.png`, `apple-touch-icon.png` — school logo.
-- `database/01_schema.sql` … `database/09_late_stamp.sql` — the database, in run order. A change to the database is always a NEW numbered file that is safe to run twice; never edit a file that has already been run. The one exception is the guard: every file except the newest starts with `begin;` and a `do` block that stops it when a later file is installed (re-running an old file would restore weaker functions and policies). When you add file N+1, add that guard (and the closing `commit;` before its quick check) to file N.
+- `database/01_schema.sql` … `database/10_work_hours.sql` — the database, in run order. A change to the database is always a NEW numbered file that is safe to run twice; never edit a file that has already been run. The one exception is the guard: every file except the newest starts with `begin;` and a `do` block that stops it when a later file is installed (re-running an old file would restore weaker functions and policies). When you add file N+1, add that guard (and the closing `commit;` before its quick check) to file N.
 
 ## Rules
 - Public repo. Never commit staff names, CSV exports, venue coordinates, or any `service_role`/`sb_secret_` key.
@@ -28,6 +28,10 @@ Read `PRODUCT.md` first. It holds the product facts and the open decisions.
 - Any new table that admins can change needs the `audit_row()` trigger.
 - `check_in()` and `list_events()` share the same time-window test. Change both together.
 - Late is a stamp, never a refusal. A session is open from `start_time` to `end_time`; `late_after` (optional, inside those hours) only decides whether an ACCEPTED check-in gets `late_minutes`. The whole minute of `late_after` is on time. `late_minutes` is written once by `check_in()` and never recalculated, so editing a session later does not rewrite history. Only a `present` row may carry it.
+- Hours worked: a session counts as check-in or check-out through `event_windows.counts_as` (`in`, `out`, or empty for an ordinary session). The `work_hours` view pairs them, one row per person, event and day: earliest accepted `in`, latest accepted `out`. The page never does the pairing or the sums; it shows what the view returns. Seconds are dropped before subtracting, the same as `late_minutes`.
+- "In working hours" runs from the `in` session's `late_after` to the `out` session's `start_time`. There is no separate setting. It is worked out from the sessions as they are today, so editing a session's hours changes that figure for past days; the actual times never change. If that ever matters, store the two times on the row at check-in (like `radius_applied_m`) rather than adding a setting.
+- A missing half is INCOMPLETE. Never fill in a default time, in SQL or in the page. The only way to complete it is a manual time in `attendance_corrections`, added by an owner or manager with a reason. That table has insert and delete only (no update grant, no update policy). `correction_stamp()` overwrites `entered_by`, `entered_by_email` and `entered_at` whatever the page sends, refuses a time in the future (`fix_future`) and refuses a manual time beside a recorded check-in (`fix_already_recorded`). A recorded check-in always wins over a manual one in `work_hours`. Do not weaken any of this, and never write to `attendance` to "fix" a day.
+- The admin page sends `counts_as` only when it is chosen or when the row already has the column, exactly like `late_after`, so the page works on a database without file 10. Keep that pattern for any new optional column. The Hours list only appears for an event that has a session with `counts_as`.
 - The staff page does not remember the staff code: the box starts empty and shows the example. Do not bring the remembering back without asking; the event and the language are still remembered.
 - The counter on the staff page, the display page and the admin QR screen counts ONE session, chosen by `counter_for()`: open now (started last), else finished last, else next to open. All three get it from the database (`event_counter()` for the staff and admin pages, `display_poll()` for the display); never count in the page. `check_in()` picks its session with `order by w.start_time desc, w.id`, which must stay the same as rule 1 in `counter_for()`.
 - `event_counter()` is a PUBLIC door (no login). It may only ever return numbers and the session name. Never add names, staff codes, lists of who has or has not submitted, or anything about other days to it; build a separate admin-only function for that.

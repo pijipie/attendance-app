@@ -40,7 +40,20 @@
 --    set the morning session's End to 09:00 and "Late after" to 07:40.
 -- =====================================================================
 
+-- ---------------------------------------------------------------------
+-- GUARD (added 6 Oct 2026). This file is OLDER than 10_work_hours.sql.
+-- Every file except the newest checks first and stops without changing
+-- anything, so an old file can never be run over newer work by mistake.
+-- (The sign that 10 is installed: event_windows has a counts_as column.)
+-- ---------------------------------------------------------------------
 begin;      -- all or nothing: if any part fails, nothing in this file is kept
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'event_windows' and column_name = 'counts_as') then
+    raise exception 'STOP: 10_work_hours.sql is already installed. This older file is not needed again. Nothing was changed.';
+  end if;
+end $$;
 
 
 -- =====================================================================

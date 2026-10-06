@@ -30,8 +30,9 @@ All SQL lives in the `database/` folder. Run each file once in Supabase > SQL Ed
 | `07_window_counter.sql` | The counter on the big screen and the admin QR screen follows the session (for example Pagi, Petang) instead of the whole day, so it starts again from 0 when check-out opens. `check_in()` now always picks the same session when two overlap. |
 | `08_staff_counter.sql` | Opens `event_counter()` to staff phones, so the staff page can show the same counter under the Submit button. It gives numbers only: no names, no staff codes. |
 | `09_late_stamp.sql` | A session can have a "late after" time. A check-in after it is still accepted until the session ends, and is stamped with the minutes late (`attendance.late_minutes`). Nothing behaves differently until an admin fills the time in. |
+| `10_work_hours.sql` | Check-in is paired with check-out. A session can count as check-in or check-out; the `work_hours` view then gives one line per person per day with the time in, the time out, the actual length and the length inside working hours. A missing half is shown as incomplete, never filled in. An owner or manager can add the missing time by hand with a reason: it is kept in its own table (`attendance_corrections`), always labelled manual, and written to the activity record. Nothing behaves differently until an admin marks the sessions. |
 
-Each file from `01` to `08` begins with a guard: if a later file is already installed, it stops and changes nothing. Running an old file again would otherwise put back older, weaker rules. The newest file (`09`) is safe to run again.
+Each file from `01` to `09` begins with a guard: if a later file is already installed, it stops and changes nothing. Running an old file again would otherwise put back older, weaker rules. The newest file (`10`) is safe to run again.
 
 ## How the safety works
 
@@ -39,7 +40,7 @@ Each file from `01` to `08` begins with a guard: if a later file is already inst
 - Staff phones can only call three functions: `list_events()`, `check_in()` and `event_counter()`. They cannot read any table. `event_counter()` answers with numbers only (the session name, how many have submitted, how many active staff): never a name or a staff code. To close it again: `revoke execute on function event_counter(text) from anon;`
 - The big screen can only call `display_register()` and `display_poll()`. It never holds a login.
 - Admin requests carry a sign-in token. The database checks on every row that the person is in the `admins` table and what their level allows.
-- Nobody can change or delete an attendance row from the website.
+- Nobody can change or delete an attendance row from the website. A time added by hand is a separate, labelled row beside the log: it never replaces a recorded check-in, and the database itself writes who added it and when.
 - An event or session that has attendance is archived, never deleted, so the log always keeps its names.
 - Every change to staff, events, hours, settings and admins is written to an activity record that only an owner can read and nobody can edit.
 - `check_in()` accepts only short, well-formed input, stores at most 10 refusals per person in any 10 minutes, and answers an unknown staff code exactly as it would answer a real one, so the reply cannot be used to find out which codes exist.
