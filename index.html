@@ -13,6 +13,27 @@
 if (self === top) document.getElementById("noFrame").remove();
 else { try { top.location = self.location.href; } catch (e) { /* cannot break out: stay invisible */ } }
 </script>
+<script>
+/* LIGHT OR DARK, decided here, before anything is drawn (so the page never flashes the wrong one).
+   1. If this device chose one with the sun / moon button, use that choice.
+   2. Otherwise the page chooses by itself (themeAuto, below):
+        07:00 to 19:00 Malaysian time  -> light. The page is read outdoors, at an entrance, in sunlight,
+                                          where a dark page cannot be read.
+        at night                       -> whatever the device prefers.
+   To go back to "always follow the device", delete the one line that starts with: if (hour >= 7
+   The colours themselves are in the <style> block below. The button is drawn by menu.js. */
+window.themeAuto = function () {
+  var hour = 12;
+  try { hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour: "2-digit", hourCycle: "h23" }).format(new Date())); } catch (e) { /* very old browser: treat it as daytime */ }
+  if (hour >= 7 && hour < 19) return "light";
+  return window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+};
+(function () {
+  var chosen = null;
+  try { chosen = localStorage.getItem("theme"); } catch (e) { /* storage blocked: the page chooses by itself */ }
+  document.documentElement.dataset.theme = chosen === "dark" || chosen === "light" ? chosen : themeAuto();
+})();
+</script>
 <title>Staff Attendance</title>
 <!-- The school logo. Two picture files sit next to this page:
      logo.png             see-through background: browser tab + page header
@@ -21,9 +42,9 @@ else { try { top.location = self.location.href; } catch (e) { /* cannot break ou
 <link rel="icon" type="image/png" href="logo.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
-/* ---------- colours (light), then the same names again for dark ---------- */
+/* ---------- colours: light first, then the same names again for dark ---------- */
 :root{
-  color-scheme:light dark;
+  color-scheme:light;
   --bg:#f2f7f5; --card:#fff; --ink:#14302a; --mute:#566b64; --line:#c9d8d2;
   --brand:#0b5d4b; --on-brand:#fff;
   --ok:#0b6b3a;   --ok-bg:#e3f4ea;
@@ -31,15 +52,16 @@ else { try { top.location = self.location.href; } catch (e) { /* cannot break ou
   --warn:#7a5200; --warn-bg:#fff3d6;
   --shadow:0 1px 2px rgb(20 48 42 / .10), 0 8px 14px -6px rgb(20 48 42 / .30);
 }
-@media (prefers-color-scheme:dark){
-  :root{
-    --bg:#0e1a17; --card:#16251f; --ink:#e6f0ec; --mute:#9db3aa; --line:#2b3f37;
-    --brand:#3fb594; --on-brand:#04251c;
-    --ok:#7be0a8;   --ok-bg:#143325;
-    --bad:#ff9d94;  --bad-bg:#3a1b18;
-    --warn:#f0c46a; --warn-bg:#3a2d0c;
-    --shadow:0 1px 2px rgb(0 0 0 / .40), 0 8px 14px -6px rgb(0 0 0 / .65);
-  }
+/* Dark is switched on by <html data-theme="dark">. The script at the top of <head> sets it before
+   anything is drawn; the sun / moon button beside the menu (menu.js) changes it. */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0e1a17; --card:#16251f; --ink:#e6f0ec; --mute:#9db3aa; --line:#2b3f37;
+  --brand:#3fb594; --on-brand:#04251c;
+  --ok:#7be0a8;   --ok-bg:#143325;
+  --bad:#ff9d94;  --bad-bg:#3a1b18;
+  --warn:#f0c46a; --warn-bg:#3a2d0c;
+  --shadow:0 1px 2px rgb(0 0 0 / .40), 0 8px 14px -6px rgb(0 0 0 / .65);
 }
 
 /* ---------- page frame ---------- */
@@ -63,7 +85,8 @@ body{
 .brand:focus-visible{outline:3px solid var(--brand); outline-offset:3px}
 .logo{flex:none; width:44px; height:44px; object-fit:contain}
 .school{margin:0; color:var(--mute); font-size:.9rem; line-height:1.3; min-width:0}
-h1{margin:.5rem 0 0; font-size:1.7rem; line-height:1.15; letter-spacing:-.01em}
+.titlebar{display:flex; align-items:center; gap:12px; margin-top:.5rem}
+h1{margin:0; flex:1; min-width:0; font-size:1.7rem; line-height:1.15; letter-spacing:-.01em}
 .steps{display:none; margin:1.2rem 0 0; padding-left:1.2rem; color:var(--mute)}
 .steps li{margin:.35rem 0}
 
@@ -180,7 +203,12 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
    <!-- The three-line menu with links to every page. Its list of pages lives in menu.js. -->
    <div id="menu"></div>
   </div>
-  <h1 data-t="title">Record attendance</h1>
+  <!-- The page title, with the light / dark button at its right end. (On a phone the top row is full:
+       logo, school name, language and menu. menu.js puts the button here because this page has id="theme".) -->
+  <div class="titlebar">
+   <h1 data-t="title">Record attendance</h1>
+   <div id="theme"></div>
+  </div>
   <ol class="steps">
    <li data-t="step1"></li>
    <li data-t="step2"></li>

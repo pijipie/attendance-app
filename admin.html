@@ -15,6 +15,27 @@
 if (self === top) document.getElementById("noFrame").remove();
 else { try { top.location = self.location.href; } catch (e) { /* cannot break out: stay invisible */ } }
 </script>
+<script>
+/* LIGHT OR DARK, decided here, before anything is drawn (so the page never flashes the wrong one).
+   1. If this device chose one with the sun / moon button, use that choice.
+   2. Otherwise the page chooses by itself (themeAuto, below):
+        07:00 to 19:00 Malaysian time  -> light. The page is read outdoors, at an entrance, in sunlight,
+                                          where a dark page cannot be read.
+        at night                       -> whatever the device prefers.
+   To go back to "always follow the device", delete the one line that starts with: if (hour >= 7
+   The colours themselves are in the <style> block below. The button is drawn by menu.js. */
+window.themeAuto = function () {
+  var hour = 12;
+  try { hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour: "2-digit", hourCycle: "h23" }).format(new Date())); } catch (e) { /* very old browser: treat it as daytime */ }
+  if (hour >= 7 && hour < 19) return "light";
+  return window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+};
+(function () {
+  var chosen = null;
+  try { chosen = localStorage.getItem("theme"); } catch (e) { /* storage blocked: the page chooses by itself */ }
+  document.documentElement.dataset.theme = chosen === "dark" || chosen === "light" ? chosen : themeAuto();
+})();
+</script>
 <title>Attendance Admin</title>
 <link rel="icon" type="image/png" href="logo.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -23,7 +44,7 @@ else { try { top.location = self.location.href; } catch (e) { /* cannot break ou
 <style>
 /* ---------- colours: the same set as the staff page, plus a shadow ---------- */
 :root{
-  color-scheme:light dark;
+  color-scheme:light;
   --bg:#f2f7f5; --card:#fff; --ink:#14302a; --mute:#566b64; --line:#c9d8d2;
   --brand:#0b5d4b; --on-brand:#fff;
   --ok:#0b6b3a;   --ok-bg:#e3f4ea;
@@ -31,15 +52,16 @@ else { try { top.location = self.location.href; } catch (e) { /* cannot break ou
   --warn:#7a5200; --warn-bg:#fff3d6;
   --shadow:0 1px 2px rgb(20 48 42 / .10), 0 8px 14px -6px rgb(20 48 42 / .30);
 }
-@media (prefers-color-scheme:dark){
-  :root{
-    --bg:#0e1a17; --card:#16251f; --ink:#e6f0ec; --mute:#9db3aa; --line:#2b3f37;
-    --brand:#3fb594; --on-brand:#04251c;
-    --ok:#7be0a8;   --ok-bg:#143325;
-    --bad:#ff9d94;  --bad-bg:#3a1b18;
-    --warn:#f0c46a; --warn-bg:#3a2d0c;
-    --shadow:0 1px 2px rgb(0 0 0 / .40), 0 8px 14px -6px rgb(0 0 0 / .65);
-  }
+/* Dark is switched on by <html data-theme="dark">. The script at the top of <head> sets it before
+   anything is drawn; the sun / moon button beside the menu (menu.js) changes it. */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0e1a17; --card:#16251f; --ink:#e6f0ec; --mute:#9db3aa; --line:#2b3f37;
+  --brand:#3fb594; --on-brand:#04251c;
+  --ok:#7be0a8;   --ok-bg:#143325;
+  --bad:#ff9d94;  --bad-bg:#3a1b18;
+  --warn:#f0c46a; --warn-bg:#3a2d0c;
+  --shadow:0 1px 2px rgb(0 0 0 / .40), 0 8px 14px -6px rgb(0 0 0 / .65);
 }
 
 /* ---------- page frame ---------- */
@@ -344,7 +366,10 @@ td.edit{padding:14px; white-space:normal; background:var(--bg)}
                           screen then has an Hours list: time in, time out, the actual length and the
                           length inside working hours. An owner or manager can add a missing time by
                           hand, with a reason; it is always shown as manual. Needs SQL file 10: with an
-                          older database the Hours list simply does not appear)
+                          older database the Hours list simply does not appear;
+                     3.6: light or dark is chosen at the top of <head> (light from 07:00 to 19:00 Malaysian
+                          time unless this device chose), and a sun / moon button sits beside the menu
+                          (drawn by menu.js). Nothing else changed)
    Sign in  ->  QR screen | Attendance | Events + time windows | Staff | Settings
 
    THREE LEVELS (set in Settings > Admins by an owner)

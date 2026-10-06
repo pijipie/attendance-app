@@ -10,7 +10,7 @@ Static pages on GitHub Pages, data on Supabase (PostgreSQL).
 | `index.html` | Staff | Record attendance: choose the event, enter the staff code, submit. |
 | `admin.html` | Admins | Sign in, show the rotating QR, read attendance, manage events, hours, staff, settings and other admins. |
 | `display.html` | A big screen | Shows the rotating QR with no login. An admin pairs it from their own phone with a short code. |
-| `menu.js` | Every page | The three-line menu. It holds the one list of pages: add a line there whenever a page is created. |
+| `menu.js` | Every page | The three-line menu. It holds the one list of pages: add a line there whenever a page is created. It also draws the light / dark button. |
 | `qrcode.js` | (library) | Draws the QR picture. Third-party code by Kazuhiko Arase, MIT licence. Do not edit. |
 | `leaflet.js`, `leaflet.css` | (library) | Draws the map in the admin event editor. Third-party code, Leaflet 1.9.4, BSD-2-Clause licence. Do not edit. |
 | `logo.png`, `apple-touch-icon.png` | (images) | School logo for the header, the browser tab and the iPhone home screen. |
@@ -63,6 +63,10 @@ These cannot be set from a SQL file or from the pages. Check them once in the Su
 - The map in the admin event editor shows pictures from OpenStreetMap and searches places with OpenStreetMap's Nominatim. Both are free and need no account or key.
 - They are contacted only from the admin page, only while an event is being edited. They receive the part of the map being looked at and the words typed into the search box, nothing about staff or attendance.
 - Map data © OpenStreetMap contributors. The credit on the map must stay.
+
+## Light and dark
+
+Every page opens light between 07:00 and 19:00 Malaysian time, even on a phone that is set to dark, because the staff page is read outdoors in sunlight. At night it follows the device. The sun / moon button changes it; the choice is remembered on that device, and pressing back to what the page would have picked returns it to automatic. The rule is the short `themeAuto` function at the top of each page's `<head>`.
 
 ## Signing out
 

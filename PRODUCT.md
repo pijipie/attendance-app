@@ -29,6 +29,7 @@ The database decides, not the page. The phone only reports measured facts (posit
 
 - **Check-in flow:** open the page or scan the QR at the location, choose the event, enter the staff code, allow location access, submit, read the answer.
 - **Conditions:** used on arrival, often outdoors or at an entrance, on mobile data, where GPS needs open sky. The accuracy limit is 30 m and geofence radii are 30 to 50 m.
+- **Light and dark:** every page opens light between 07:00 and 19:00 Malaysian time, even on a phone set to dark, because a dark page could not be read in sunlight during the pilot. At night it follows the device. A sun / moon button changes it and the choice is remembered on that device; on the staff page the button sits at the right end of the title, on the other pages beside the menu.
 - **Languages:** English by default, Bahasa Melayu through a small EN/BM button. The choice is remembered on the device.
 - **Moving between pages:** a three-line menu in the header of every page lists all pages. Every new page is added to it when it is created.
 - **Hosting:** static pages on GitHub Pages from a public repository; data on Supabase (PostgreSQL), free tier.
@@ -81,7 +82,7 @@ The database decides, not the page. The phone only reports measured facts (posit
 **Deliberately not possible from the website**
 
 - Changing or deleting an attendance row. The log is evidence. A time added by hand is kept in a separate table and is always labelled manual.
-- Filling in a missing check-in or check-out automatically with a default time. Decided against on 6 Oct 2026: it would put a time nobody recorded into an official record.
+- Filling in a missing check-in or check-out automatically with a default time. Decided against on 6 Oct 2026: it would put a time nobody recorded into an official record. Assuming a 15:30 check-out for someone who forgot was also considered and discarded the same day: it would hide the people who leave early, who are recorded by hand.
 - Creating an admin's account or password. That is done in Supabase; the page only assigns a level to an existing account.
 - Leaving the system with no owner.
 - Creating or dropping database tables. Structure changes go through numbered SQL files run in the Supabase SQL Editor.
