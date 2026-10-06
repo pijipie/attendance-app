@@ -13,23 +13,45 @@
 if (self === top) document.getElementById("noFrame").remove();
 else { try { top.location = self.location.href; } catch (e) { /* cannot break out: stay invisible */ } }
 </script>
+<script>
+/* LIGHT OR DARK, decided here, before anything is drawn (so the page never flashes the wrong one).
+   1. If this device chose one with the sun / moon button, use that choice.
+   2. Otherwise the page chooses by itself (themeAuto, below):
+        07:00 to 19:00 Malaysian time  -> light. The page is read outdoors, at an entrance, in sunlight,
+                                          where a dark page cannot be read.
+        at night                       -> whatever the device prefers.
+   To go back to "always follow the device", delete the one line that starts with: if (hour >= 7
+   The colours themselves are in the <style> block below. The button is drawn by menu.js. */
+window.themeAuto = function () {
+  var hour = 12;
+  try { hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour: "2-digit", hourCycle: "h23" }).format(new Date())); } catch (e) { /* very old browser: treat it as daytime */ }
+  if (hour >= 7 && hour < 19) return "light";
+  return window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+};
+(function () {
+  var chosen = null;
+  try { chosen = localStorage.getItem("theme"); } catch (e) { /* storage blocked: the page chooses by itself */ }
+  document.documentElement.dataset.theme = chosen === "dark" || chosen === "light" ? chosen : themeAuto();
+})();
+</script>
 <title>QR Code Display</title>
 <link rel="icon" type="image/png" href="logo.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
 /* ---------- colours: the same set as the other two pages ---------- */
 :root{
-  color-scheme:light dark;
+  color-scheme:light;
   --bg:#f2f7f5; --card:#fff; --ink:#14302a; --mute:#566b64; --line:#c9d8d2;
   --brand:#0b5d4b; --on-brand:#fff;
   --warn:#7a5200; --warn-bg:#fff3d6;
 }
-@media (prefers-color-scheme:dark){
-  :root{
-    --bg:#0e1a17; --card:#16251f; --ink:#e6f0ec; --mute:#9db3aa; --line:#2b3f37;
-    --brand:#3fb594; --on-brand:#04251c;
-    --warn:#f0c46a; --warn-bg:#3a2d0c;
-  }
+/* Dark is switched on by <html data-theme="dark">. The script at the top of <head> sets it before
+   anything is drawn; the sun / moon button beside the menu (menu.js) changes it. */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0e1a17; --card:#16251f; --ink:#e6f0ec; --mute:#9db3aa; --line:#2b3f37;
+  --brand:#3fb594; --on-brand:#04251c;
+  --warn:#f0c46a; --warn-bg:#3a2d0c;
 }
 *{box-sizing:border-box}
 [hidden]{display:none !important}
