@@ -316,7 +316,14 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
                               (blocked, switched off, approximate only, not found). A problem that stops the
                               check-in before it reaches the database is now reported to it, so an admin can
                               see who was stuck (needs SQL file 11; with an older database nothing is reported,
-                              so either can be put in first))
+                              so either can be put in first);
+                         2.9: an event can have "Require location" switched off: the page then does not look
+                              for the phone at all and sends no position. It does this silently: the location
+                              line simply stays away, and nothing tells the person that location is off for
+                              this event. An event can be for selected staff:
+                              the page says so, and someone who is not on its list is told "recorded, name
+                              not on the list". (Needs SQL file 12; an older database never sends these two
+                              facts, so every event behaves as before and either can be put in first))
    The page only collects facts and shows the answer.
    The database function check_in() makes every decision.
    ===================================================================== */
@@ -348,6 +355,7 @@ const TEXT = {
     closedTag: "tutup sekarang",
     hintQr: "Acara ini memerlukan imbasan kod QR di lokasi.",
     hintClosed: "Acara ini tidak menerima kehadiran pada masa ini.",
+    hintSelected: "Acara ini untuk staf yang dijemput. Staf lain tetap direkodkan, dengan tanda tiada dalam senarai.",
     hintTyped: "Senarai acara tidak dapat dimuatkan. Masukkan kod acara.",
     locating: "Mencari lokasi…",
     sending: "Menghantar…",
@@ -383,6 +391,7 @@ const TEXT = {
     closedTag: "closed now",
     hintQr: "This event requires scanning the QR code at the location.",
     hintClosed: "This event is not accepting attendance right now.",
+    hintSelected: "This event is for invited staff. Anyone else is still recorded, and marked as not on the list.",
     hintTyped: "The event list could not be loaded. Enter the event code.",
     locating: "Finding your location…",
     sending: "Sending…",
@@ -409,6 +418,9 @@ const MESSAGES = {
   ms: {
     ok:          ["ok",   "Kehadiran direkodkan", "{name} · {event} · {m} m dari lokasi"],
     ok_late:     ["warn", "Direkodkan sebagai lewat", "{name} · {event} · lewat {min} minit (selepas {after})"],
+    ok_noloc:    ["ok",   "Kehadiran direkodkan", "{name} · {event}"],
+    ok_unlisted:      ["warn", "Direkodkan, nama tiada dalam senarai", "{name} · {event}. Nama anda tiada dalam senarai acara ini. Pentadbir akan melihat tanda ini."],
+    ok_late_unlisted: ["warn", "Direkodkan sebagai lewat, nama tiada dalam senarai", "{name} · {event} · lewat {min} minit (selepas {after}). Nama anda tiada dalam senarai acara ini."],
 
     qr_invalid_or_expired:            ["warn", "Kod QR tamat tempoh", "Imbas semula QR yang dipaparkan di lokasi, kemudian cuba lagi."],
     outside_time_window:              ["warn", "Di luar waktu kehadiran", "Acara ini tidak menerima kehadiran pada masa ini."],
@@ -419,6 +431,7 @@ const MESSAGES = {
     device_already_used:              ["bad",  "Peranti sudah digunakan", "Peranti ini telah merekod kehadiran orang lain bagi sesi ini. Gunakan peranti anda sendiri."],
     unknown_staff_or_event:           ["bad",  "Kod tidak dikenali", "Semak kod staf dan acara, kemudian cuba lagi."],
     bad_input:                        ["bad",  "Data tidak lengkap", "Cuba hantar semula."],
+    location_required:                ["warn", "Lokasi diperlukan", "Acara ini memerlukan lokasi anda. Tunggu sehingga lokasi ditemui, kemudian tekan Hantar sekali lagi."],
 
     need_event:      ["bad",  "Acara diperlukan", "Pilih acara daripada senarai."],
     need_event_code: ["bad",  "Kod acara diperlukan", "Masukkan kod acara atau imbas QR di lokasi."],
@@ -436,6 +449,9 @@ const MESSAGES = {
   en: {
     ok:          ["ok",   "Attendance recorded", "{name} · {event} · {m} m from the location"],
     ok_late:     ["warn", "Recorded as late", "{name} · {event} · {min} min late (after {after})"],
+    ok_noloc:    ["ok",   "Attendance recorded", "{name} · {event}"],
+    ok_unlisted:      ["warn", "Recorded, name not on the list", "{name} · {event}. Your name is not on the list for this event. The admin will see this mark."],
+    ok_late_unlisted: ["warn", "Recorded as late, name not on the list", "{name} · {event} · {min} min late (after {after}). Your name is not on the list for this event."],
 
     qr_invalid_or_expired:            ["warn", "QR code expired", "Scan the QR shown at the location again, then retry."],
     outside_time_window:              ["warn", "Outside attendance hours", "This event is not accepting attendance right now."],
@@ -446,6 +462,7 @@ const MESSAGES = {
     device_already_used:              ["bad",  "Device already used", "This device has already recorded someone else for this session. Use your own device."],
     unknown_staff_or_event:           ["bad",  "Code not recognised", "Check the staff code and the event, then try again."],
     bad_input:                        ["bad",  "Incomplete data", "Try sending again."],
+    location_required:                ["warn", "Location needed", "This event needs your location. Wait until the location is found, then press Submit again."],
 
     need_event:      ["bad",  "Event required", "Choose an event from the list."],
     need_event_code: ["bad",  "Event code required", "Enter the event code or scan the QR at the location."],
@@ -641,6 +658,7 @@ function drawHint() {
   if (mode === "typed")                 text = t("hintTyped");
   else if (ev && ev.require_qr && !qrToken) text = t("hintQr");
   else if (ev && !ev.open_now)          text = t("hintClosed");
+  else if (ev && ev.audience === "selected") text = t("hintSelected");
   $("#hint").textContent = text;
   $("#hint").hidden = !text;
 }
@@ -679,6 +697,7 @@ async function loadEvents(again) {
     return false;
   }
   drawEventPicker();
+  if (again && !busy) locSync();             // an admin may have switched "Require location" on or off meanwhile
   return true;
 }
 
@@ -763,6 +782,14 @@ const loc = {
 
 const locFresh = () => !!loc.fix && Date.now() - loc.fixAt <= FRESH_MS;
 
+/* Does the chosen event ask for a position? Yes, unless the event list says its "Require location" is off.
+   (An event the page does not know - the list could not be loaded and the code was typed - is treated as
+   "yes": the database has the last word either way.) */
+function needsLocation() {
+  const ev = currentEvent();
+  return !(ev && ev.require_location === false);
+}
+
 function locStart() {
   if (!navigator.geolocation) { loc.problem = "unsupported"; drawLoc(); return; }
   if (loc.watch !== null) return;
@@ -811,7 +838,7 @@ function locTouch() {
 
 /* Search when an event is chosen and the page is on screen. Otherwise leave the GPS alone. */
 function locSync() {
-  if (!currentEventCode() || document.hidden) { locStop(); loc.problem = null; loc.paused = false; drawLoc(); return; }
+  if (!currentEventCode() || document.hidden || !needsLocation()) { locStop(); loc.problem = null; loc.paused = false; drawLoc(); return; }
   if (loc.watch === null && !loc.done && !loc.paused && loc.problem !== "denied") locStart();
   else drawLoc();
 }
@@ -824,6 +851,8 @@ function locAgain() {
 
 function locState() {
   if (loc.done || !currentEventCode()) return null;                 // nothing to say
+  if (!needsLocation()) return null;                                // "Require location" is off for this event: say NOTHING. Staff are not
+                                                                    // told that an event can have location switched off (decided 7 Oct 2026).
   if (loc.problem === "unsupported" || loc.problem === "denied") return loc.problem;
   if (loc.paused) return "paused";
   if (locFresh()) {
@@ -924,31 +953,39 @@ async function submit(event) {
       const now = currentEvent();
       if (now && now.require_qr) { showMessage("qr_needed"); return; }
     }
-    button.textContent = t("locating");
-
     drawLoc();                                        // the "Try again" button rests while Submit is at work
 
     // 8b. Where is the phone? Usually the answer is already waiting (section 7).
-    let position;
-    try {
-      position = await locate();
-    } catch (geoError) {
-      const kind = geoError && geoError.kind;
-      showMessage({ denied: "geo_denied", unsupported: "geo_unsupported", off: "geo_off" }[kind] || "geo_not_found");
-      reportProblem(["denied", "unsupported", "off"].includes(kind) ? kind : "timeout", staffCode, eventCode);
-      return;
+    //     An event with "Require location" off is not asked at all: no position is looked for or sent.
+    let position = null, stuck = null;                // stuck = why the phone could give no position
+    const tellStuck = () => {
+      showMessage({ denied: "geo_denied", unsupported: "geo_unsupported", off: "geo_off" }[stuck] || "geo_not_found");
+      reportProblem(["denied", "unsupported", "off"].includes(stuck) ? stuck : "timeout", staffCode, eventCode);
+    };
+    if (needsLocation()) {
+      button.textContent = t("locating");
+      try {
+        position = await locate();
+      } catch (geoError) {
+        stuck = (geoError && geoError.kind) || "timeout";
+        // An event this page knows needs a position: stop here.
+        // An event it does NOT know (the list could not be loaded, the code was typed) may have location
+        // switched off, so the database is asked anyway, without a position. It answers 'location_required'
+        // if one was needed after all.
+        if (currentEvent()) { tellStuck(); return; }
+      }
     }
 
     // 8c. Send the facts. The database decides.
     button.textContent = t("sending");
-    const accuracy = position.coords.accuracy;
+    const accuracy = position ? position.coords.accuracy : null;
     let reply;
     try {
       reply = await callDatabase("check_in", {
         p_staff_code: staffCode,
         p_event_code: eventCode,
-        p_lat:        position.coords.latitude,
-        p_lng:        position.coords.longitude,
+        p_lat:        position ? position.coords.latitude  : null,
+        p_lng:        position ? position.coords.longitude : null,
         p_accuracy:   accuracy,
         p_device_id:  deviceId(),
         p_qr_token:   qrToken
@@ -963,8 +1000,20 @@ async function submit(event) {
     if (reply && reply.ok) {
       locStop(); loc.done = true;                     // recorded: the GPS can rest, and the location line goes away
       // Accepted. If the database says "late" (after the session's late time), say so: it is recorded, but stamped.
-      if (reply.late) showMessage("ok_late", { name: reply.name, event: reply.event, min: reply.late_minutes, after: reply.late_after });
-      else showMessage("ok", { name: reply.name, event: reply.event, m: reply.distance_m });
+      // If it says "not_listed" (a selected-staff event, and this name is not on its list), say that too.
+      const facts = { name: reply.name, event: reply.event, m: reply.distance_m, min: reply.late_minutes, after: reply.late_after };
+      if (reply.late)                   showMessage(reply.not_listed ? "ok_late_unlisted" : "ok_late", facts);
+      else if (reply.not_listed)        showMessage("ok_unlisted", facts);
+      else if (reply.distance_m == null) showMessage("ok_noloc", facts);        // no position was asked for, so there is no distance to show
+      else                              showMessage("ok", facts);
+    } else if (reply && reply.reason === "location_required" && stuck) {
+      tellStuck();                                    // the typed event did need a position after all, and the phone had none
+    } else if (reply && reply.reason === "location_required") {
+      // The list on this page said "no location needed", but an admin has switched it on since. Read the list again
+      // (that also starts the search for the phone), and ask the person to press Submit once more.
+      await loadEvents(true);
+      loc.done = false; locSync();
+      showMessage("location_required");
     } else {
       // "detail" is the more exact reason, when the database gives one (for example which kind of duplicate).
       let reason = reply && (reply.detail in MESSAGES[lang] ? reply.detail : reply.reason);

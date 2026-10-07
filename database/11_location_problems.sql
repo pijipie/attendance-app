@@ -48,6 +48,13 @@
 -- =====================================================================
 
 begin;      -- all or nothing: if any part fails, nothing in this file is kept
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'events' and column_name = 'require_location') then
+    raise exception 'STOP: 12_location_switch_invited_staff.sql is already installed. This older file is not needed again. Nothing was changed.';
+  end if;
+end $$;
 
 
 -- =====================================================================
