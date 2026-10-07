@@ -67,6 +67,12 @@
 -- =====================================================================
 
 begin;      -- all or nothing: if any part fails, nothing in this file is kept
+do $$
+begin
+  if to_regclass('public.location_problems') is not null then
+    raise exception 'STOP: 11_location_problems.sql is already installed. This older file is not needed again. Nothing was changed.';
+  end if;
+end $$;
 
 
 -- =====================================================================

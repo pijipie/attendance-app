@@ -126,7 +126,23 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
 /* the counter under the button: the same line the big screen shows, e.g. "Petang: 4 of 70 submitted" */
 .count{margin:.8rem 0 0; color:var(--mute); font-size:.95rem; text-align:center; overflow-wrap:anywhere}
 .count b{color:var(--ink); font-size:1.15em; font-variant-numeric:tabular-nums}
-.gps{min-height:1.5em; margin:.7rem 0 0; color:var(--mute); font-size:.9rem; text-align:center}
+/* the location line above the button: what the phone's GPS is doing right now (drawLoc() fills it in).
+   The colour is only a helper: the words always say the same thing. */
+.gps{
+  display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:.35rem .6rem;
+  min-height:2.9em; margin:0 0 .8rem; color:var(--mute); font-size:.9rem; line-height:1.4; text-align:center;
+}
+.gps[data-state="ready"]{color:var(--ok)}
+.gps[data-state="weak"],.gps[data-state="approx"],.gps[data-state="timeout"],.gps[data-state="off"]{color:var(--warn)}
+.gps[data-state="denied"],.gps[data-state="unsupported"]{color:var(--bad)}
+.gps-line{display:flex; align-items:flex-start; gap:.45rem; min-width:0}       /* the dot stays beside the first line of the words */
+.gps-text{min-width:0; overflow-wrap:anywhere}
+.gps-dot{flex:none; width:.6em; height:.6em; margin-top:.42em; border-radius:50%; background:currentColor}
+.gps button{
+  font:inherit; font-weight:700; min-height:44px; padding:0 .9rem;
+  border:1.5px solid currentColor; border-radius:10px; background:transparent; color:inherit; cursor:pointer;
+}
+.gps button:focus-visible{outline-color:currentColor}
 
 /* ---------- the floating notification (green / amber / red) ----------
    It sits on top of the page at the top-left and never pushes the form.
@@ -181,6 +197,8 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
 @media (prefers-reduced-motion:no-preference){
   .toast{animation:drop .32s cubic-bezier(.16,1,.3,1)}
   @keyframes drop{from{opacity:0; transform:translateY(-14px) scale(.97)}}
+  .gps[data-state="searching"] .gps-dot{animation:pulse 1.2s ease-in-out infinite}
+  @keyframes pulse{50%{opacity:.25}}
 }
 </style>
 </head>
@@ -246,10 +264,16 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
     <input id="staff" name="staff" required autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" enterkeyhint="send">
    </div>
 
+   <!-- The location line. Once an event is chosen the page starts looking for the phone's position straight away,
+        and says here how that is going. The small button appears only when the person has to do something. -->
+   <div class="gps" id="gps" hidden>
+    <span class="gps-line"><span class="gps-dot" aria-hidden="true"></span><span class="gps-text" id="gpsText"></span></span>
+    <button type="button" id="gpsRetry" hidden></button>
+   </div>
+
    <button class="primary" id="go" type="submit" data-t="submit"></button>
    <!-- The counter for the chosen event. Filled in by drawCount(); hidden when there is nothing to show. -->
    <p class="count" id="count" hidden></p>
-   <p class="gps" id="gps" aria-live="off"></p>
   </form>
  </section>
 
@@ -285,14 +309,22 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
                          2.7: the staff code is no longer remembered: the box starts empty every time and
                               shows "Example: MNHA". A check-in after the session's "late after" time is
                               answered with "Recorded as late" (needs SQL file 09; an older database never
-                              says "late", so either can be put in first))
+                              says "late", so either can be put in first);
+                         2.8: the page looks for the phone's position as soon as an event is chosen and shows
+                              how that is going above the button ("Location found ±12 m"), instead of searching
+                              for 12 hidden seconds after Submit. Each location problem has its own words
+                              (blocked, switched off, approximate only, not found). A problem that stops the
+                              check-in before it reaches the database is now reported to it, so an admin can
+                              see who was stuck (needs SQL file 11; with an older database nothing is reported,
+                              so either can be put in first))
    The page only collects facts and shows the answer.
    The database function check_in() makes every decision.
    ===================================================================== */
 
 /* ---------- 1. Where the database lives -------------------------------
-   The publishable key is meant to be public. It can only open the three
-   doors we granted to "anon": list_events(), check_in() and event_counter(). */
+   The publishable key is meant to be public. It can only open the four
+   doors we granted to "anon": list_events(), check_in(), event_counter()
+   and report_location_problem(). */
 const API = "https://xtrgefkopnqgektrllra.supabase.co";
 const KEY = "sb_publishable_AzY4sFUQgYQvQRSrFT3qwg_Y6068Gv5";
 
@@ -319,7 +351,16 @@ const TEXT = {
     hintTyped: "Senarai acara tidak dapat dimuatkan. Masukkan kod acara.",
     locating: "Mencari lokasi…",
     sending: "Menghantar…",
-    gps: "Ketepatan GPS: ±{m} m",
+    locSearching: "Mencari lokasi…",
+    locReady: "Lokasi ditemui · ±{m} m",
+    locWeak: "Isyarat lemah · ±{m} m. Pergi ke tepi tingkap atau ke luar bangunan.",
+    locApprox: "Lokasi anggaran sahaja · ±{m} m. Hidupkan Lokasi tepat untuk pelayar ini.",
+    locDenied: "Lokasi disekat untuk laman ini. Benarkan dalam tetapan pelayar.",
+    locOff: "Tiada lokasi daripada peranti ini. Pastikan Lokasi (GPS) dihidupkan.",
+    locTimeout: "Lokasi belum ditemui. Pergi ke tepi tingkap atau ke luar bangunan.",
+    locUnsupported: "Pelayar ini tidak dapat memberi lokasi. Gunakan pelayar atau peranti lain.",
+    locPaused: "Carian lokasi dihentikan sementara untuk menjimatkan bateri.",
+    locRetry: "Cuba lagi", locFind: "Cari lokasi saya",
     counted: "daripada {n} telah hantar", winClosed: "ditutup", winUpcoming: "belum dibuka",
     close: "Tutup mesej",
     adminLink: "Log masuk pentadbir",
@@ -345,7 +386,16 @@ const TEXT = {
     hintTyped: "The event list could not be loaded. Enter the event code.",
     locating: "Finding your location…",
     sending: "Sending…",
-    gps: "GPS accuracy: ±{m} m",
+    locSearching: "Finding your location…",
+    locReady: "Location found · ±{m} m",
+    locWeak: "Weak signal · ±{m} m. Go near a window or outdoors.",
+    locApprox: "Approximate location only · ±{m} m. Turn on Precise location for this browser.",
+    locDenied: "Location is blocked for this page. Allow it in the browser settings.",
+    locOff: "No location from this device. Check that Location (GPS) is on.",
+    locTimeout: "No location yet. Go near a window or outdoors.",
+    locUnsupported: "This browser cannot give a location. Use another browser or device.",
+    locPaused: "Location search paused to save battery.",
+    locRetry: "Try again", locFind: "Find my location",
     counted: "of {n} submitted", winClosed: "closed", winUpcoming: "not open yet",
     close: "Close message",
     adminLink: "Admin sign-in",
@@ -362,8 +412,8 @@ const MESSAGES = {
 
     qr_invalid_or_expired:            ["warn", "Kod QR tamat tempoh", "Imbas semula QR yang dipaparkan di lokasi, kemudian cuba lagi."],
     outside_time_window:              ["warn", "Di luar waktu kehadiran", "Acara ini tidak menerima kehadiran pada masa ini."],
-    gps_accuracy_too_low:             ["warn", "Isyarat GPS terlalu lemah", "Ketepatan semasa ±{m} m. Pergi ke kawasan terbuka dan cuba lagi."],
-    outside_geofence:                 ["bad",  "Anda di luar kawasan", "Anda kira-kira {m} m dari lokasi. Dekati lokasi acara dan cuba lagi."],
+    gps_accuracy_too_low:             ["warn", "Isyarat GPS terlalu lemah", "Ketepatan semasa ±{m} m. Pergi ke tepi tingkap atau ke luar bangunan, tunggu beberapa saat, kemudian cuba lagi."],
+    outside_geofence:                 ["bad",  "Anda di luar kawasan", "Anda kira-kira {m} m dari lokasi. Dekati lokasi acara dan cuba lagi. Sudah berada di lokasi? Keluar ke kawasan terbuka supaya telefon dapat menggunakan GPS, kemudian cuba lagi."],
     duplicate_or_device_already_used: ["warn", "Tidak dapat direkodkan", "Kehadiran anda sudah direkodkan bagi sesi ini, atau peranti ini telah digunakan oleh orang lain."],
     already_checked_in:               ["warn", "Sudah direkodkan", "Kehadiran anda bagi sesi ini telah direkodkan lebih awal. Tiada tindakan diperlukan."],
     device_already_used:              ["bad",  "Peranti sudah digunakan", "Peranti ini telah merekod kehadiran orang lain bagi sesi ini. Gunakan peranti anda sendiri."],
@@ -376,7 +426,9 @@ const MESSAGES = {
     qr_needed:       ["warn", "Imbasan QR diperlukan", "Imbas kod QR yang dipaparkan di lokasi untuk merekod kehadiran acara ini."],
     geo_denied:      ["bad",  "Akses lokasi ditolak", "Benarkan lokasi untuk laman ini dalam tetapan pelayar, kemudian cuba lagi."],
     geo_unsupported: ["bad",  "Lokasi tidak disokong", "Gunakan pelayar lain atau peranti lain."],
-    geo_not_found:   ["warn", "Lokasi tidak ditemui", "Pastikan GPS dihidupkan dan cuba lagi di kawasan terbuka."],
+    geo_not_found:   ["warn", "Lokasi tidak ditemui", "GPS tidak memberi jawapan dalam masa yang ditetapkan. Pergi ke tepi tingkap atau ke luar bangunan, kemudian cuba lagi."],
+    geo_off:         ["warn", "Tiada lokasi daripada peranti", "Pastikan Lokasi (GPS) dihidupkan dalam tetapan peranti, kemudian cuba lagi."],
+    geo_approx:      ["warn", "Lokasi tepat dimatikan", "Peranti ini hanya berkongsi lokasi anggaran (±{m} m). Hidupkan Lokasi tepat untuk pelayar ini, atau gunakan telefon yang mempunyai GPS, kemudian cuba lagi."],
     network:         ["bad",  "Sambungan gagal", "Semak capaian internet anda dan cuba lagi."],
     server:          ["bad",  "Pelayan menolak permintaan", "Kod ralat {status}. Maklumkan kepada pentadbir jika berulang."],
     unknown:         ["bad",  "Tidak berjaya", "Sila cuba lagi."]
@@ -387,8 +439,8 @@ const MESSAGES = {
 
     qr_invalid_or_expired:            ["warn", "QR code expired", "Scan the QR shown at the location again, then retry."],
     outside_time_window:              ["warn", "Outside attendance hours", "This event is not accepting attendance right now."],
-    gps_accuracy_too_low:             ["warn", "GPS signal too weak", "Current accuracy is ±{m} m. Move to an open area and try again."],
-    outside_geofence:                 ["bad",  "You are outside the area", "You are about {m} m from the location. Move closer and try again."],
+    gps_accuracy_too_low:             ["warn", "GPS signal too weak", "Current accuracy is ±{m} m. Go near a window or outdoors, wait a few seconds, then try again."],
+    outside_geofence:                 ["bad",  "You are outside the area", "You are about {m} m from the location. Move closer and try again. Already there? Step outdoors so the phone can use GPS, then try again."],
     duplicate_or_device_already_used: ["warn", "Could not be recorded", "Your attendance is already recorded for this session, or this device has been used by someone else."],
     already_checked_in:               ["warn", "Already recorded", "Your attendance for this session was recorded earlier. Nothing more to do."],
     device_already_used:              ["bad",  "Device already used", "This device has already recorded someone else for this session. Use your own device."],
@@ -401,7 +453,9 @@ const MESSAGES = {
     qr_needed:       ["warn", "QR scan required", "Scan the QR code shown at the location to record attendance for this event."],
     geo_denied:      ["bad",  "Location access denied", "Allow location for this site in your browser settings, then try again."],
     geo_unsupported: ["bad",  "Location not supported", "Use a different browser or device."],
-    geo_not_found:   ["warn", "Location not found", "Make sure GPS is on and try again in an open area."],
+    geo_not_found:   ["warn", "Location not found", "The GPS did not answer in time. Go near a window or outdoors, then try again."],
+    geo_off:         ["warn", "No location from this device", "Check that Location (GPS) is switched on in the device settings, then try again."],
+    geo_approx:      ["warn", "Precise location is off", "This device is sharing only an approximate location (±{m} m). Turn on Precise location for this browser, or use a phone with GPS, then try again."],
     network:         ["bad",  "Connection failed", "Check your internet access and try again."],
     server:          ["bad",  "The server refused the request", "Error code {status}. Tell the administrator if it keeps happening."],
     unknown:         ["bad",  "Unsuccessful", "Please try again."]
@@ -602,6 +656,7 @@ function drawLanguage() {
   if (window.SiteMenu) SiteMenu.draw(lang); else $("#foot").hidden = false;     // no menu.js: fall back to the plain link
   drawEventPicker();
   drawCount();
+  drawLoc();
   if (lastMsg) showMessage(lastMsg.id, lastMsg.values);
 }
 
@@ -675,34 +730,165 @@ async function loadCount() {
 }
 
 
-/* ---------- 7. Ask the phone where it is ------------------------------
-   Watches the GPS for up to 12 s and keeps the most accurate reading.
-   Stops early as soon as accuracy is 15 m or better.                   */
-function locate(onReading) {
+/* ---------- 7. Where is the phone? -------------------------------------
+   The page starts looking as soon as an event is chosen, and keeps looking while it is on screen. So
+   the GPS warms up while the person types, and the line above the button says how it is going BEFORE
+   Submit is pressed. (Until v2.7 the page searched for 12 hidden seconds after Submit, and every
+   failure looked the same.)
+
+   The page only decides how long to WAIT. Whether a position is good enough, and whether it is inside
+   the area, is still decided by check_in() in the database.                                          */
+const GOOD_M    = 30;       // good enough to send. (The real limit is in the admin Settings and is checked by the database.
+                            //   If that limit is ever changed, change this number too: it only saves people a pointless wait.)
+const SHARP_M   = 15;       // so good that waiting for a better reading is pointless
+const APPROX_M  = 500;      // worse than this is not GPS at all: "approximate location" is on, or a computer is guessing from its internet line
+const SETTLE_MS = 5000;     // the first readings are often a rough guess from Wi-Fi: give the GPS this long to take over
+const KEEP_MS   = 8000;     // keep the best reading this long before a less exact, newer one may replace it
+const FRESH_MS  = 15000;    // a reading older than this is never sent: the phone may have moved since
+const WAIT_MS   = 20000;    // the longest the page waits for a first reading
+const PRESS_MS  = 8000;     // after Submit, wait at least this long before giving up
+const REST_MS   = 120000;   // nobody has touched the page for this long: stop the GPS (it drains the battery)
+
+const loc = {
+  watch: null,      // the browser's number for the running search; null = not searching
+  since: 0,         // when this search started
+  fix: null,        // the reading we would send
+  fixAt: 0,         // when it arrived
+  problem: null,    // denied | off | timeout | unsupported
+  problemAt: 0,
+  paused: false,    // stopped by the rest timer: the person must ask again
+  done: false,      // attendance was recorded: nothing more to look for
+  tick: null, rest: null
+};
+
+const locFresh = () => !!loc.fix && Date.now() - loc.fixAt <= FRESH_MS;
+
+function locStart() {
+  if (!navigator.geolocation) { loc.problem = "unsupported"; drawLoc(); return; }
+  if (loc.watch !== null) return;
+  loc.fix = null; loc.problem = null; loc.paused = false; loc.done = false;
+  loc.since = Date.now();
+  loc.watch = navigator.geolocation.watchPosition(
+    position => {
+      const now = Date.now();
+      if (!loc.fix || position.coords.accuracy <= loc.fix.coords.accuracy || now - loc.fixAt > KEEP_MS) { loc.fix = position; loc.fixAt = now; }
+      loc.problem = null;
+      drawLoc();
+    },
+    error => {
+      if (error.code === 1) { locStop(); locProblem("denied"); return; }    // the person (or the phone's settings) said no: asking again changes nothing
+      if (locFresh()) return;                                              // a passing hiccup: the reading we hold is still good
+      locProblem(error.code === 2 ? "off" : "timeout");                    // the search carries on: both can clear by themselves
+    },
+    { enableHighAccuracy: true, maximumAge: 0, timeout: WAIT_MS }
+  );
+  // Once a second: a reading can go stale, and a search can run out of time, without the browser saying anything.
+  loc.tick = setInterval(() => {
+    if (!loc.fix && !loc.problem && Date.now() - loc.since >= WAIT_MS) locProblem("timeout");
+    drawLoc();
+  }, 1000);
+  locTouch();
+  drawLoc();
+}
+
+function locStop() {
+  if (loc.watch !== null) navigator.geolocation.clearWatch(loc.watch);
+  loc.watch = null; loc.fix = null;
+  clearInterval(loc.tick); clearTimeout(loc.rest);
+}
+
+function locProblem(kind) {
+  if (loc.problem !== kind) loc.problemAt = Date.now();
+  loc.problem = kind;
+  drawLoc();
+}
+
+/* Somebody is using the page: push the "stop the GPS" moment further away. */
+function locTouch() {
+  clearTimeout(loc.rest);
+  if (loc.watch !== null) loc.rest = setTimeout(() => { locStop(); loc.paused = true; drawLoc(); }, REST_MS);
+}
+
+/* Search when an event is chosen and the page is on screen. Otherwise leave the GPS alone. */
+function locSync() {
+  if (!currentEventCode() || document.hidden) { locStop(); loc.problem = null; loc.paused = false; drawLoc(); return; }
+  if (loc.watch === null && !loc.done && !loc.paused && loc.problem !== "denied") locStart();
+  else drawLoc();
+}
+
+/* The button on the location line: start again from nothing. */
+function locAgain() {
+  locStop(); loc.problem = null; loc.paused = false; loc.done = false;
+  locStart();
+}
+
+function locState() {
+  if (loc.done || !currentEventCode()) return null;                 // nothing to say
+  if (loc.problem === "unsupported" || loc.problem === "denied") return loc.problem;
+  if (loc.paused) return "paused";
+  if (locFresh()) {
+    const accuracy = loc.fix.coords.accuracy;
+    return accuracy >= APPROX_M ? "approx" : accuracy > GOOD_M ? "weak" : "ready";
+  }
+  if (loc.problem) return loc.problem;                              // off | timeout
+  return loc.watch !== null ? "searching" : null;
+}
+
+function drawLoc() {
+  const box = $("#gps"), state = locState();
+  box.hidden = !state;
+  if (!state) return;
+  box.dataset.state = state;
+  const words = { searching: "locSearching", ready: "locReady", weak: "locWeak", approx: "locApprox", denied: "locDenied",
+                  off: "locOff", timeout: "locTimeout", unsupported: "locUnsupported", paused: "locPaused" }[state];
+  $("#gpsText").textContent = fill(t(words), { m: loc.fix ? Math.round(loc.fix.coords.accuracy) : "" });
+  const button = $("#gpsRetry"), ask = ["denied", "off", "timeout", "paused"].includes(state);
+  button.hidden = !ask || busy;
+  button.textContent = t(state === "paused" ? "locFind" : "locRetry");
+}
+
+/* Submit asks here for a position to send. Usually one is already waiting and this answers at once.
+   Otherwise it waits (the line above the button shows the readings coming in) and then either hands
+   over the best reading it has, for the database to judge, or says what went wrong: { kind }.      */
+function locate() {
   return new Promise((resolve, reject) => {
-    let best = null, watchId, timer;
-    const finish = () => {
-      navigator.geolocation.clearWatch(watchId);
-      clearTimeout(timer);
-      best ? resolve(best) : reject({ code: 3 });
-    };
-    watchId = navigator.geolocation.watchPosition(
-      position => {
-        if (!best || position.coords.accuracy < best.coords.accuracy) best = position;
-        onReading(position.coords.accuracy);
-        if (position.coords.accuracy <= 15) finish();
-      },
-      error => {
-        if (error.code === 1) {            // the person pressed "Block"
-          navigator.geolocation.clearWatch(watchId);
-          clearTimeout(timer);
-          reject(error);
-        }
-      },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
-    );
-    timer = setTimeout(finish, 12000);
+    if (!navigator.geolocation) { reject({ kind: "unsupported" }); return; }
+    // Not searching, or only an old reading left (the page was out of sight, or this is a computer that
+    // answers once and then goes quiet): start a new search.
+    if (loc.watch === null || (loc.fix && !locFresh())) locAgain();
+    locTouch();
+    const pressed = Date.now();
+    const timer = setInterval(look, 250);
+    function end(answer, failed) { clearInterval(timer); failed ? reject(answer) : resolve(answer); }
+    function look() {
+      const now = Date.now(), fresh = locFresh(), accuracy = fresh ? loc.fix.coords.accuracy : Infinity;
+      // Exact enough, or good enough once the GPS has had a few seconds to settle: send it.
+      if (accuracy <= SHARP_M || (accuracy <= GOOD_M && now - loc.since >= SETTLE_MS)) return end(loc.fix);
+      if (loc.problem === "denied" || loc.problem === "unsupported") return end({ kind: loc.problem }, true);
+      const patient = now - pressed >= PRESS_MS;                     // the person has waited long enough since pressing
+      // "No location from this device" can pass by itself, so give it a few seconds. If it has already lasted that long, answer at once.
+      if (!fresh && loc.problem === "off" && (patient || now - loc.problemAt >= PRESS_MS)) return end({ kind: "off" }, true);
+      if (now - loc.since >= WAIT_MS && patient) {
+        // Time is up. A rough reading still goes to the database, which answers with the exact reason.
+        return fresh ? end(loc.fix) : end({ kind: loc.problem === "off" ? "off" : "timeout" }, true);
+      }
+    }
+    look();
   });
+}
+
+/* Tell the database about a check-in that the phone itself stopped (no position at all), so an admin
+   can see who was stuck and why. Sent once for each person, event and kind of problem while this page
+   is open. It never gets in the person's way: if it fails, nothing is shown.
+   An older database has no such door (SQL file 11 not run): stop knocking.                         */
+const reported = new Set();
+let reportOff  = false;
+function reportProblem(kind, staffCode, eventCode) {
+  const key = [kind, staffCode, eventCode].join("|").toLowerCase();
+  if (reportOff || reported.has(key)) return;
+  reported.add(key);
+  callDatabase("report_location_problem", { p_staff_code: staffCode, p_event_code: eventCode, p_kind: kind, p_device_id: deviceId() })
+    .catch(error => { if (error && [401, 403, 404].includes(error.http)) reportOff = true; });
 }
 
 
@@ -740,14 +926,16 @@ async function submit(event) {
     }
     button.textContent = t("locating");
 
-    // 8b. Where is the phone?
+    drawLoc();                                        // the "Try again" button rests while Submit is at work
+
+    // 8b. Where is the phone? Usually the answer is already waiting (section 7).
     let position;
     try {
-      if (!navigator.geolocation) throw { code: 0 };
-      position = await locate(metres => { $("#gps").textContent = fill(t("gps"), { m: Math.round(metres) }); });
+      position = await locate();
     } catch (geoError) {
-      const code = geoError && geoError.code;
-      showMessage(code === 1 ? "geo_denied" : code === 0 ? "geo_unsupported" : "geo_not_found");
+      const kind = geoError && geoError.kind;
+      showMessage({ denied: "geo_denied", unsupported: "geo_unsupported", off: "geo_off" }[kind] || "geo_not_found");
+      reportProblem(["denied", "unsupported", "off"].includes(kind) ? kind : "timeout", staffCode, eventCode);
       return;
     }
 
@@ -773,18 +961,21 @@ async function submit(event) {
 
     // 8d. Show the answer. The form stays exactly as it was.
     if (reply && reply.ok) {
+      locStop(); loc.done = true;                     // recorded: the GPS can rest, and the location line goes away
       // Accepted. If the database says "late" (after the session's late time), say so: it is recorded, but stamped.
       if (reply.late) showMessage("ok_late", { name: reply.name, event: reply.event, min: reply.late_minutes, after: reply.late_after });
       else showMessage("ok", { name: reply.name, event: reply.event, m: reply.distance_m });
     } else {
       // "detail" is the more exact reason, when the database gives one (for example which kind of duplicate).
-      const reason = reply && (reply.detail in MESSAGES[lang] ? reply.detail : reply.reason);
+      let reason = reply && (reply.detail in MESSAGES[lang] ? reply.detail : reply.reason);
       const metres = reason === "gps_accuracy_too_low" ? accuracy : reply && reply.distance_m;
+      // "Too weak" at hundreds of metres is not a weak signal: the device is not using GPS at all. Say what to switch on.
+      if (reason === "gps_accuracy_too_low" && accuracy >= APPROX_M) reason = "geo_approx";
       showMessage(reason in MESSAGES[lang] ? reason : "unknown", { m: Math.round(metres || 0) });
     }
   } finally {
     busy = false; button.disabled = false; button.textContent = t("submit");
-    $("#gps").textContent = "";
+    drawLoc();
     loadCount();                                      // the number has probably just changed: show it straight away
   }
 }
@@ -795,7 +986,10 @@ async function submit(event) {
 // shows the last person's code. (Up to v2.6 the code was remembered on the phone: wipe that old copy.)
 try { localStorage.removeItem("staff_code"); } catch { /* storage blocked: there was nothing to wipe */ }
 $("#f").addEventListener("submit", submit);
-$("#event").addEventListener("change", () => { showMessage(null); drawHint(); loadCount(); });   // new choice: clear the old answer, fetch its counter
+$("#event").addEventListener("change", () => { showMessage(null); drawHint(); loadCount(); loc.done = false; locSync(); });   // new choice: clear the old answer, fetch its counter, start looking for the phone
+$("#eventCode").addEventListener("change", () => { loc.done = false; locSync(); });   // the spare tyre (code typed by hand): start looking once the code is in
+$("#staff").addEventListener("input", locTouch);                                      // typing counts as using the page: keep the GPS awake
+$("#gpsRetry").addEventListener("click", locAgain);
 // A second scan of the same event can land in this same tab. Only the part after "#" differs then,
 // so the browser does not reload the page: pick the new secret up here.
 window.addEventListener("hashchange", () => { if (takeToken()) { showMessage(null); drawHint(); } });
@@ -804,6 +998,7 @@ window.addEventListener("hashchange", () => { if (takeToken()) { showMessage(nul
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && !busy && eventsAt && Date.now() - eventsAt > 60000 && document.activeElement !== $("#event")) loadEvents(true);
   if (!document.hidden) loadCount();                  // the counter rests while the page is out of sight, and starts again here
+  if (!busy) locSync();                               // so does the GPS: off while the page is out of sight, searching again on return
 });
 $("#toastClose").addEventListener("click", () => showMessage(null));
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !toast.hidden) showMessage(null); });
@@ -814,7 +1009,7 @@ document.querySelectorAll(".lang button").forEach(b => b.addEventListener("click
 }));
 
 drawLanguage();
-loadEvents().then(loadCount);                         // the event remembered from last time gets its counter at once
+loadEvents().then(() => { loadCount(); locSync(); });  // the event remembered from last time gets its counter at once, and the search for the phone starts
 </script>
 </body>
 </html>

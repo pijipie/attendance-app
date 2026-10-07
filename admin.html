@@ -369,7 +369,11 @@ td.edit{padding:14px; white-space:normal; background:var(--bg)}
                           older database the Hours list simply does not appear;
                      3.6: light or dark is chosen at the top of <head> (light from 07:00 to 19:00 Malaysian
                           time unless this device chose), and a sun / moon button sits beside the menu
-                          (drawn by menu.js). Nothing else changed)
+                          (drawn by menu.js). Nothing else changed;
+                     3.7: the Rejected list also shows check-ins that the phone itself stopped because it
+                          had no position to send (location blocked, switched off, GPS did not answer).
+                          They are marked "Device: ...". Needs SQL file 11: with an older database the
+                          list is simply as before)
    Sign in  ->  QR screen | Attendance | Events + time windows | Staff | Settings
 
    THREE LEVELS (set in Settings > Admins by an owner)
@@ -477,6 +481,8 @@ const TEXT = {
     r_gps_accuracy_too_low: "Isyarat GPS terlalu lemah", r_outside_geofence: "Di luar kawasan",
     r_already_checked_in: "Sudah hadir (percubaan berulang)", r_device_already_used: "Peranti sudah digunakan oleh orang lain",
     r_duplicate_same_moment: "Pendua pada saat yang sama", r_duplicate_or_device_already_used: "Pendua atau peranti sudah digunakan",
+    r_phone_denied: "Peranti: lokasi disekat", r_phone_off: "Peranti: tiada lokasi (GPS dimatikan)",
+    r_phone_timeout: "Peranti: GPS tidak menjawab", r_phone_unsupported: "Peranti: pelayar tidak dapat memberi lokasi",
 
     evTitle: "Acara dan waktu kehadiran", evHelp: "Setiap acara ialah satu lokasi dengan jejari. Waktu kehadiran menentukan bila staf boleh merekod.",
     evAdd: "Tambah acara", evNew: "Acara baharu", evName: "Nama acara", evCode: "Kod acara", evCodeHelp: "Huruf dan nombor sahaja, tanpa ruang. Digunakan dalam pautan QR.",
@@ -612,6 +618,8 @@ const TEXT = {
     r_gps_accuracy_too_low: "GPS signal too weak", r_outside_geofence: "Outside the area",
     r_already_checked_in: "Already present (repeat attempt)", r_device_already_used: "Device already used by someone else",
     r_duplicate_same_moment: "Duplicate in the same instant", r_duplicate_or_device_already_used: "Duplicate or device already used",
+    r_phone_denied: "Device: location blocked", r_phone_off: "Device: no location (GPS off)",
+    r_phone_timeout: "Device: GPS did not answer", r_phone_unsupported: "Device: browser cannot give a location",
 
     evTitle: "Events and attendance hours", evHelp: "Each event is one location with a radius. Attendance hours decide when staff can record.",
     evAdd: "Add event", evNew: "New event", evName: "Event name", evCode: "Event code", evCodeHelp: "Letters and numbers only, no spaces. Used in the QR link.",
@@ -1445,11 +1453,25 @@ async function loadLog(quiet) {
         L.noHours = true;
       }
     }
+    // Check-ins that the phone itself stopped: it had no position to send (location blocked, switched off, GPS did not
+    // answer), so check_in() never saw them. They are kept in their own table and join the Rejected list here.
+    let stuck = { rows: [], capped: false };
+    if (!L.noProblems) {
+      try { stuck = await fetchAllRows("location_problems?select=id,at,kind,device_id,staff_id,event_id&problem_date=eq." + date + (eventId ? "&event_id=eq." + eventId : "") + "&order=at.asc,id.asc"); }
+      catch (error) {
+        // "No such table": SQL file 11 has not been run yet. Carry on without them, and stop asking.
+        if (error.kind !== "db" || !(error.status === 404 || error.code === "42P01" || error.code === "PGRST205")) throw error;
+        L.noProblems = true;
+      }
+    }
     if (ticket !== L.ticket) return;                             // a newer load (another date, another event) has taken over
-    L.rows = [...present.rows, ...rejected.rows]; L.capped = present.capped || rejected.capped; L.hours = hours;
+    // Dressed as a rejected row, so the list, the count and the CSV treat it like one. It has no session, distance or accuracy.
+    const fromPhone = stuck.rows.map(p => ({ id: "p" + p.id, checked_in_at: p.at, status: "rejected", reason: "phone_" + p.kind, phone: true,
+      distance_m: null, gps_accuracy_m: null, device_id: p.device_id || "", staff_id: p.staff_id, event_id: p.event_id, window_id: null }));
+    L.rows = [...present.rows, ...rejected.rows, ...fromPhone]; L.capped = present.capped || rejected.capped || stuck.capped; L.hours = hours;
     L.loadedAt = new Date(); L.loadedKey = key; L.error = null; L.stale = false;
     if (L.known.date !== date) L.known = { date, events: new Set(), sessions: new Set() };
-    for (const r of L.rows) { L.known.events.add(r.event_id); L.known.sessions.add(r.window_id); }
+    for (const r of L.rows) { L.known.events.add(r.event_id); if (r.window_id) L.known.sessions.add(r.window_id); }
   } catch (error) {
     if (ticket !== L.ticket) return;
     L.loading = false;
@@ -1468,9 +1490,11 @@ async function loadLog(quiet) {
 /* Work out the three lists from the rows we loaded. */
 function logLists() {
   const L = state.log;
-  const chosen = r => (!L.eventId || r.event_id === L.eventId) && (!L.windowId || r.window_id === L.windowId);
+  // A check-in stopped on the phone (r.phone) has no session: it stays on the list whichever session is chosen.
+  const chosen = r => (!L.eventId || r.event_id === L.eventId) && (!L.windowId || r.window_id === L.windowId || r.phone);
   const present  = L.rows.filter(r => r.status === "present" && chosen(r));
-  const rejected = L.rows.filter(r => r.status === "rejected" && chosen(r));
+  const rejected = L.rows.filter(r => r.status === "rejected" && chosen(r))
+    .sort((a, b) => Date.parse(a.checked_in_at) - Date.parse(b.checked_in_at));          // the two kinds of rejected row, in time order
   const here = new Set(present.map(r => r.staff_id));
   const absent = L.eventId ? state.staff.filter(s => s.active && !here.has(s.id)) : null;
   // Hours: days with a missing half come first (they are the ones that need attention), then by name.
