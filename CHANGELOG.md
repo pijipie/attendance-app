@@ -28,7 +28,7 @@ Every line is marked **Major** or **Minor**:
 
 | Version | Date | What | Pull requests | Pages | SQL files |
 |---|---|---|---|---|---|
-| 0.6 | Unreleased | Keluar waktu bekerja (stepping out during working hours) | to be opened after #14 | staff v2.10, admin v3.9 | 13 |
+| 0.6 | Unreleased | Keluar waktu bekerja (stepping out during working hours) | #15 | staff v2.10, admin v3.9 | 13 |
 | 0.5 | Unreleased (planned 8 Oct 2026) | "Require location" switch; events for selected staff; this changelog | #14 | staff v2.9, admin v3.8 | 12 |
 | 0.4 | 7 Oct 2026 | Live location status; phone-side failures recorded | #13 | staff v2.8, admin v3.7 | 11 |
 | 0.3 | 6 Oct 2026 | Hours worked; manual times; light and dark | #11, #12 | admin v3.5, v3.6 | 10 |
@@ -40,7 +40,7 @@ Versions 0.1 to 0.4 were numbered on 7 Oct 2026, after the fact, one per release
 
 ## 0.6 — Unreleased
 
-Keluar waktu bekerja. To be released after 0.5. Staff page v2.10, admin page v3.9, SQL file `13_work_exits.sql` (run it after file 12).
+Keluar waktu bekerja. Pull request #15, to be released after 0.5. Staff page v2.10, admin page v3.9, SQL file `13_work_exits.sql` (run it after file 12).
 
 ### Added
 - **Major · Staff page:** for an event that allows it, three choices appear under the event: Kehadiran, Keluar, Masuk semula (Attendance, Step out, Back in). Step out asks for the staff member's own reason, in their own words, and the time they will be back, or "Not coming back today (going home)". Back in closes it.
