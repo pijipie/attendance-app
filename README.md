@@ -3,6 +3,8 @@
 Geo-fenced staff attendance for Sek. Ren. Islam Al-Irsyad Balok.
 Static pages on GitHub Pages, data on Supabase (PostgreSQL).
 
+What changed and when: see [`CHANGELOG.md`](CHANGELOG.md).
+
 ## Pages
 
 | File | Who uses it | What it does |
@@ -32,8 +34,9 @@ All SQL lives in the `database/` folder. Run each file once in Supabase > SQL Ed
 | `09_late_stamp.sql` | A session can have a "late after" time. A check-in after it is still accepted until the session ends, and is stamped with the minutes late (`attendance.late_minutes`). Nothing behaves differently until an admin fills the time in. |
 | `10_work_hours.sql` | Check-in is paired with check-out. A session can count as check-in or check-out; the `work_hours` view then gives one line per person per day with the time in, the time out, the actual length and the length inside working hours. A missing half is shown as incomplete, never filled in. An owner or manager can add the missing time by hand with a reason: it is kept in its own table (`attendance_corrections`), always labelled manual, and written to the activity record. Nothing behaves differently until an admin marks the sessions. |
 | `11_location_problems.sql` | Check-ins that the phone itself stopped are recorded. When a phone can give no position at all (location blocked, switched off, GPS did not answer), the staff page reports it through `report_location_problem()` and the row is kept in `location_problems`: who, which event, which reason, which device, and no position. The admin page shows these in the Rejected list. Nothing else behaves differently. |
+| `12_location_switch_invited_staff.sql` | Two new choices for an event. "Require location" can be switched off: no position is asked for, checked or stored, and the event may have no pin. An event can be for selected staff: the invited people are kept in `event_staff` (changed only through `set_event_staff()`), the counter and "Not checked in" use that list, and a check-in by someone who is not on it is accepted and marked `not_listed`. Every existing event keeps location on and all staff, so nothing behaves differently until an admin changes an event. |
 
-Each file from `01` to `10` begins with a guard: if a later file is already installed, it stops and changes nothing. Running an old file again would otherwise put back older, weaker rules. The newest file (`10`) is safe to run again.
+Each file from `01` to `11` begins with a guard: if a later file is already installed, it stops and changes nothing. Running an old file again would otherwise put back older, weaker rules. The newest file (`10`) is safe to run again.
 
 ## How the safety works
 

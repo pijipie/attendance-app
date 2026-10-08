@@ -149,6 +149,10 @@ input.code{text-transform:uppercase}
 .note{padding:.7rem .9rem; border-radius:10px; border:1.5px solid; font-size:.93rem}
 .note.warn{background:var(--warn-bg); color:var(--warn); border-color:var(--warn)}
 .note.info{border-color:var(--line); color:var(--mute)}
+/* the tick list of staff in the event editor (a selected-staff event) */
+.picklist{max-height:320px; overflow:auto; display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:0 16px; padding:4px 12px; border:1.5px solid var(--line); border-radius:10px; background:var(--bg)}
+.pick{font-weight:400; min-height:42px; min-width:0}
+.pick span:last-child{min-width:0; overflow-wrap:anywhere}
 .empty{padding:28px 18px; text-align:center; color:var(--mute)}
 .pill{display:inline-block; padding:.08rem .55rem; border-radius:99px; font-size:.78rem; font-weight:700; border:1px solid; white-space:nowrap}
 .pill.ok{color:var(--ok); background:var(--ok-bg); border-color:var(--ok)}
@@ -373,7 +377,12 @@ td.edit{padding:14px; white-space:normal; background:var(--bg)}
                      3.7: the Rejected list also shows check-ins that the phone itself stopped because it
                           had no position to send (location blocked, switched off, GPS did not answer).
                           They are marked "Device: ...". Needs SQL file 11: with an older database the
-                          list is simply as before)
+                          list is simply as before;
+                     3.8: an event has a "Require location" switch (off: the map, pin and radius are hidden
+                          and kept, and no position is asked or stored) and can be for selected staff
+                          (tick who is invited; "Not checked in" and the counter then use that list, and
+                          someone who checks in without being on it is marked "Not on the list").
+                          Needs SQL file 12: with an older database neither choice is shown)
    Sign in  ->  QR screen | Attendance | Events + time windows | Staff | Settings
 
    THREE LEVELS (set in Settings > Admins by an owner)
@@ -450,7 +459,7 @@ const TEXT = {
     actTitle: "Rekod aktiviti", actHelp: "Setiap tambahan, perubahan dan pemadaman dicatat sendiri. Tiada sesiapa boleh mengubah rekod ini dari laman web.",
     actLoad: "Papar 50 terkini", actEmpty: "Belum ada aktiviti direkodkan.", actSql: "Supabase (SQL)",
     act_insert: "Tambah", act_update: "Ubah", act_delete: "Padam", act_archive: "Arkib", act_restore: "Pulih",
-    tg_staff: "staf", tg_events: "acara", tg_event_windows: "waktu", tg_org_settings: "tetapan", tg_admins: "pentadbir", tg_attendance_corrections: "masa manual",
+    tg_staff: "staf", tg_events: "acara", tg_event_windows: "waktu", tg_org_settings: "tetapan", tg_admins: "pentadbir", tg_attendance_corrections: "masa manual", tg_event_staff: "senarai staf dijemput",
     colWhen: "Bila", colWho: "Siapa", colWhat: "Apa", setDisplayLink: "Pautan halaman paparan (skrin besar)",
 
     qrTitle: "Kod QR di lokasi", qrHelp: "Paparkan skrin ini di lokasi. Kod bertukar sendiri setiap {s} saat, jadi gambar kod yang dihantar kepada orang lain tidak boleh digunakan.",
@@ -488,6 +497,13 @@ const TEXT = {
     evAdd: "Tambah acara", evNew: "Acara baharu", evName: "Nama acara", evCode: "Kod acara", evCodeHelp: "Huruf dan nombor sahaja, tanpa ruang. Digunakan dalam pautan QR.",
     evLat: "Latitud", evLng: "Longitud", evRadius: "Jejari (meter)", evUseHere: "Letak pin di lokasi saya sekarang", evLocating: "Mencari lokasi…",
     evHere: "Lokasi diisi. Ketepatan ±{m} m.", evActive: "Acara aktif (dipaparkan kepada staf)", evRequireQr: "Wajibkan imbasan QR",
+    evRequireLoc: "Wajibkan lokasi", evLocOffNote: "Lokasi tidak diminta dan tidak disimpan untuk acara ini. Pin dan jejari disimpan, dan muncul semula apabila suis ini dihidupkan.",
+    evOpenNote: "Lokasi dan QR kedua-duanya dimatikan: sesiapa yang ada pautan boleh merekod kehadiran dari mana-mana sahaja dalam waktu acara. Hanya peraturan satu peranti satu nama yang melindungi acara ini.",
+    evAudience: "Untuk siapa", evAudAll: "Semua staf", evAudSelected: "Staf terpilih", evInvited: "Staf dijemput",
+    evInvHelp: "Staf yang tiada dalam senarai masih boleh merekod kehadiran; rekod itu ditanda \"Tiada dalam senarai\".",
+    evInvCount: "{n} dipilih", evInvAll: "Pilih semua yang dipaparkan", evInvNone: "Kosongkan yang dipaparkan", evInvEmpty: "Tiada staf yang sepadan.",
+    evNoLoc: "tanpa lokasi", evSelPill: "Staf terpilih: {n}", errInvNone: "Pilih sekurang-kurangnya seorang staf, atau tetapkan acara kepada Semua staf.",
+    colList: "Senarai", notListed: "Tiada dalam senarai", emptyAbsentSel: "Semua staf yang dijemput sudah hadir.",
     evQr: "QR wajib", evNoWindow: "Tiada waktu", evNoWindowNote: "Acara ini belum ada waktu kehadiran, jadi tiada sesiapa boleh merekod. Tambah sekurang-kurangnya satu waktu.",
     evEmpty: "Belum ada acara. Tekan Tambah acara untuk bermula.",
     winTitle: "Waktu kehadiran", winAdd: "Tambah waktu", winNew: "Waktu baharu", winLabel: "Nama sesi", winLabelHelp: "Contoh: Pagi, Petang, Mesyuarat.",
@@ -587,7 +603,7 @@ const TEXT = {
     actTitle: "Activity record", actHelp: "Every addition, change and deletion is written down automatically. Nobody can alter this record from the website.",
     actLoad: "Show latest 50", actEmpty: "No activity recorded yet.", actSql: "Supabase (SQL)",
     act_insert: "Add", act_update: "Change", act_delete: "Delete", act_archive: "Archive", act_restore: "Restore",
-    tg_staff: "staff", tg_events: "event", tg_event_windows: "hours", tg_org_settings: "settings", tg_admins: "admin", tg_attendance_corrections: "manual time",
+    tg_staff: "staff", tg_events: "event", tg_event_windows: "hours", tg_org_settings: "settings", tg_admins: "admin", tg_attendance_corrections: "manual time", tg_event_staff: "invited staff list",
     colWhen: "When", colWho: "Who", colWhat: "What", setDisplayLink: "Display page link (big screen)",
 
     qrTitle: "QR code at the location", qrHelp: "Show this screen at the location. The code changes by itself every {s} seconds, so a photo of it sent to someone else cannot be used.",
@@ -625,6 +641,13 @@ const TEXT = {
     evAdd: "Add event", evNew: "New event", evName: "Event name", evCode: "Event code", evCodeHelp: "Letters and numbers only, no spaces. Used in the QR link.",
     evLat: "Latitude", evLng: "Longitude", evRadius: "Radius (metres)", evUseHere: "Put the pin where I am now", evLocating: "Finding location…",
     evHere: "Location filled in. Accuracy ±{m} m.", evActive: "Event is active (shown to staff)", evRequireQr: "Require the QR scan",
+    evRequireLoc: "Require location", evLocOffNote: "No location is asked for or stored for this event. The pin and radius are kept, and come back when this is switched on again.",
+    evOpenNote: "Location and QR are both off: anyone with the link can record attendance from anywhere during the event's hours. Only the one-device, one-name rule protects this event.",
+    evAudience: "Who it is for", evAudAll: "All staff", evAudSelected: "Selected staff", evInvited: "Invited staff",
+    evInvHelp: "Staff who are not on the list can still record attendance; that record is marked \"Not on the list\".",
+    evInvCount: "{n} selected", evInvAll: "Select all shown", evInvNone: "Clear all shown", evInvEmpty: "No staff match.",
+    evNoLoc: "no location", evSelPill: "Selected staff: {n}", errInvNone: "Choose at least one staff member, or set the event to All staff.",
+    colList: "List", notListed: "Not on the list", emptyAbsentSel: "Every invited staff member has checked in.",
     evQr: "QR required", evNoWindow: "No hours", evNoWindowNote: "This event has no attendance hours, so nobody can record. Add at least one.",
     evEmpty: "No events yet. Press Add event to start.",
     winTitle: "Attendance hours", winAdd: "Add hours", winNew: "New hours", winLabel: "Session name", winLabelHelp: "For example: Morning, Afternoon, Meeting.",
@@ -774,6 +797,7 @@ const state = {
   role: null,                    // "owner" | "manager" | "operator"
   view: "qr",
   staff: [], events: [], windows: [], settings: null,
+  invited: null,                 // who is invited to which selected-staff event: rows { event_id, staff_id }. null = the database has no such list (SQL file 12 not run)
   basicsAt: 0, basicsBusy: false,   // when the four lists above were last read from the database
   openNow: {},                   // event_code -> true/false, from list_events()
   edit: null,                    // which inline editor is open, e.g. { kind:"staff", id:"new" }
@@ -925,7 +949,7 @@ function dropSession() {
 function endSession(messageKey, values) {
   dropSession();
   stopQr(); clearTimeout(state.log.timer); closeMap();
-  Object.assign(state, { role: null, staff: [], events: [], windows: [], settings: null, basicsAt: 0, openNow: {},
+  Object.assign(state, { role: null, staff: [], events: [], windows: [], settings: null, invited: null, basicsAt: 0, openNow: {},
                          edit: null, confirm: null, displays: [], canPair: false, pairOpen: false, admins: [], activity: null });
   Object.assign(state.log, { eventId: "", windowId: "", tab: "present", rows: [], hours: [], capped: false, loadedAt: null, loading: false,
                              error: null, stale: false, loadedKey: "", shown: LOG_SHOW, known: { date: "", events: new Set(), sessions: new Set() } });
@@ -1057,8 +1081,23 @@ async function fetchBasics() {
     api("event_windows?select=*&order=start_time.asc"),
     api("org_settings?select=*&id=eq.1")
   ]);
-  return { staff: staff.data, events: events.data, windows: windows.data, settings: settings.data[0] || null };
+  return { staff: staff.data, events: events.data, windows: windows.data, settings: settings.data[0] || null, invited: await fetchInvited() };
 }
+
+/* Who is invited to which selected-staff event (SQL file 12).
+   An older database has no such table: the answer is null, the page hides the two new choices, and stops asking. */
+async function fetchInvited() {
+  if (state.noInvited) return null;
+  try { return (await fetchAllRows("event_staff?select=event_id,staff_id&order=event_id.asc,staff_id.asc")).rows; }
+  catch (error) {
+    if (error.kind !== "db" || !(error.status === 404 || error.code === "42P01" || error.code === "PGRST205")) throw error;
+    state.noInvited = true;
+    return null;
+  }
+}
+const hasChoices  = () => state.invited !== null;                                                  // "Require location" and "Selected staff" exist in this database
+const invitedOf   = eventId => new Set((state.invited || []).filter(r => r.event_id === eventId).map(r => r.staff_id));
+const forSelected = ev => !!ev && ev.audience === "selected";
 
 async function loadBasics() {
   Object.assign(state, await fetchBasics());
@@ -1078,9 +1117,9 @@ async function refreshBasics() {
   try {
     const fresh = await fetchBasics();
     if (state.edit || state.confirm) return;           // an editor is open and holds the old rows: leave them alone, try again next time
-    const before = JSON.stringify([state.staff, state.events, state.windows, state.settings]);
+    const before = JSON.stringify([state.staff, state.events, state.windows, state.settings, state.invited]);
     state.basicsAt = Date.now();
-    if (JSON.stringify([fresh.staff, fresh.events, fresh.windows, fresh.settings]) === before) return;
+    if (JSON.stringify([fresh.staff, fresh.events, fresh.windows, fresh.settings, fresh.invited]) === before) return;
     Object.assign(state, fresh);
     if (!busyChoosing()) repaint();                    // never yank a dropdown or a search box away from the person using it
   } catch { /* keep what we have; the next round tries again */ }
@@ -1430,12 +1469,20 @@ async function loadLog(quiet) {
     // The event filter is applied by the database, so one event's rows can never push another's off the list.
     // Present and rejected are read separately for the same reason: a flood of rejected attempts cannot hide a real check-in.
     const read = withLate => {
-      const base = "attendance?select=id,checked_in_at,status,reason,distance_m,gps_accuracy_m,device_id,staff_id,event_id,window_id" + (withLate ? ",late_minutes" : "")
+      const base = "attendance?select=id,checked_in_at,status,reason,distance_m,gps_accuracy_m,device_id,staff_id,event_id,window_id" + (withLate ? ",late_minutes" : "") + (L.noListed ? "" : ",not_listed")
         + "&attendance_date=eq." + date + (eventId ? "&event_id=eq." + eventId : "") + "&order=checked_in_at.asc,id.asc";
       return Promise.all([fetchAllRows(base + "&status=eq.present"), fetchAllRows(base + "&status=eq.rejected")]);
     };
     let present, rejected;
-    try { [present, rejected] = await read(!L.noLate); }
+    try {
+      try { [present, rejected] = await read(!L.noLate); }
+      catch (error) {
+        // 42703 = "no such column". The newest one first: SQL file 12 (not_listed) has not been run yet. Read without it, and stop asking.
+        if (L.noListed || error.kind !== "db" || error.code !== "42703") throw error;
+        L.noListed = true;
+        [present, rejected] = await read(!L.noLate);
+      }
+    }
     catch (error) {
       // 42703 = "no such column": SQL file 09 has not been run yet. Read the list without it, and stop asking.
       if (L.noLate || error.kind !== "db" || error.code !== "42703") throw error;
@@ -1496,7 +1543,9 @@ function logLists() {
   const rejected = L.rows.filter(r => r.status === "rejected" && chosen(r))
     .sort((a, b) => Date.parse(a.checked_in_at) - Date.parse(b.checked_in_at));          // the two kinds of rejected row, in time order
   const here = new Set(present.map(r => r.staff_id));
-  const absent = L.eventId ? state.staff.filter(s => s.active && !here.has(s.id)) : null;
+  // An event for selected staff: only the people on its list can be "not checked in".
+  const list = forSelected(eventById(L.eventId)) ? invitedOf(L.eventId) : null;
+  const absent = L.eventId ? state.staff.filter(s => s.active && !here.has(s.id) && (!list || list.has(s.id))) : null;
   // Hours: days with a missing half come first (they are the ones that need attention), then by name.
   const hours = hoursOn(L.eventId) ? [...L.hours].sort((a, b) => (a.status === "complete") - (b.status === "complete") || (a.full_name || "").localeCompare(b.full_name || "")) : null;
   return { present, rejected, absent, hours };
@@ -1542,6 +1591,8 @@ function logColumns(tab, forFile) {
   // Late: only an accepted check-in can be late. On screen "12 min"; in the file the plain number, so it can be summed.
   if (tab === "present" && !L.noLate) cols.push(forFile ? ["colLateMin", r => r.late_minutes || ""] : ["colLate", r => r.late_minutes ? t("lateMin", { n: r.late_minutes }) : ""]);
   if (tab === "rejected") cols.push(["colReason", r => deviceOwner(r) || reasonText(r.reason), "wrap wide"]);
+  // Accepted without being on a selected-staff event's list. The column appears only when it has something to say (always in the file).
+  if (tab === "present" && !L.noListed && (forFile || L.rows.some(r => r.status === "present" && r.not_listed))) cols.push(["colList", r => r.not_listed ? t("notListed") : ""]);
   if (details) cols.push(["colDistance", r => metres(r.distance_m), "num"], ["colAccuracy", r => r.gps_accuracy_m == null ? "" : "±" + Math.round(r.gps_accuracy_m) + " m", "num"],
                          ["colDevice", r => forFile ? r.device_id : "…" + r.device_id.slice(-8)]);     // the file keeps the full ID; the screen shows the end, enough to compare
   return cols;
@@ -1589,7 +1640,7 @@ function drawLog() {
     h("div", { class: "actions", style: "justify-content:center; margin-top:14px" },
       h("button", { class: "btn primary", type: "button", onclick: () => loadLog() }, icon("refresh"), t("logRetry"))));
   else if (L.tab === "absent" && !rows) body = h("div", { class: "card empty" }, t("absentPick"));
-  else if (!rows.length) body = h("div", { class: "card empty" }, t({ present: "emptyPresent", absent: "emptyAbsent", rejected: "emptyRejected", hours: "emptyHours" }[L.tab]));
+  else if (!rows.length) body = h("div", { class: "card empty" }, t({ present: "emptyPresent", absent: forSelected(eventById(L.eventId)) ? "emptyAbsentSel" : "emptyAbsent", rejected: "emptyRejected", hours: "emptyHours" }[L.tab]));
   else if (L.tab === "hours") body = hoursTable(rows.slice(0, L.shown));
   else {
     const cols = logColumns(L.tab);
@@ -1758,9 +1809,10 @@ function drawEvents() {
     const windows = windowsOf(ev.id), open = editing === ev.id || (state.edit && state.edit.eventId === ev.id);
     return h("div", { class: "item", "data-code": ev.event_code },
       h("div", { class: "item-head" },
-        h("div", { class: "item-title" }, h("strong", null, ev.name), h("span", { class: "mute small" }, ev.event_code + " · " + ev.radius_m + " m")),
+        h("div", { class: "item-title" }, h("strong", null, ev.name), h("span", { class: "mute small" }, ev.event_code + " · " + (ev.require_location === false ? t("evNoLoc") : ev.radius_m + " m"))),
         h("span", { class: "pill " + (ev.active ? "ok" : "off") }, t(ev.active ? "active" : "inactive")),
         ev.require_qr && h("span", { class: "pill ok" }, t("evQr")),
+        forSelected(ev) && h("span", { class: "pill off" }, t("evSelPill", { n: invitedOf(ev.id).size })),
         !windows.length && h("span", { class: "pill warn" }, t("evNoWindow")),
         h("button", { class: "btn small", type: "button", "aria-expanded": String(!!open), onclick: () => { state.edit = open ? null : { kind: "event", id: ev.id }; state.confirm = null; drawEvents(); } }, t(open ? "cancel" : "edit"))),
       open && h("div", { class: "item-body" }, eventForm(ev), windowList(ev, windows)));
@@ -1795,7 +1847,7 @@ function closeMap() {
   setTimeout(() => old.remove(), 600);                // let Leaflet finish any zoom movement first: taking the map apart half-way makes it throw an error
 }
 const PIN_COLOUR = "#0b5d4b";                         // fixed, because the map pictures are always light
-const validSpot = (lat, lng) => lat !== "" && lng !== "" && Math.abs(Number(lat)) <= 90 && Math.abs(Number(lng)) <= 180;
+const validSpot = (lat, lng) => lat != null && lng != null && lat !== "" && lng !== "" && Math.abs(Number(lat)) <= 90 && Math.abs(Number(lng)) <= 180;   // "no pin" (an event with location off) is not a spot
 
 function mapPicker(lat, lng, rad, pre) {
   if (!window.L) return null;                         // leaflet.js not there: the number boxes still do the job
@@ -1856,15 +1908,55 @@ function mapPicker(lat, lng, rad, pre) {
     h("p", { class: "help" }, t("mapHelp")));
 }
 
+/* The list of staff to tick for a selected-staff event. "picked" is a Set of staff IDs that this box changes in place.
+   Inactive staff are offered only if they are already on the list, so they can be taken off. */
+function staffPicker(pre, picked) {
+  const search = h("input", { id: pre + "invq", type: "search", autocomplete: "off" });
+  const type = h("select", { id: pre + "invt" },
+    h("option", { value: "all" }, t("stAllTypes")), h("option", { value: "staff" }, t("stTypeStaff")), h("option", { value: "intern_contract" }, t("stTypeIntern")));
+  const count = h("strong", { id: pre + "invn" });
+  const rows = h("div", { class: "picklist", id: pre + "invlist" });
+  const tally = () => { count.textContent = t("evInvCount", { n: picked.size }); };
+  const shown = () => {
+    const needle = search.value.trim().toLowerCase();
+    return state.staff.filter(s => (s.active || picked.has(s.id)) && (type.value === "all" || s.staff_type === type.value) &&
+      (!needle || s.full_name.toLowerCase().includes(needle) || s.staff_code.toLowerCase().includes(needle)));
+  };
+  const draw = () => {
+    const list = shown();
+    rows.replaceChildren(...(list.length ? list.map(s => h("label", { class: "check pick" },
+      h("input", { type: "checkbox", value: s.id, checked: picked.has(s.id), onchange: e => { if (e.target.checked) picked.add(s.id); else picked.delete(s.id); tally(); } }),
+      h("span", { class: "code" }, s.staff_code), h("span", null, s.full_name + (s.active ? "" : " (" + t("inactive") + ")"))))
+      : [h("p", { class: "help" }, t("evInvEmpty"))]));
+    tally();
+  };
+  search.addEventListener("input", draw);
+  search.addEventListener("keydown", e => { if (e.key === "Enter") e.preventDefault(); });     // Enter must not save the event
+  type.addEventListener("change", draw);
+  draw();
+  return h("div", { class: "form", id: pre + "invbox" },
+    h("p", { class: "help", style: "margin:0" }, t("evInvHelp")),
+    h("div", { class: "tools" }, field(t("stSearch"), search), h("div", { class: "fixed", style: "min-width:150px" }, h("label", { for: type.id }, t("stType")), type)),
+    h("div", { class: "actions" }, count,
+      h("button", { class: "btn small", type: "button", id: pre + "invall", onclick: () => { shown().forEach(s => picked.add(s.id)); draw(); } }, t("evInvAll")),
+      h("button", { class: "btn small", type: "button", id: pre + "invnone", onclick: () => { shown().forEach(s => picked.delete(s.id)); draw(); } }, t("evInvNone"))),
+    rows);
+}
+
 function eventForm(ev) {
   const id = ev ? ev.id : "new", pre = "ev-" + id + "-";
+  const choices = hasChoices();                       // false on a database without SQL file 12: the form is then exactly the old one
   const name = h("input", { id: pre + "name", required: true, maxlength: 80, value: ev ? ev.name : "" });
   const code = h("input", { id: pre + "code", class: "code", required: true, maxlength: 20, autocapitalize: "characters", spellcheck: "false", value: ev ? ev.event_code : "" });
-  const lat  = h("input", { id: pre + "lat", type: "number", step: "any", min: -90, max: 90, required: true, inputmode: "decimal", value: ev ? ev.latitude : "" });
-  const lng  = h("input", { id: pre + "lng", type: "number", step: "any", min: -180, max: 180, required: true, inputmode: "decimal", value: ev ? ev.longitude : "" });
-  const rad  = h("input", { id: pre + "rad", type: "number", step: 1, min: 1, required: true, inputmode: "numeric", value: ev ? ev.radius_m : 50 });
+  const lat  = h("input", { id: pre + "lat", type: "number", step: "any", min: -90, max: 90, inputmode: "decimal", value: ev ? ev.latitude : "" });
+  const lng  = h("input", { id: pre + "lng", type: "number", step: "any", min: -180, max: 180, inputmode: "decimal", value: ev ? ev.longitude : "" });
+  const rad  = h("input", { id: pre + "rad", type: "number", step: 1, min: 1, inputmode: "numeric", value: ev && ev.radius_m != null ? ev.radius_m : 50 });
   const active = check(pre + "active", t("evActive"), ev ? ev.active : true);
   const needQr = check(pre + "qr", t("evRequireQr"), ev ? ev.require_qr : false);
+  const needLoc = check(pre + "loc", t("evRequireLoc"), ev ? ev.require_location !== false : true);
+  const audience = h("select", { id: pre + "aud", value: forSelected(ev) ? "selected" : "all" },
+    h("option", { value: "all" }, t("evAudAll")), h("option", { value: "selected" }, t("evAudSelected")));
+  const picked = ev ? invitedOf(ev.id) : new Set();   // a copy: nothing is saved until Save is pressed
   const hereNote = h("p", { class: "help", id: pre + "here" });
   const here = h("button", { class: "btn small", type: "button", onclick: () => {
     if (!navigator.geolocation) { toast("bad", t("errTitle"), t("errGeo")); return; }
@@ -1876,25 +1968,66 @@ function eventForm(ev) {
     }, () => { hereNote.textContent = ""; here.disabled = false; toast("bad", t("errTitle"), t("errGeo")); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
   } }, icon("pin"), t("evUseHere"));
 
+  // Everything about the place sits in one box, so "Require location" can put it away in one go.
+  // Switched off, the map and the three numbers are only hidden: the pin and radius are kept and come back.
+  const locBox = h("div", { class: "form", id: pre + "locbox" },
+    mapPicker(lat, lng, rad, pre),
+    h("div", { class: "row" }, field(t("evLat"), lat), field(t("evLng"), lng), field(t("evRadius"), rad)),
+    h("div", null, here, hereNote));
+  const locOff   = h("p", { class: "note info", id: pre + "locoff" }, t("evLocOffNote"));
+  const openNote = h("p", { class: "note warn", id: pre + "open" }, t("evOpenNote"));
+  const pickBox  = choices ? staffPicker(pre, picked) : null;
+  // (The tick box inside each label is reached directly: a label only knows its ".control" once it is on the page.)
+  const locTick = needLoc.querySelector("input"), qrTick = needQr.querySelector("input");
+  const locOn = () => !choices || locTick.checked;
+  const sync = byHand => {
+    locBox.hidden = !locOn();
+    locOff.hidden = locOn();
+    openNote.hidden = locOn() || qrTick.checked;                        // both switches off: say plainly what that means
+    if (pickBox) pickBox.hidden = audience.value !== "selected";
+    // The map was hidden, so it never learned its size: tell it to measure again, and put the pin back in view.
+    if (byHand && locOn() && liveMap) setTimeout(() => { if (liveMap) { liveMap.invalidateSize(); lat.dispatchEvent(new Event("change")); } }, 0);
+  };
+  locTick.addEventListener("change", () => sync(true));
+  qrTick.addEventListener("change", () => sync());
+  audience.addEventListener("change", () => sync());
+  sync();
+
   const save = h("button", { class: "btn primary", type: "submit" }, t("save"));
   return h("form", { class: "form", novalidate: true, onsubmit: e => {
     e.preventDefault();
-    const row = { name: name.value.trim(), event_code: code.value.trim().toUpperCase(), latitude: Number(lat.value), longitude: Number(lng.value),
-                  radius_m: Math.round(Number(rad.value)), active: active.control.checked, require_qr: needQr.control.checked };
-    if (!row.name || !row.event_code || lat.value === "" || lng.value === "" || rad.value === "") return toast("bad", t("errTitle"), t("errRequired"));
+    const row = { name: name.value.trim(), event_code: code.value.trim().toUpperCase(), active: active.control.checked, require_qr: needQr.control.checked };
+    if (!row.name || !row.event_code) return toast("bad", t("errTitle"), t("errRequired"));
     if (!CODE_OK.test(row.event_code)) return toast("bad", t("errTitle"), t("errCode"));
-    if (!(Math.abs(row.latitude) <= 90 && Math.abs(row.longitude) <= 180 && row.radius_m > 0)) return toast("bad", t("errTitle"), t("errNumber"));
+    const pinned = validSpot(lat.value, lng.value) && Number(rad.value) > 0;
+    if (locOn()) {
+      if (lat.value === "" || lng.value === "" || rad.value === "") return toast("bad", t("errTitle"), t("errRequired"));
+      if (!pinned) return toast("bad", t("errTitle"), t("errNumber"));
+    }
+    // Location off: a pin that is already there is kept as it is; an event that never had one is saved without.
+    Object.assign(row, pinned ? { latitude: Number(lat.value), longitude: Number(lng.value), radius_m: Math.round(Number(rad.value)) }
+                              : { latitude: null, longitude: null, radius_m: null });
+    const selected = choices && audience.value === "selected";
+    if (choices) { row.require_location = locOn(); row.audience = audience.value; }      // an older database does not know these two
+    if (selected && !picked.size) return toast("bad", t("errTitle"), t("errInvNone"));
     saving(save, async () => {
-      if (ev) Object.assign(ev, (await api("events?id=eq." + ev.id, { method: "PATCH", body: row })).data[0]);
-      else state.events.push((await api("events", { method: "POST", body: row })).data[0]);
+      let saved;
+      if (ev) Object.assign(ev, saved = (await api("events?id=eq." + ev.id, { method: "PATCH", body: row })).data[0]);
+      else state.events.push(saved = (await api("events", { method: "POST", body: row })).data[0]);
       state.events.sort((a, b) => a.name.localeCompare(b.name));
+      // The list is sent only for a selected-staff event. An event set back to "All staff" keeps its old list, unused.
+      if (selected) {
+        await api("rpc/set_event_staff", { method: "POST", body: { p_event_id: saved.id, p_staff_ids: [...picked] } });
+        state.invited = state.invited.filter(r => r.event_id !== saved.id).concat([...picked].map(staff_id => ({ event_id: saved.id, staff_id })));
+      }
     });
   } },
     h("div", { class: "row" }, field(t("evName"), name), field(t("evCode"), code, t("evCodeHelp"))),
-    mapPicker(lat, lng, rad, pre),
-    h("div", { class: "row" }, field(t("evLat"), lat), field(t("evLng"), lng), field(t("evRadius"), rad)),
-    h("div", null, here, hereNote),
-    h("div", { class: "row" }, active, needQr),
+    h("div", { class: "row" }, active, choices && needLoc, needQr),
+    choices && locOff, choices && openNote,
+    locBox,
+    choices && h("div", { class: "row" }, field(t("evAudience"), audience)),
+    pickBox,
     h("div", { class: "actions" }, save,
       h("button", { class: "btn", type: "button", onclick: () => { state.edit = null; state.confirm = null; drawEvents(); } }, t("cancel")),
       ev && h("span", { class: "push" }, removeButton("event-" + ev.id, async () => {
@@ -1903,6 +2036,7 @@ function eventForm(ev) {
           return { message: [t("okArchived"), t("okArchivedText")] };
         }
         state.events = state.events.filter(e => e.id !== ev.id); state.windows = state.windows.filter(w => w.event_id !== ev.id);
+        if (state.invited) state.invited = state.invited.filter(r => r.event_id !== ev.id);      // its list went with it
       }, t("removeArchiveAsk")))));
 }
 
