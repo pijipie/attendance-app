@@ -382,7 +382,13 @@ td.edit{padding:14px; white-space:normal; background:var(--bg)}
                           and kept, and no position is asked or stored) and can be for selected staff
                           (tick who is invited; "Not checked in" and the counter then use that list, and
                           someone who checks in without being on it is marked "Not on the list").
-                          Needs SQL file 12: with an older database neither choice is shown)
+                          Needs SQL file 12: with an older database neither choice is shown;
+                     3.9: "keluar waktu bekerja". An event can allow stepping out during working hours
+                          (staff record it on the staff page). The Attendance screen gets a Step-outs list:
+                          out, reason, back by, back in, length, and marks for late, overdue, went home and
+                          over 4 hours. An owner or manager can enter a forgotten return by hand, with a
+                          reason. Needs SQL file 13: with an older database the switch and the list are
+                          simply not shown)
    Sign in  ->  QR screen | Attendance | Events + time windows | Staff | Settings
 
    THREE LEVELS (set in Settings > Admins by an owner)
@@ -459,7 +465,7 @@ const TEXT = {
     actTitle: "Rekod aktiviti", actHelp: "Setiap tambahan, perubahan dan pemadaman dicatat sendiri. Tiada sesiapa boleh mengubah rekod ini dari laman web.",
     actLoad: "Papar 50 terkini", actEmpty: "Belum ada aktiviti direkodkan.", actSql: "Supabase (SQL)",
     act_insert: "Tambah", act_update: "Ubah", act_delete: "Padam", act_archive: "Arkib", act_restore: "Pulih",
-    tg_staff: "staf", tg_events: "acara", tg_event_windows: "waktu", tg_org_settings: "tetapan", tg_admins: "pentadbir", tg_attendance_corrections: "masa manual", tg_event_staff: "senarai staf dijemput",
+    tg_staff: "staf", tg_events: "acara", tg_event_windows: "waktu", tg_org_settings: "tetapan", tg_admins: "pentadbir", tg_attendance_corrections: "masa manual", tg_event_staff: "senarai staf dijemput", tg_work_exits: "keluar waktu bekerja",
     colWhen: "Bila", colWho: "Siapa", colWhat: "Apa", setDisplayLink: "Pautan halaman paparan (skrin besar)",
 
     qrTitle: "Kod QR di lokasi", qrHelp: "Paparkan skrin ini di lokasi. Kod bertukar sendiri setiap {s} saat, jadi gambar kod yang dihantar kepada orang lain tidak boleh digunakan.",
@@ -473,7 +479,18 @@ const TEXT = {
     qrFull: "Skrin penuh", qrFullExit: "Keluar skrin penuh", qrScan: "Imbas dengan kamera telefon",
 
     logTitle: "Kehadiran", logDate: "Tarikh", logEvent: "Acara", logSession: "Sesi", logAllEvents: "Semua acara", logAllSessions: "Semua sesi",
-    logPresent: "Hadir", logAbsent: "Belum hadir", logRejected: "Ditolak", logHours: "Jam bekerja",
+    logPresent: "Hadir", logAbsent: "Belum hadir", logRejected: "Ditolak", logHours: "Jam bekerja", logExits: "Keluar",
+    colOutAt: "Keluar", colBackBy: "Kembali sebelum", colBackAt: "Masuk semula", colAway: "Tempoh", colAwayMin: "Tempoh (minit)",
+    colDayMin: "Jumlah hari ini (minit)", colLateBackMin: "Lewat kembali (minit)", colOver: "Melebihi 4 jam",
+    xs_out: "di luar", xs_overdue: "belum kembali", xs_back: "kembali", xs_gone_home: "pulang", xGoneHome: "Pulang", xOver: "melebihi 4 jam", xLate: "lewat {n} min",
+    xManual: "manual", xFix: "Masa kembali", xFixTitle: "Masa kembali (manual)",
+    xFixFor: "{code} · {name} · keluar {out}", xFixHelp: "Untuk staf yang lupa menekan Masuk semula, atau tidak kembali. Sebab dan akaun anda disimpan dalam rekod aktiviti.",
+    xFixWhat: "Apa yang berlaku", xFixCame: "Kembali pada masa ini", xFixHome: "Tidak kembali (pulang)", xFixTime: "Masa kembali",
+    xFixNote: "{reason} · {who}",
+    emptyExits: "Tiada rekod keluar waktu bekerja untuk pilihan ini.",
+    exitsHelp: "Had 4 jam sehari. Pulang dikira sehingga tamat waktu bekerja. \"Belum kembali\" = masa yang ditulis telah berlalu.",
+    errXBefore: "Masa itu sebelum dia keluar.", errXFuture: "Masa itu belum berlaku.", errXNotOpen: "Keluar ini sudah ditutup. Senarai dimuat semula.",
+    errXReason: "Tulis sebab, sekurang-kurangnya 3 aksara.",
     logDetails: "Tunjuk butiran GPS dan peranti", logDownload: "Muat turun CSV",
     colTime: "Masa", colCode: "Kod", colName: "Nama", colType: "Jenis", colEvent: "Acara", colSession: "Sesi", colReason: "Sebab",
     colDistance: "Jarak", colAccuracy: "Ketepatan GPS", colDevice: "Peranti", colStatus: "Status",
@@ -497,6 +514,9 @@ const TEXT = {
     evAdd: "Tambah acara", evNew: "Acara baharu", evName: "Nama acara", evCode: "Kod acara", evCodeHelp: "Huruf dan nombor sahaja, tanpa ruang. Digunakan dalam pautan QR.",
     evLat: "Latitud", evLng: "Longitud", evRadius: "Jejari (meter)", evUseHere: "Letak pin di lokasi saya sekarang", evLocating: "Mencari lokasi…",
     evHere: "Lokasi diisi. Ketepatan ±{m} m.", evActive: "Acara aktif (dipaparkan kepada staf)", evRequireQr: "Wajibkan imbasan QR",
+    evAllowExit: "Benarkan keluar waktu bekerja",
+    evExitNote: "Staf boleh merekod Keluar dan Masuk semula di halaman staf, dalam waktu bekerja acara ini, dengan had 4 jam sehari. Ia menggunakan lokasi acara ini.",
+    evExitNoHours: "Acara ini belum ada sesi daftar masuk (dengan masa lewat) dan sesi daftar keluar. Tanpa kedua-duanya, keluar waktu bekerja tidak dapat direkod.",
     evRequireLoc: "Wajibkan lokasi", evLocOffNote: "Lokasi tidak diminta dan tidak disimpan untuk acara ini. Pin dan jejari disimpan, dan muncul semula apabila suis ini dihidupkan.",
     evOpenNote: "Lokasi dan QR kedua-duanya dimatikan: sesiapa yang ada pautan boleh merekod kehadiran dari mana-mana sahaja dalam waktu acara. Hanya peraturan satu peranti satu nama yang melindungi acara ini.",
     evAudience: "Untuk siapa", evAudAll: "Semua staf", evAudSelected: "Staf terpilih", evInvited: "Staf dijemput",
@@ -516,7 +536,7 @@ const TEXT = {
     winInSummary: "daftar masuk", winOutSummary: "daftar keluar",
     colIn: "Masuk", colOut: "Keluar", colActual: "Sebenar", colOfficial: "Dalam waktu bekerja", colNote: "Catatan", colDate: "Tarikh",
     colActualMin: "Sebenar (minit)", colOfficialMin: "Dalam waktu bekerja (minit)", colInSource: "Sumber masuk", colOutSource: "Sumber keluar",
-    srcRecorded: "direkod", srcManual: "manual", hrsMin: "{h} j {m} min",
+    srcRecorded: "direkod", srcManual: "manual", srcExit: "pulang awal", hrsMin: "{h} j {m} min",
     hrsNoIn: "Tiada daftar masuk", hrsNoOut: "Tiada daftar keluar", hrsWrong: "Semak masa",
     hs_complete: "lengkap", hs_no_check_in: "tiada daftar masuk", hs_no_check_out: "tiada daftar keluar", hs_times_wrong: "semak masa",
     hrsHelp: "Satu baris bagi setiap orang: daftar masuk dipadankan dengan daftar keluar. Saat tidak dikira.",
@@ -603,7 +623,7 @@ const TEXT = {
     actTitle: "Activity record", actHelp: "Every addition, change and deletion is written down automatically. Nobody can alter this record from the website.",
     actLoad: "Show latest 50", actEmpty: "No activity recorded yet.", actSql: "Supabase (SQL)",
     act_insert: "Add", act_update: "Change", act_delete: "Delete", act_archive: "Archive", act_restore: "Restore",
-    tg_staff: "staff", tg_events: "event", tg_event_windows: "hours", tg_org_settings: "settings", tg_admins: "admin", tg_attendance_corrections: "manual time", tg_event_staff: "invited staff list",
+    tg_staff: "staff", tg_events: "event", tg_event_windows: "hours", tg_org_settings: "settings", tg_admins: "admin", tg_attendance_corrections: "manual time", tg_event_staff: "invited staff list", tg_work_exits: "step-out",
     colWhen: "When", colWho: "Who", colWhat: "What", setDisplayLink: "Display page link (big screen)",
 
     qrTitle: "QR code at the location", qrHelp: "Show this screen at the location. The code changes by itself every {s} seconds, so a photo of it sent to someone else cannot be used.",
@@ -617,7 +637,18 @@ const TEXT = {
     qrFull: "Full screen", qrFullExit: "Exit full screen", qrScan: "Scan with your phone camera",
 
     logTitle: "Attendance", logDate: "Date", logEvent: "Event", logSession: "Session", logAllEvents: "All events", logAllSessions: "All sessions",
-    logPresent: "Present", logAbsent: "Not checked in", logRejected: "Rejected", logHours: "Hours",
+    logPresent: "Present", logAbsent: "Not checked in", logRejected: "Rejected", logHours: "Hours", logExits: "Step-outs",
+    colOutAt: "Out", colBackBy: "Back by", colBackAt: "Back in", colAway: "Length", colAwayMin: "Length (min)",
+    colDayMin: "Total today (min)", colLateBackMin: "Back late (min)", colOver: "Over 4 hours",
+    xs_out: "out", xs_overdue: "overdue", xs_back: "back", xs_gone_home: "went home", xGoneHome: "Going home", xOver: "over 4 hours", xLate: "{n} min late",
+    xManual: "manual", xFix: "Enter return", xFixTitle: "Return time (manual)",
+    xFixFor: "{code} · {name} · out at {out}", xFixHelp: "For someone who forgot to press Back in, or did not come back. The reason and your account are kept in the activity record.",
+    xFixWhat: "What happened", xFixCame: "Came back at this time", xFixHome: "Did not come back (went home)", xFixTime: "Time back",
+    xFixNote: "{reason} · {who}",
+    emptyExits: "No step-outs for this selection.",
+    exitsHelp: "Limit 4 hours a day. Going home counts until the end of working hours. \"Overdue\" = the time they wrote has passed.",
+    errXBefore: "That time is before they went out.", errXFuture: "That time has not happened yet.", errXNotOpen: "This step-out is already closed. The list has been reloaded.",
+    errXReason: "Write a reason of at least 3 characters.",
     logDetails: "Show GPS and device details", logDownload: "Download CSV",
     colTime: "Time", colCode: "Code", colName: "Name", colType: "Type", colEvent: "Event", colSession: "Session", colReason: "Reason",
     colDistance: "Distance", colAccuracy: "GPS accuracy", colDevice: "Device", colStatus: "Status",
@@ -641,6 +672,9 @@ const TEXT = {
     evAdd: "Add event", evNew: "New event", evName: "Event name", evCode: "Event code", evCodeHelp: "Letters and numbers only, no spaces. Used in the QR link.",
     evLat: "Latitude", evLng: "Longitude", evRadius: "Radius (metres)", evUseHere: "Put the pin where I am now", evLocating: "Finding location…",
     evHere: "Location filled in. Accuracy ±{m} m.", evActive: "Event is active (shown to staff)", evRequireQr: "Require the QR scan",
+    evAllowExit: "Allow stepping out during work",
+    evExitNote: "Staff can record Step out and Back in on the staff page, during this event's working hours, up to 4 hours a day. It uses this event's location.",
+    evExitNoHours: "This event has no check-in session (with a late time) and check-out session yet. Without both, stepping out cannot be recorded.",
     evRequireLoc: "Require location", evLocOffNote: "No location is asked for or stored for this event. The pin and radius are kept, and come back when this is switched on again.",
     evOpenNote: "Location and QR are both off: anyone with the link can record attendance from anywhere during the event's hours. Only the one-device, one-name rule protects this event.",
     evAudience: "Who it is for", evAudAll: "All staff", evAudSelected: "Selected staff", evInvited: "Invited staff",
@@ -660,7 +694,7 @@ const TEXT = {
     winInSummary: "check-in", winOutSummary: "check-out",
     colIn: "In", colOut: "Out", colActual: "Actual", colOfficial: "In working hours", colNote: "Note", colDate: "Date",
     colActualMin: "Actual (minutes)", colOfficialMin: "In working hours (minutes)", colInSource: "In source", colOutSource: "Out source",
-    srcRecorded: "recorded", srcManual: "manual", hrsMin: "{h} h {m} min",
+    srcRecorded: "recorded", srcManual: "manual", srcExit: "left early", hrsMin: "{h} h {m} min",
     hrsNoIn: "No check-in", hrsNoOut: "No check-out", hrsWrong: "Check the times",
     hs_complete: "complete", hs_no_check_in: "no check-in", hs_no_check_out: "no check-out", hs_times_wrong: "check the times",
     hrsHelp: "One line per person: the check-in paired with the check-out. Seconds are not counted.",
@@ -807,6 +841,7 @@ const state = {
   log: { date: todayKL(), followToday: true,   // followToday: the date moves on by itself at midnight
          eventId: "", windowId: "", tab: "present", rows: [], capped: false, loadedAt: null, loading: false,
          hours: [],                  // the paired lines (time in, time out, lengths) from the work_hours view, for the event and date on screen
+         exits: [],                  // step-outs from the work_exit_log view (SQL file 13), for the date and event on screen
          error: null,                // the last load failed: show that, never an empty "0 present"
          stale: false,               // a background refresh failed: the list on screen is older than it looks
          ticket: 0,                  // each load takes a number; only the newest one may fill the list
@@ -951,7 +986,7 @@ function endSession(messageKey, values) {
   stopQr(); clearTimeout(state.log.timer); closeMap();
   Object.assign(state, { role: null, staff: [], events: [], windows: [], settings: null, invited: null, basicsAt: 0, openNow: {},
                          edit: null, confirm: null, displays: [], canPair: false, pairOpen: false, admins: [], activity: null });
-  Object.assign(state.log, { eventId: "", windowId: "", tab: "present", rows: [], hours: [], capped: false, loadedAt: null, loading: false,
+  Object.assign(state.log, { eventId: "", windowId: "", tab: "present", rows: [], hours: [], exits: [], capped: false, loadedAt: null, loading: false,
                              error: null, stale: false, loadedKey: "", shown: LOG_SHOW, known: { date: "", events: new Set(), sessions: new Set() } });
   state.log.ticket++;                                                       // any attendance list still on its way is now out of date
   state.staffFilter.text = ""; state.evFilter.text = "";
@@ -1511,11 +1546,21 @@ async function loadLog(quiet) {
         L.noProblems = true;
       }
     }
+    // Step-outs during working hours (SQL file 13). Every sum and mark comes from the work_exit_log view.
+    let exits = { rows: [], capped: false };
+    if (!L.noExits) {                                            // read even when no event allows it now: an old date may have some
+      try { exits = await fetchAllRows("work_exit_log?select=" + EXIT_FIELDS + "&exit_date=eq." + date + (eventId ? "&event_id=eq." + eventId : "") + "&order=out_at.asc,id.asc"); }
+      catch (error) {
+        // "No such view": SQL file 13 has not been run yet. Carry on without the list, and stop asking.
+        if (error.kind !== "db" || !(error.status === 404 || error.code === "42P01" || error.code === "PGRST205")) throw error;
+        L.noExits = true;
+      }
+    }
     if (ticket !== L.ticket) return;                             // a newer load (another date, another event) has taken over
     // Dressed as a rejected row, so the list, the count and the CSV treat it like one. It has no session, distance or accuracy.
     const fromPhone = stuck.rows.map(p => ({ id: "p" + p.id, checked_in_at: p.at, status: "rejected", reason: "phone_" + p.kind, phone: true,
       distance_m: null, gps_accuracy_m: null, device_id: p.device_id || "", staff_id: p.staff_id, event_id: p.event_id, window_id: null }));
-    L.rows = [...present.rows, ...rejected.rows, ...fromPhone]; L.capped = present.capped || rejected.capped || stuck.capped; L.hours = hours;
+    L.rows = [...present.rows, ...rejected.rows, ...fromPhone]; L.capped = present.capped || rejected.capped || stuck.capped || exits.capped; L.hours = hours; L.exits = exits.rows;
     L.loadedAt = new Date(); L.loadedKey = key; L.error = null; L.stale = false;
     if (L.known.date !== date) L.known = { date, events: new Set(), sessions: new Set() };
     for (const r of L.rows) { L.known.events.add(r.event_id); if (r.window_id) L.known.sessions.add(r.window_id); }
@@ -1524,12 +1569,12 @@ async function loadLog(quiet) {
     L.loading = false;
     if (error.kind === "session") return;
     if (quiet && L.loadedKey === key && !L.error) L.stale = true; // background refresh failed: keep the last good list for this date and event, but say that it is old
-    else { L.error = error; L.rows = []; L.hours = []; L.capped = false; }     // anything else failed: say so. Never show an empty list as if nobody came.
+    else { L.error = error; L.rows = []; L.hours = []; L.exits = []; L.capped = false; }     // anything else failed: say so. Never show an empty list as if nobody came.
   }
   L.loading = false;
   if (state.view !== "log") return;
   // Do not yank a date picker or dropdown away from the person using it, and never redraw under an open "manual time" form.
-  if (!(quiet && (busyChoosing() || (state.edit && state.edit.kind === "fix")))) drawLog();
+  if (!(quiet && (busyChoosing() || (state.edit && (state.edit.kind === "fix" || state.edit.kind === "xfix"))))) drawLog();
   again();
   if (quiet) refreshBasics();                                    // names of staff added since sign-in
 }
@@ -1548,8 +1593,16 @@ function logLists() {
   const absent = L.eventId ? state.staff.filter(s => s.active && !here.has(s.id) && (!list || list.has(s.id))) : null;
   // Hours: days with a missing half come first (they are the ones that need attention), then by name.
   const hours = hoursOn(L.eventId) ? [...L.hours].sort((a, b) => (a.status === "complete") - (b.status === "complete") || (a.full_name || "").localeCompare(b.full_name || "")) : null;
-  return { present, rejected, absent, hours };
+  const exits = exitsOn(L.eventId) ? L.exits : null;
+  return { present, rejected, absent, hours, exits };
 }
+
+/* Is there a Step-outs list? When the event on screen allows stepping out (for "All events": any event does),
+   or when the date on screen has step-outs anyway (the switch may have been turned off since). */
+const exitsOn = eventId => !state.log.noExits && (state.log.exits.length > 0
+  || (eventId ? !!(eventById(eventId) || {}).allow_exit : state.events.some(e => e.allow_exit)));
+const EXIT_FIELDS = "id,event_id,staff_id,staff_code,full_name,out_at,reason,going_home,planned_back,back_at,back_source,back_note,"
+                  + "back_entered_by_email,minutes_away,late_minutes,day_minutes,over_limit,status";
 
 /* Does this event pair a check-in session with a check-out session? Only then is there an Hours list.
    (Archived sessions count too, so an old date still shows its hours.) */
@@ -1558,7 +1611,7 @@ const HOURS_FIELDS = "staff_id,staff_code,full_name,status,time_in,in_source,tim
                    + "official_start,official_end,in_note,in_entered_by,in_correction_id,out_note,out_entered_by,out_correction_id";
 const shortKL  = iso => iso ? clockKL(iso).slice(0, 5) : "";                                        // 07:29 (the sums ignore seconds, so the screen does too)
 const duration = minutes => minutes == null ? "" : t("hrsMin", { h: Math.floor(minutes / 60), m: String(minutes % 60).padStart(2, "0") });   // 8 h 04 min
-const sourceText = source => source ? t(source === "manual" ? "srcManual" : "srcRecorded") : "";
+const sourceText = source => source ? t(source === "manual" ? "srcManual" : source === "exit" ? "srcExit" : "srcRecorded") : "";
 /* The reason and the account behind each manual time on a line, as plain text. */
 const fixNotes = r => ["in", "out"].filter(half => r[half + "_source"] === "manual")
   .map(half => t("fixNote", { half: t(half === "in" ? "fixIn" : "fixOut"), reason: r[half + "_note"] || "", who: r[half + "_entered_by"] || "–" }));
@@ -1585,6 +1638,13 @@ function logColumns(tab, forFile) {
     ["colIn", r => shortKL(r.time_in)], ["colInSource", r => sourceText(r.in_source)], ["colOut", r => shortKL(r.time_out)], ["colOutSource", r => sourceText(r.out_source)],
     ["colActualMin", r => r.minutes_actual ?? ""], ["colOfficialMin", r => r.minutes_official ?? ""], ["colLateMin", r => r.late_minutes || ""],
     ["colStatus", r => t("hs_" + r.status)], ["colNote", r => fixNotes(r).join("; ")]];
+  // Step-outs, for the file: plain minutes so a spreadsheet can add them up. (The screen is drawn by exitsTable().)
+  if (tab === "exits") return [["colDate", () => showDate(L.date)], ["colCode", r => r.staff_code || ""], ["colName", r => r.full_name || ""],
+    ["colEvent", r => (eventById(r.event_id) || {}).name || ""], ["colOutAt", r => shortKL(r.out_at)], ["colReason", r => r.reason || ""],
+    ["colBackBy", r => r.going_home ? t("xGoneHome") : hhmm(r.planned_back)], ["colBackAt", r => shortKL(r.back_at)],
+    ["colAwayMin", r => r.minutes_away ?? ""], ["colLateBackMin", r => r.late_minutes || ""], ["colDayMin", r => r.day_minutes ?? ""],
+    ["colOver", r => r.over_limit ? t("xOver") : ""], ["colStatus", r => t("xs_" + r.status)],
+    ["colNote", r => r.back_source === "manual" ? t("xFixNote", { reason: r.back_note || "", who: r.back_entered_by_email || "–" }) : ""]];
   const cols = [["colTime", r => clockKL(r.checked_in_at)], ...who];
   if (!L.eventId || forFile) cols.push(["colEvent", r => (eventById(r.event_id) || {}).name || ""]);
   cols.push(["colSession", r => (windowById(r.window_id) || {}).label || ""]);
@@ -1608,8 +1668,11 @@ function drawLog() {
   if (!sessions.some(w => w.id === L.windowId)) L.windowId = "";
   const showHours = !!lists.hours;                                // this event pairs check-in with check-out
   if (L.tab === "hours" && !showHours) L.tab = "present";
+  const showExits = !!lists.exits;                                // this event allows stepping out, or the day has step-outs
+  if (L.tab === "exits" && !showExits) L.tab = "present";
+  const xfix = L.tab === "exits" && state.edit && state.edit.kind === "xfix" ? state.edit : null;   // the "return time" form, when open
   const fix = L.tab === "hours" && state.edit && state.edit.kind === "fix" ? state.edit : null;     // the "manual time" form, when open
-  const leave = () => { if (state.edit && state.edit.kind === "fix") state.edit = null; state.confirm = null; };   // moving away closes that form
+  const leave = () => { if (state.edit && (state.edit.kind === "fix" || state.edit.kind === "xfix")) state.edit = null; state.confirm = null; };   // moving away closes those forms
 
   const tools = h("div", { class: "card tools" },
     field(t("logDate"), h("input", { id: "logDate", type: "date", value: L.date, max: todayKL(), onchange: e => {
@@ -1625,11 +1688,12 @@ function drawLog() {
       // No download while the list is still loading or failed to load: the file would be empty or half full.
       h("button", { class: "btn", type: "button", id: "logDownload", disabled: L.loading || !!L.error, onclick: downloadCsv }, icon("download"), t("logDownload"))));
 
-  const count = L.loading ? { present: "…", absent: "…", rejected: "…", hours: "…" }
-              : L.error   ? { present: "–", absent: "–", rejected: "–", hours: "–" }
-              : { present: lists.present.length, absent: lists.absent ? lists.absent.length : "–", rejected: lists.rejected.length, hours: showHours ? lists.hours.length : "–" };
+  const count = L.loading ? { present: "…", absent: "…", rejected: "…", hours: "…", exits: "…" }
+              : L.error   ? { present: "–", absent: "–", rejected: "–", hours: "–", exits: "–" }
+              : { present: lists.present.length, absent: lists.absent ? lists.absent.length : "–", rejected: lists.rejected.length, hours: showHours ? lists.hours.length : "–",
+                  exits: showExits ? lists.exits.length : "–" };
   const seg = h("div", { class: "seg", role: "group", "aria-label": t("logTitle") },
-    [["present", "logPresent"], ["absent", "logAbsent"], ["rejected", "logRejected"], showHours && ["hours", "logHours"]].filter(Boolean).map(([tab, key]) =>
+    [["present", "logPresent"], ["absent", "logAbsent"], ["rejected", "logRejected"], showHours && ["hours", "logHours"], showExits && ["exits", "logExits"]].filter(Boolean).map(([tab, key]) =>
       h("button", { type: "button", "aria-pressed": String(L.tab === tab), "data-tab": tab, onclick: () => { L.tab = tab; L.shown = LOG_SHOW; leave(); drawLog(); } }, t(key) + " (" + count[tab] + ")")));
 
   let body, more = null;
@@ -1640,8 +1704,9 @@ function drawLog() {
     h("div", { class: "actions", style: "justify-content:center; margin-top:14px" },
       h("button", { class: "btn primary", type: "button", onclick: () => loadLog() }, icon("refresh"), t("logRetry"))));
   else if (L.tab === "absent" && !rows) body = h("div", { class: "card empty" }, t("absentPick"));
-  else if (!rows.length) body = h("div", { class: "card empty" }, t({ present: "emptyPresent", absent: forSelected(eventById(L.eventId)) ? "emptyAbsentSel" : "emptyAbsent", rejected: "emptyRejected", hours: "emptyHours" }[L.tab]));
+  else if (!rows.length) body = h("div", { class: "card empty" }, t({ present: "emptyPresent", absent: forSelected(eventById(L.eventId)) ? "emptyAbsentSel" : "emptyAbsent", rejected: "emptyRejected", hours: "emptyHours", exits: "emptyExits" }[L.tab]));
   else if (L.tab === "hours") body = hoursTable(rows.slice(0, L.shown));
+  else if (L.tab === "exits") body = exitsTable(rows.slice(0, L.shown));
   else {
     const cols = logColumns(L.tab);
     const lead = ["colTime", "colCode", "colName"];                 // on a phone these three share the first line of each row
@@ -1665,8 +1730,10 @@ function drawLog() {
     tools,
     h("div", { class: "head" }, seg,
       L.tab === "hours" ? canManage() && !fix && h("button", { class: "btn small", type: "button", id: "fixAdd", onclick: () => { state.edit = { kind: "fix", staffId: "", half: "in" }; state.confirm = null; drawLog(); } }, icon("plus"), t("fixAdd"))
-                        : L.tab !== "absent" && check("logDetails", t("logDetails"), L.details)),
+                        : L.tab !== "absent" && L.tab !== "exits" && check("logDetails", t("logDetails"), L.details)),
     L.tab === "hours" && h("p", { class: "mute small", id: "hrsHelp" }, hoursHelp(lists.hours)),
+    L.tab === "exits" && h("p", { class: "mute small", id: "exitsHelp" }, t("exitsHelp")),
+    xfix && h("div", { class: "editor", id: "xfixBox" }, h("h2", { style: "margin-bottom:6px" }, t("xFixTitle")), exitFixForm(xfix)),
     fix && h("div", { class: "editor", id: "fixBox" }, h("h2", { style: "margin-bottom:6px" }, t("fixTitle")), fixForm(fix)),
     L.stale && !L.loading && !L.error && h("p", { class: "note warn", id: "logStale" }, t("logStale", { time: L.loadedAt ? clockKL(L.loadedAt) : "–" })),
     L.capped && !L.loading && !L.error && h("p", { class: "note warn" }, t("logCapped", { n: (LOG_PAGE * LOG_MAX_PAGES).toLocaleString("en") })),
@@ -1716,6 +1783,64 @@ function hoursTable(rows) {
       const value = get(r), first = key === "colCode" || key === "colName";
       return h("td", { class: [cls, value === "" && "nil"].filter(Boolean).join(" ") || null, "data-label": first ? null : t(key) }, value);
     }))))));
+}
+
+/* The Step-outs list on screen: one line per step-out. Every length and mark comes from the database.
+   An owner or manager gets a "Return time" button on a step-out that is still open. */
+function exitsTable(rows) {
+  const manage = canManage();
+  const pills = r => [
+    h("span", { class: "pill " + ({ back: "ok", out: "off", overdue: "bad", gone_home: "warn" }[r.status] || "off") }, t("xs_" + r.status)),
+    r.late_minutes ? [" ", h("span", { class: "pill warn" }, t("xLate", { n: r.late_minutes }))] : null,
+    r.over_limit ? [" ", h("span", { class: "pill bad" }, t("xOver"))] : null,
+    r.back_source === "manual" ? [" ", h("span", { class: "pill off" }, t("xManual"))] : null];
+  const open = r => manage && (r.status === "out" || r.status === "overdue") && !(state.edit && state.edit.kind === "xfix" && state.edit.exitId === r.id)
+    ? h("button", { class: "btn small", type: "button", "data-xfix": r.id, onclick: () => { state.edit = { kind: "xfix", exitId: r.id }; state.confirm = null; drawLog(); $("#xfixBox").scrollIntoView({ block: "nearest" }); } }, t("xFix"))
+    : null;
+  const cols = [["colCode", r => r.staff_code || "", "code inline"], ["colName", r => r.full_name || "", "wrap inline"],
+    ["colOutAt", r => shortKL(r.out_at)], ["colReason", r => r.reason || "", "wrap wide"],
+    ["colBackBy", r => r.going_home ? t("xGoneHome") : hhmm(r.planned_back)],
+    ["colBackAt", r => r.back_at ? shortKL(r.back_at) : open(r) || ""],
+    ["colAway", r => duration(r.minutes_away), "num"],
+    ["colStatus", r => pills(r), "wrap"],
+    ["colNote", r => r.back_source === "manual" ? t("xFixNote", { reason: r.back_note || "", who: r.back_entered_by_email || "–" }) : "", "wrap"]];
+  return h("div", { class: "tablewrap" }, h("table", { class: "stack exits" },
+    h("thead", null, h("tr", null, cols.map(([key, , cls]) => h("th", { class: cls === "num" ? "num" : null }, t(key))))),
+    h("tbody", null, rows.map(r => h("tr", { "data-code": r.staff_code, "data-status": r.status }, cols.map(([key, get, cls]) => {
+      const value = get(r), first = key === "colCode" || key === "colName";
+      return h("td", { class: [cls, value === "" && "nil"].filter(Boolean).join(" ") || null, "data-label": first ? null : t(key) }, value);
+    }))))));
+}
+
+/* The small form for a forgotten return: "came back at this time" or "did not come back". The database
+   (exit_set_return) checks the level, refuses a time before the step-out or in the future, and writes the
+   activity record. */
+function exitFixForm(fix) {
+  const r = state.log.exits.find(x => x.id === fix.exitId);
+  if (!r) return null;
+  const what = h("select", { id: "xfixWhat" }, h("option", { value: "back" }, t("xFixCame")), h("option", { value: "home" }, t("xFixHome")));
+  const time = h("input", { id: "xfixTime", type: "time", required: true });
+  const timeBox = field(t("xFixTime"), time);
+  const reason = h("input", { id: "xfixReason", required: true, maxlength: 200, autocomplete: "off" });
+  what.addEventListener("change", () => { timeBox.hidden = what.value === "home"; });
+  const save = h("button", { class: "btn primary", type: "submit" }, t("save"));
+  return h("form", { class: "form", novalidate: true, onsubmit: e => {
+    e.preventDefault();
+    const home = what.value === "home";
+    if (!home && !time.value) return toast("bad", t("errTitle"), t("errRequired"));
+    if (reason.value.trim().length < 3) return toast("bad", t("errTitle"), t("errXReason"));
+    saving(save, async () => {
+      const answer = (await api("rpc/exit_set_return", { method: "POST",
+        body: { p_exit_id: r.id, p_time: home ? null : time.value.slice(0, 5), p_reason: reason.value.trim(), p_went_home: home } })).data || {};
+      if (answer.ok) { loadLog(); return; }
+      if (answer.reason === "not_open") { state.edit = null; loadLog(); }
+      throw { text: t({ before_out: "errXBefore", in_future: "errXFuture", not_open: "errXNotOpen", bad_input: "errXReason" }[answer.reason] || "errRequired") };
+    });
+  } },
+    h("p", { class: "mute small" }, h("strong", null, t("xFixFor", { code: r.staff_code || "", name: r.full_name || "", out: shortKL(r.out_at) })), h("br"), t("xFixHelp")),
+    h("div", { class: "row" }, field(t("xFixWhat"), what), timeBox),
+    field(t("fixReason"), reason, t("fixReasonHelp")),
+    h("div", { class: "actions" }, save, h("button", { class: "btn", type: "button", onclick: () => { state.edit = null; drawLog(); } }, t("cancel"))));
 }
 
 /* The small form that adds one manual time, for the date and event on screen. The database stamps who and when,
@@ -1954,6 +2079,13 @@ function eventForm(ev) {
   const active = check(pre + "active", t("evActive"), ev ? ev.active : true);
   const needQr = check(pre + "qr", t("evRequireQr"), ev ? ev.require_qr : false);
   const needLoc = check(pre + "loc", t("evRequireLoc"), ev ? ev.require_location !== false : true);
+  // "Allow stepping out" only when the database has it (SQL file 13): the events it sends carry allow_exit.
+  const exitChoice = ev ? "allow_exit" in ev : state.events.some(e => "allow_exit" in e);
+  const allowExit = check(pre + "exit", t("evAllowExit"), ev ? ev.allow_exit === true : false);
+  const exitTick = allowExit.querySelector("input");
+  const inOut = !!ev && state.windows.some(w => w.event_id === ev.id && !w.archived_at && w.counts_as === "in" && w.late_after)
+                     && state.windows.some(w => w.event_id === ev.id && !w.archived_at && w.counts_as === "out");
+  const exitNote = h("p", { class: "note " + (inOut ? "info" : "warn"), id: pre + "exitnote" }, t(inOut ? "evExitNote" : "evExitNoHours"));
   const audience = h("select", { id: pre + "aud", value: forSelected(ev) ? "selected" : "all" },
     h("option", { value: "all" }, t("evAudAll")), h("option", { value: "selected" }, t("evAudSelected")));
   const picked = ev ? invitedOf(ev.id) : new Set();   // a copy: nothing is saved until Save is pressed
@@ -1991,6 +2123,8 @@ function eventForm(ev) {
   locTick.addEventListener("change", () => sync(true));
   qrTick.addEventListener("change", () => sync());
   audience.addEventListener("change", () => sync());
+  exitTick.addEventListener("change", () => { exitNote.hidden = !exitTick.checked; });
+  exitNote.hidden = !exitTick.checked;
   sync();
 
   const save = h("button", { class: "btn primary", type: "submit" }, t("save"));
@@ -2009,6 +2143,7 @@ function eventForm(ev) {
                               : { latitude: null, longitude: null, radius_m: null });
     const selected = choices && audience.value === "selected";
     if (choices) { row.require_location = locOn(); row.audience = audience.value; }      // an older database does not know these two
+    if (exitChoice) row.allow_exit = exitTick.checked;                                   // nor this one (SQL file 13)
     if (selected && !picked.size) return toast("bad", t("errTitle"), t("errInvNone"));
     saving(save, async () => {
       let saved;
@@ -2025,6 +2160,7 @@ function eventForm(ev) {
     h("div", { class: "row" }, field(t("evName"), name), field(t("evCode"), code, t("evCodeHelp"))),
     h("div", { class: "row" }, active, choices && needLoc, needQr),
     choices && locOff, choices && openNote,
+    exitChoice && h("div", { class: "row" }, allowExit), exitChoice && exitNote,
     locBox,
     choices && h("div", { class: "row" }, field(t("evAudience"), audience)),
     pickBox,

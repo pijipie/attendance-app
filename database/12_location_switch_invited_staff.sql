@@ -54,6 +54,12 @@
 -- =====================================================================
 
 begin;      -- all or nothing: if any part fails, nothing in this file is kept
+do $$
+begin
+  if to_regclass('public.work_exits') is not null then
+    raise exception 'STOP: 13_work_exits.sql is already installed. This older file is not needed again. Nothing was changed.';
+  end if;
+end $$;
 
 
 -- =====================================================================

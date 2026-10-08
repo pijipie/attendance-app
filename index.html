@@ -115,6 +115,19 @@ select:user-invalid,input:user-invalid{border-color:var(--bad)}
 .locked small{display:block; color:var(--mute); font-size:.85rem}
 .locked strong{overflow-wrap:anywhere}
 .hint{margin:.45rem 0 0; font-size:.9rem; color:var(--warn)}
+/* "What are you recording?": attendance, stepping out, coming back. Only for an event that allows stepping out. */
+.seg{display:grid; grid-template-columns:repeat(3, 1fr); border:1.5px solid var(--line); border-radius:10px; overflow:hidden}
+.seg button{
+  font:inherit; font-size:.92rem; font-weight:700; min-height:48px; padding:.3rem .4rem; line-height:1.2;
+  border:0; border-left:1.5px solid var(--line); background:transparent; color:var(--mute); cursor:pointer;
+}
+.seg button:first-child{border-left:0}
+.seg button[aria-pressed="true"]{background:var(--brand); color:var(--on-brand)}
+.field-label{display:block; font-weight:600; margin:0 0 .35rem}
+#exitReason{text-transform:none}                       /* the person's own words stay as they typed them */
+.note{margin:.45rem 0 0; font-size:.9rem; color:var(--mute)}
+.tick{display:flex; align-items:center; gap:.6rem; font-weight:600; margin:0; min-height:44px; cursor:pointer}
+.tick input{width:22px; height:22px; min-height:0; margin:0; flex:none}
 
 .primary{
   width:100%; min-height:56px; padding:1rem;
@@ -259,9 +272,35 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
     <p class="hint" id="hint" hidden></p>
    </div>
 
+   <!-- What is being recorded. Only shown for an event that allows "keluar waktu bekerja"; it always starts on attendance. -->
+   <div class="field" id="actField" hidden>
+    <span class="field-label" id="actLabel" data-t="act"></span>
+    <div class="seg" role="group" aria-labelledby="actLabel">
+     <button type="button" data-act="in"   aria-pressed="true"  data-t="actIn"></button>
+     <button type="button" data-act="out"  aria-pressed="false" data-t="actOut"></button>
+     <button type="button" data-act="back" aria-pressed="false" data-t="actBack"></button>
+    </div>
+   </div>
+
    <div class="field">
     <label for="staff" data-t="staff"></label>
     <input id="staff" name="staff" required autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" enterkeyhint="send">
+   </div>
+
+   <!-- Stepping out: the person's own reason, and when they will be back (or "not coming back today"). -->
+   <div id="exitFields" hidden>
+    <div class="field">
+     <label for="exitReason" data-t="exitReason"></label>
+     <input id="exitReason" name="exitReason" autocomplete="off" maxlength="200" enterkeyhint="next">
+    </div>
+    <div class="field" id="backField">
+     <label for="exitBack" data-t="exitBack"></label>
+     <input id="exitBack" name="exitBack" type="time" step="60">
+     <p class="note" id="exitNote" hidden></p>
+    </div>
+    <div class="field">
+     <label class="tick"><input id="exitHome" type="checkbox"> <span data-t="exitHome"></span></label>
+    </div>
    </div>
 
    <!-- The location line. Once an event is chosen the page starts looking for the phone's position straight away,
@@ -323,15 +362,21 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
                               this event. An event can be for selected staff:
                               the page says so, and someone who is not on its list is told "recorded, name
                               not on the list". (Needs SQL file 12; an older database never sends these two
-                              facts, so every event behaves as before and either can be put in first))
+                              facts, so every event behaves as before and either can be put in first);
+                        2.10: "keluar waktu bekerja". For an event that allows it, three choices appear under the
+                              event: Attendance, Step out, Back in. Step out asks for the person's own reason and
+                              the time they will be back, and shows the latest time allowed (4 hours a day, never
+                              past the end of the working day); or "not coming back today". The database decides
+                              everything, with the event's own location rules. (Needs SQL file 13; an older database
+                              never says an event allows it, so the choices never appear and either can be put in first))
    The page only collects facts and shows the answer.
    The database function check_in() makes every decision.
    ===================================================================== */
 
 /* ---------- 1. Where the database lives -------------------------------
-   The publishable key is meant to be public. It can only open the four
-   doors we granted to "anon": list_events(), check_in(), event_counter()
-   and report_location_problem(). */
+   The publishable key is meant to be public. It can only open the six
+   doors we granted to "anon": list_events(), check_in(), event_counter(),
+   report_location_problem(), exit_rules() and work_exit(). */
 const API = "https://xtrgefkopnqgektrllra.supabase.co";
 const KEY = "sb_publishable_AzY4sFUQgYQvQRSrFT3qwg_Y6068Gv5";
 
@@ -369,6 +414,13 @@ const TEXT = {
     locUnsupported: "Pelayar ini tidak dapat memberi lokasi. Gunakan pelayar atau peranti lain.",
     locPaused: "Carian lokasi dihentikan sementara untuk menjimatkan bateri.",
     locRetry: "Cuba lagi", locFind: "Cari lokasi saya",
+    act: "Apa yang direkod?", actIn: "Kehadiran", actOut: "Keluar", actBack: "Masuk semula",
+    exitReason: "Sebab keluar", exitBack: "Masa kembali", exitHome: "Tidak kembali hari ini (pulang)",
+    submitOut: "Hantar keluar", submitBack: "Hantar masuk semula",
+    exitLatest: "Paling lewat kembali {latest}. Had keluar 4 jam sehari; keluar lebih awal hari ini mengurangkannya.",
+    exitHours: "Keluar boleh direkod dalam waktu bekerja sahaja, {start} hingga {end}.",
+    exitNone: "Tiada waktu bekerja hari ini.",
+    hintBack: "Tekan selepas anda kembali ke sekolah.",
     counted: "daripada {n} telah hantar", winClosed: "ditutup", winUpcoming: "belum dibuka",
     close: "Tutup mesej",
     adminLink: "Log masuk pentadbir",
@@ -405,6 +457,13 @@ const TEXT = {
     locUnsupported: "This browser cannot give a location. Use another browser or device.",
     locPaused: "Location search paused to save battery.",
     locRetry: "Try again", locFind: "Find my location",
+    act: "What are you recording?", actIn: "Attendance", actOut: "Step out", actBack: "Back in",
+    exitReason: "Reason for stepping out", exitBack: "Time you will be back", exitHome: "Not coming back today (going home)",
+    submitOut: "Submit step out", submitBack: "Submit back in",
+    exitLatest: "Be back by {latest} at the latest. The limit is 4 hours a day; earlier outings today shorten it.",
+    exitHours: "Stepping out can only be recorded during working hours, {start} to {end}.",
+    exitNone: "No working hours today.",
+    hintBack: "Press after you are back at school.",
     counted: "of {n} submitted", winClosed: "closed", winUpcoming: "not open yet",
     close: "Close message",
     adminLink: "Admin sign-in",
@@ -432,6 +491,28 @@ const MESSAGES = {
     unknown_staff_or_event:           ["bad",  "Kod tidak dikenali", "Semak kod staf dan acara, kemudian cuba lagi."],
     bad_input:                        ["bad",  "Data tidak lengkap", "Cuba hantar semula."],
     location_required:                ["warn", "Lokasi diperlukan", "Acara ini memerlukan lokasi anda. Tunggu sehingga lokasi ditemui, kemudian tekan Hantar sekali lagi."],
+
+    // Keluar waktu bekerja: the answers of work_exit()
+    x_out_ok:          ["ok",   "Keluar direkodkan", "{name} · kembali sebelum {back}. Tekan Masuk semula apabila anda kembali."],
+    x_home_ok:         ["ok",   "Pulang direkodkan", "{name} · keluar {at}. Tiada tindakan lagi hari ini."],
+    x_home_over:       ["warn", "Pulang direkodkan, melebihi 4 jam", "{name} · keluar {at}. Jumlah keluar hari ini melebihi had 4 jam. Pentadbir akan melihat tanda ini."],
+    x_back_ok:         ["ok",   "Masuk semula direkodkan", "{name} · di luar {away} minit."],
+    x_back_late:       ["warn", "Masuk semula direkodkan, lewat", "{name} · di luar {away} minit, lewat {late} minit daripada masa yang ditulis."],
+    x_back_over:       ["warn", "Masuk semula direkodkan, melebihi 4 jam", "{name} · jumlah keluar hari ini {day} minit, melebihi had 4 jam. Pentadbir akan melihat tanda ini."],
+    return_too_late:   ["bad",  "Masa kembali terlalu lewat", "Paling lewat {latest}. Baki masa keluar anda hari ini: {left} minit. Jika tidak akan kembali, tandakan Tidak kembali hari ini."],
+    time_needed:       ["bad",  "Masa kembali diperlukan", "Tulis masa anda akan kembali (paling lewat {latest}), atau tandakan Tidak kembali hari ini."],
+    time_in_past:      ["bad",  "Masa kembali sudah berlalu", "Tulis masa selepas sekarang, paling lewat {latest}."],
+    reason_needed:     ["bad",  "Sebab diperlukan", "Tulis sebab anda keluar."],
+    reason_too_long:   ["bad",  "Sebab terlalu panjang", "Pendekkan sebab kepada 200 aksara."],
+    not_checked_in:    ["warn", "Kehadiran hari ini belum direkod", "Rekod kehadiran pagi ini dahulu, kemudian rekod keluar."],
+    already_out:       ["warn", "Anda masih di luar", "Keluar anda sebelum ini belum ditutup (kembali sebelum {back}). Tekan Masuk semula dahulu."],
+    already_gone_home: ["warn", "Pulang sudah direkodkan", "Anda telah merekod pulang hari ini. Tiada tindakan lagi."],
+    no_open_exit:      ["warn", "Tiada keluar untuk ditutup", "Tiada rekod keluar yang masih terbuka hari ini. Untuk keluar, pilih Keluar."],
+    limit_used_up:     ["bad",  "Had 4 jam sudah digunakan", "Masa keluar anda hari ini telah habis. Jika perlu pulang, tandakan Tidak kembali hari ini."],
+    outside_work_hours:["warn", "Di luar waktu bekerja", "Keluar hanya boleh direkod antara {start} dan {end}."],
+    exit_not_allowed:  ["warn", "Tidak dibuka", "Acara ini tidak menerima rekod keluar waktu bekerja pada masa ini."],
+    x_device_already_used: ["bad", "Peranti sudah digunakan", "Peranti ini telah merekod keluar orang lain hari ini. Gunakan peranti anda sendiri."],
+    too_many:          ["bad",  "Terlalu banyak rekod", "Hubungi pentadbir."],
 
     need_event:      ["bad",  "Acara diperlukan", "Pilih acara daripada senarai."],
     need_event_code: ["bad",  "Kod acara diperlukan", "Masukkan kod acara atau imbas QR di lokasi."],
@@ -463,6 +544,28 @@ const MESSAGES = {
     unknown_staff_or_event:           ["bad",  "Code not recognised", "Check the staff code and the event, then try again."],
     bad_input:                        ["bad",  "Incomplete data", "Try sending again."],
     location_required:                ["warn", "Location needed", "This event needs your location. Wait until the location is found, then press Submit again."],
+
+    // Keluar waktu bekerja: the answers of work_exit()
+    x_out_ok:          ["ok",   "Step out recorded", "{name} · back by {back}. Press Back in when you return."],
+    x_home_ok:         ["ok",   "Going home recorded", "{name} · left at {at}. Nothing more to do today."],
+    x_home_over:       ["warn", "Going home recorded, over 4 hours", "{name} · left at {at}. Time out today is over the 4-hour limit. The admin will see this mark."],
+    x_back_ok:         ["ok",   "Back in recorded", "{name} · out for {away} min."],
+    x_back_late:       ["warn", "Back in recorded, late", "{name} · out for {away} min, {late} min later than the time you wrote."],
+    x_back_over:       ["warn", "Back in recorded, over 4 hours", "{name} · {day} min out today, over the 4-hour limit. The admin will see this mark."],
+    return_too_late:   ["bad",  "Return time too late", "Latest {latest}. Time out you have left today: {left} min. If you are not coming back, tick Not coming back today."],
+    time_needed:       ["bad",  "Return time needed", "Write the time you will be back (latest {latest}), or tick Not coming back today."],
+    time_in_past:      ["bad",  "That time has passed", "Write a time after now, at the latest {latest}."],
+    reason_needed:     ["bad",  "Reason needed", "Write why you are stepping out."],
+    reason_too_long:   ["bad",  "Reason too long", "Shorten the reason to 200 characters."],
+    not_checked_in:    ["warn", "No attendance today yet", "Record this morning's attendance first, then step out."],
+    already_out:       ["warn", "You are still out", "Your last step out is still open (back by {back}). Press Back in first."],
+    already_gone_home: ["warn", "Going home already recorded", "You recorded going home today. Nothing more to do."],
+    no_open_exit:      ["warn", "Nothing to close", "There is no open step out today. To step out, choose Step out."],
+    limit_used_up:     ["bad",  "4-hour limit used up", "Your time out for today is used up. If you have to go home, tick Not coming back today."],
+    outside_work_hours:["warn", "Outside working hours", "Stepping out can only be recorded between {start} and {end}."],
+    exit_not_allowed:  ["warn", "Not open", "This event is not taking step-out records right now."],
+    x_device_already_used: ["bad", "Device already used", "This device has already recorded someone else stepping out today. Use your own device."],
+    too_many:          ["bad",  "Too many records", "Contact the administrator."],
 
     need_event:      ["bad",  "Event required", "Choose an event from the list."],
     need_event_code: ["bad",  "Event code required", "Enter the event code or scan the QR at the location."],
@@ -561,6 +664,7 @@ let eventsAt = 0;                                 // when the list was last read
 let mode    = urlEvent ? "locked" : "loading";    // locked | loading | select | typed
 let lastMsg = null;                               // so a result can be re-shown in the other language
 let busy    = false;
+let act     = "in";                               // in | out | back - what is being recorded (section 6c). Never remembered.
 
 const t = key => TEXT[lang][key];
 
@@ -655,7 +759,9 @@ function drawEventPicker() {
 function drawHint() {
   const ev = currentEvent();
   let text = "";
-  if (mode === "typed")                 text = t("hintTyped");
+  if (act === "back")                   text = t("hintBack");
+  else if (act === "out")               text = "";        // stepping out has its own note under the time box (drawExit)
+  else if (mode === "typed")            text = t("hintTyped");
   else if (ev && ev.require_qr && !qrToken) text = t("hintQr");
   else if (ev && !ev.open_now)          text = t("hintClosed");
   else if (ev && ev.audience === "selected") text = t("hintSelected");
@@ -673,6 +779,7 @@ function drawLanguage() {
   $("#staff").placeholder = t("staffExample");
   if (window.SiteMenu) SiteMenu.draw(lang); else $("#foot").hidden = false;     // no menu.js: fall back to the plain link
   drawEventPicker();
+  drawAct();
   drawCount();
   drawLoc();
   if (lastMsg) showMessage(lastMsg.id, lastMsg.values);
@@ -697,6 +804,7 @@ async function loadEvents(again) {
     return false;
   }
   drawEventPicker();
+  drawAct();
   if (again && !busy) locSync();             // an admin may have switched "Require location" on or off meanwhile
   return true;
 }
@@ -718,7 +826,7 @@ function drawCount() {
   const box  = $("#count");
   const code = currentEventCode().toLowerCase();
   const data = count && count.code === code ? count.data : null;
-  if (!data || !data.window_label) { box.hidden = true; box.replaceChildren(); return; }
+  if (!data || !data.window_label || act !== "in") { box.hidden = true; box.replaceChildren(); return; }   // the counter is about attendance only
   const note   = data.window_state === "closed" ? t("winClosed") : data.window_state === "upcoming" ? t("winUpcoming") : "";
   const number = document.createElement("b");
   number.textContent = String(data.present);
@@ -746,6 +854,70 @@ async function loadCount() {
   count = answer;                                     // no answer: hide the line instead of showing an old number
   drawCount();
   if (!countOff) countTimer = setTimeout(loadCount, COUNT_MS);
+}
+
+
+/* ---------- 6c. Keluar waktu bekerja ----------------------------------
+   For an event that allows it (list_events() says allow_exit), three choices appear under the event:
+   Attendance, Step out, Back in. The choice starts on Attendance every time and is never remembered.
+   Step out asks for the person's own reason and the time they will be back, or "not coming back
+   today". The note under the time box shows the latest return time, from exit_rules() in the
+   database (its clock, not the phone's). The database's work_exit() makes every decision, with the
+   event's own location rules; the page never works out a limit itself.                             */
+const RULES_MS = 60000;
+let rules      = null;      // the last answer of exit_rules(): { code, data }
+let rulesTimer = null;
+let rulesRound = 0;
+let rulesOff   = false;     // the database has no exit_rules() door (SQL file 13 not run)
+
+const allowsExit = () => { const ev = currentEvent(); return !!(ev && ev.allow_exit === true); };
+
+function setAct(value) {
+  act = value;
+  showMessage(null);
+  drawAct(); drawHint(); drawCount();
+  loadRules();
+  loc.done = false; locSync();               // a new thing to record: the phone's position is wanted again
+}
+
+function drawAct() {
+  if (act !== "in" && !allowsExit()) act = "in";        // a new event, or an admin switched it off
+  $("#actField").hidden = !allowsExit();
+  document.querySelectorAll(".seg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.act === act)));
+  $("#exitFields").hidden = act !== "out";
+  $("#backField").hidden  = $("#exitHome").checked;
+  if (!busy) $("#go").textContent = t(act === "out" ? "submitOut" : act === "back" ? "submitBack" : "submit");
+  drawExitNote();
+}
+
+function drawExitNote() {
+  const box  = $("#exitNote");
+  const code = currentEventCode().toLowerCase();
+  const data = rules && rules.code === code ? rules.data : null;
+  let text = "";
+  if (data && data.ok === false)  text = t("exitNone");
+  else if (data && data.latest)   text = fill(t("exitLatest"), { latest: data.latest });
+  else if (data && data.work_end) text = fill(t("exitHours"), { start: data.work_start, end: data.work_end });
+  box.textContent = text;
+  box.hidden = !text;
+}
+
+async function loadRules() {
+  clearTimeout(rulesTimer);
+  const mine = ++rulesRound;
+  const code = act === "out" ? currentEventCode() : "";
+  if (!code || rulesOff || document.hidden) { drawExitNote(); return; }
+  let answer = null;
+  try {
+    const data = await callDatabase("exit_rules", { p_event_code: code });
+    if (data && typeof data === "object") answer = { code: code.toLowerCase(), data };
+  } catch (error) {
+    if (error && [401, 403, 404].includes(error.http)) rulesOff = true;
+  }
+  if (mine !== rulesRound) return;
+  rules = answer;
+  drawExitNote();
+  if (!rulesOff) rulesTimer = setTimeout(loadRules, RULES_MS);   // the latest time moves on with the clock
 }
 
 
@@ -936,6 +1108,9 @@ async function submit(event) {
     return;
   }
   if (!staffCode) { showMessage("need_staff"); $("#staff").focus(); return; }
+  const doing = act;                                                 // what this press records, even if the choice changes meanwhile
+  const reasonText = $("#exitReason").value.trim();
+  if (doing === "out" && reasonText.length < 2) { showMessage("reason_needed"); $("#exitReason").focus(); return; }
 
   if (mode === "select") remember("event_code", eventCode);          // the event is remembered; the staff code is not (see section 9)
   showMessage(null);
@@ -947,7 +1122,7 @@ async function submit(event) {
     // 8a-2. "This event needs the QR": the list on this page may be old. An admin may have switched
     //       "Require QR" off since the page was opened. So read the list again BEFORE refusing.
     const chosen = currentEvent();
-    if (chosen && chosen.require_qr && !qrToken) {
+    if (doing === "in" && chosen && chosen.require_qr && !qrToken) {      // stepping out and back in do not use the QR
       button.textContent = t("sending");
       if (!(await loadEvents(true))) { showMessage("network"); return; }
       const now = currentEvent();
@@ -979,17 +1154,23 @@ async function submit(event) {
     // 8c. Send the facts. The database decides.
     button.textContent = t("sending");
     const accuracy = position ? position.coords.accuracy : null;
+    const where = {
+      p_staff_code: staffCode,
+      p_event_code: eventCode,
+      p_lat:        position ? position.coords.latitude  : null,
+      p_lng:        position ? position.coords.longitude : null,
+      p_accuracy:   accuracy,
+      p_device_id:  deviceId()
+    };
+    const goingHome = $("#exitHome").checked;
     let reply;
     try {
-      reply = await callDatabase("check_in", {
-        p_staff_code: staffCode,
-        p_event_code: eventCode,
-        p_lat:        position ? position.coords.latitude  : null,
-        p_lng:        position ? position.coords.longitude : null,
-        p_accuracy:   accuracy,
-        p_device_id:  deviceId(),
-        p_qr_token:   qrToken
-      });
+      reply = doing === "in"
+        ? await callDatabase("check_in", { ...where, p_qr_token: qrToken })
+        : await callDatabase("work_exit", { ...where, p_action: doing,
+            p_reason:     doing === "out" ? reasonText : null,
+            p_back_time:  doing === "out" && !goingHome ? ($("#exitBack").value || "").slice(0, 5) || null : null,
+            p_going_home: doing === "out" && goingHome });
     } catch (sendError) {
       if (sendError && sendError.http) showMessage("server", { status: sendError.http });
       else showMessage("network");
@@ -997,7 +1178,16 @@ async function submit(event) {
     }
 
     // 8d. Show the answer. The form stays exactly as it was.
-    if (reply && reply.ok) {
+    if (reply && reply.ok && doing !== "in") {
+      locStop(); loc.done = true;
+      const facts = { name: reply.name, back: reply.back_by, at: reply.at, away: reply.away_minutes, late: reply.late_minutes, day: reply.day_minutes };
+      if (doing === "out") {
+        showMessage(reply.going_home ? (reply.over_limit ? "x_home_over" : "x_home_ok") : "x_out_ok", facts);
+        $("#exitReason").value = ""; $("#exitBack").value = ""; $("#exitHome").checked = false; drawAct();
+      } else {
+        showMessage(reply.over_limit ? "x_back_over" : reply.late_minutes ? "x_back_late" : "x_back_ok", facts);
+      }
+    } else if (reply && reply.ok) {
       locStop(); loc.done = true;                     // recorded: the GPS can rest, and the location line goes away
       // Accepted. If the database says "late" (after the session's late time), say so: it is recorded, but stamped.
       // If it says "not_listed" (a selected-staff event, and this name is not on its list), say that too.
@@ -1020,12 +1210,17 @@ async function submit(event) {
       const metres = reason === "gps_accuracy_too_low" ? accuracy : reply && reply.distance_m;
       // "Too weak" at hundreds of metres is not a weak signal: the device is not using GPS at all. Say what to switch on.
       if (reason === "gps_accuracy_too_low" && accuracy >= APPROX_M) reason = "geo_approx";
-      showMessage(reason in MESSAGES[lang] ? reason : "unknown", { m: Math.round(metres || 0) });
+      if (reason === "device_already_used" && doing !== "in") reason = "x_device_already_used";   // "someone else stepping out today", not "this session"
+      showMessage(reason in MESSAGES[lang] ? reason : "unknown", { m: Math.round(metres || 0),
+        latest: reply && reply.latest, left: reply && reply.minutes_left, back: reply && reply.back_by,
+        start: reply && reply.work_start, end: reply && reply.work_end });
     }
   } finally {
-    busy = false; button.disabled = false; button.textContent = t("submit");
+    busy = false; button.disabled = false;
+    drawAct();                                        // the button's own words (Submit / Submit step out / Submit back in)
     drawLoc();
     loadCount();                                      // the number has probably just changed: show it straight away
+    if (doing === "out") loadRules();                 // so has the latest return time
   }
 }
 
@@ -1035,10 +1230,13 @@ async function submit(event) {
 // shows the last person's code. (Up to v2.6 the code was remembered on the phone: wipe that old copy.)
 try { localStorage.removeItem("staff_code"); } catch { /* storage blocked: there was nothing to wipe */ }
 $("#f").addEventListener("submit", submit);
-$("#event").addEventListener("change", () => { showMessage(null); drawHint(); loadCount(); loc.done = false; locSync(); });   // new choice: clear the old answer, fetch its counter, start looking for the phone
+$("#event").addEventListener("change", () => { act = "in"; showMessage(null); drawAct(); drawHint(); loadCount(); loc.done = false; locSync(); });   // new choice: back to attendance, clear the old answer, fetch its counter, start looking for the phone
 $("#eventCode").addEventListener("change", () => { loc.done = false; locSync(); });   // the spare tyre (code typed by hand): start looking once the code is in
 $("#staff").addEventListener("input", locTouch);                                      // typing counts as using the page: keep the GPS awake
 $("#gpsRetry").addEventListener("click", locAgain);
+document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => { if (!busy && b.dataset.act !== act) setAct(b.dataset.act); }));
+$("#exitHome").addEventListener("change", drawAct);                                   // "not coming back today": no return time to write
+$("#exitReason").addEventListener("input", locTouch);
 // A second scan of the same event can land in this same tab. Only the part after "#" differs then,
 // so the browser does not reload the page: pick the new secret up here.
 window.addEventListener("hashchange", () => { if (takeToken()) { showMessage(null); drawHint(); } });
@@ -1046,7 +1244,7 @@ window.addEventListener("hashchange", () => { if (takeToken()) { showMessage(nul
 // so "closed now" and "needs the QR" are not yesterday's news. Not while the list is open under a finger.
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && !busy && eventsAt && Date.now() - eventsAt > 60000 && document.activeElement !== $("#event")) loadEvents(true);
-  if (!document.hidden) loadCount();                  // the counter rests while the page is out of sight, and starts again here
+  if (!document.hidden) { loadCount(); loadRules(); } // the counter and the latest return time rest while the page is out of sight, and start again here
   if (!busy) locSync();                               // so does the GPS: off while the page is out of sight, searching again on return
 });
 $("#toastClose").addEventListener("click", () => showMessage(null));
