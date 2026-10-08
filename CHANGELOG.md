@@ -29,7 +29,7 @@ Every line is marked **Major** or **Minor**:
 | Version | Date | What | Pull requests | Pages | SQL files |
 |---|---|---|---|---|---|
 | 0.6 | Unreleased | Keluar waktu bekerja (stepping out during working hours) | #15 | staff v2.10, admin v3.9 | 13 |
-| 0.5 | Unreleased (planned 8 Oct 2026) | "Require location" switch; events for selected staff; this changelog | #14 | staff v2.9, admin v3.8 | 12 |
+| 0.5 | 8 Oct 2026 | "Require location" switch; events for selected staff; this changelog | #14 | staff v2.9, admin v3.8 | 12 |
 | 0.4 | 7 Oct 2026 | Live location status; phone-side failures recorded | #13 | staff v2.8, admin v3.7 | 11 |
 | 0.3 | 6 Oct 2026 | Hours worked; manual times; light and dark | #11, #12 | admin v3.5, v3.6 | 10 |
 | 0.2 | 5 Oct 2026 | Pilot starts; counters; late stamp; staff filter | #10 and two direct commits | staff v2.6, v2.7; admin v3.3, v3.4 | 07, 08, 09 |
@@ -60,9 +60,9 @@ Keluar waktu bekerja. Pull request #15, to be released after 0.5. Staff page v2.
 - **Minor · All pages:** step-outs are not checked against other events. Such a rule would need to know which events overlap, and a wrong refusal would stop a real person. Official duty outside the school is its own event, not a step-out.
 
 
-## 0.5 — Unreleased
+## 0.5 — 8 Oct 2026
 
-Planned for the evening of 8 Oct 2026. Pull request #14. Staff page v2.9, admin page v3.8, SQL file `12_location_switch_invited_staff.sql`.
+Merged on the evening of 8 Oct 2026. Pull request #14. Staff page v2.9, admin page v3.8, SQL file `12_location_switch_invited_staff.sql`.
 
 ### Added
 - **Major · Admin page:** each event has a "Require location" switch, independent of "Require the QR scan". Switched off, no position is asked for, checked or stored for that event. The map, pin and radius are hidden but kept, and an event can be created with no pin at all.
