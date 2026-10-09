@@ -28,7 +28,8 @@ Every line is marked **Major** or **Minor**:
 
 | Version | Date | What | Pull requests | Pages | SQL files |
 |---|---|---|---|---|---|
-| 0.5 | Unreleased (planned 8 Oct 2026) | "Require location" switch; events for selected staff; this changelog | #14 | staff v2.9, admin v3.8 | 12 |
+| 0.6 | 9 Oct 2026 | Keluar waktu bekerja (stepping out during working hours) | #15 | staff v2.10, admin v3.9 | 13 |
+| 0.5 | 8 Oct 2026 | "Require location" switch; events for selected staff; this changelog | #14 | staff v2.9, admin v3.8 | 12 |
 | 0.4 | 7 Oct 2026 | Live location status; phone-side failures recorded | #13 | staff v2.8, admin v3.7 | 11 |
 | 0.3 | 6 Oct 2026 | Hours worked; manual times; light and dark | #11, #12 | admin v3.5, v3.6 | 10 |
 | 0.2 | 5 Oct 2026 | Pilot starts; counters; late stamp; staff filter | #10 and two direct commits | staff v2.6, v2.7; admin v3.3, v3.4 | 07, 08, 09 |
@@ -37,9 +38,31 @@ Every line is marked **Major** or **Minor**:
 Versions 0.1 to 0.4 were numbered on 7 Oct 2026, after the fact, one per release day, from the repository history, the version notes inside the pages and the SQL files. From 0.5 onward every pull request gets its own number.
 
 
-## 0.5 — Unreleased
+## 0.6 — 9 Oct 2026
 
-Planned for the evening of 8 Oct 2026. Pull request #14. Staff page v2.9, admin page v3.8, SQL file `12_location_switch_invited_staff.sql`.
+Keluar waktu bekerja. Pull request #15, merged on the evening of 9 Oct 2026. Staff page v2.10, admin page v3.9, SQL file `13_work_exits.sql` (run it after file 12).
+
+### Added
+- **Major · Staff page:** for an event that allows it, three choices appear under the event: Kehadiran, Keluar, Masuk semula (Attendance, Step out, Back in). Step out asks for the staff member's own reason, in their own words, and the time they will be back, or "Not coming back today (going home)". Back in closes it.
+- **Major · Staff page:** under the time box the page shows the latest time to be back: now plus 4 hours, never after the end of the working day. A later time is refused, with that person's own latest time and the minutes they have left today.
+- **Major · Admin page:** an "Allow stepping out during work" switch on each event, off by default. The editor warns when the event has no check-in session with a late time and no check-out session, because working hours come from them.
+- **Major · Admin page:** the Attendance screen has a Step-outs list: out, reason, back by, back in, length, and marks for back, out, overdue, went home, late and over 4 hours. It is in the CSV too, with lengths in minutes.
+- **Major · Admin page:** an owner or manager can enter a forgotten return by hand ("came back at" a time, or "did not come back"), with a reason. It is marked manual and written to the activity record.
+- **Major · Database:** `events.allow_exit`, the `work_exits` table, the doors `work_exit()` and `exit_rules()` for staff phones, `exit_set_return()` for admins, and the `work_exit_log` view that works out every length and mark.
+
+### Changed
+- **Major · Database:** someone who goes home during working hours has that time as the day's check-out in the Hours list, shown as "left early". A check-out recorded at the check-out session still comes first.
+- **Minor · Database:** an event that has step-outs on record is archived, not deleted, when it is removed.
+
+### Decided
+- **Minor · All pages:** the limit is 4 hours in one working day. Going home is always accepted and counts until the end of working hours; when that passes 4 hours the day is marked "over 4 hours" for the admin, and the school's leave rules take over.
+- **Minor · All pages:** the reason is a free-text box, not a list to pick from.
+- **Minor · All pages:** step-outs are not checked against other events. Such a rule would need to know which events overlap, and a wrong refusal would stop a real person. Official duty outside the school is its own event, not a step-out.
+
+
+## 0.5 — 8 Oct 2026
+
+Merged on the evening of 8 Oct 2026. Pull request #14. Staff page v2.9, admin page v3.8, SQL file `12_location_switch_invited_staff.sql`.
 
 ### Added
 - **Major · Admin page:** each event has a "Require location" switch, independent of "Require the QR scan". Switched off, no position is asked for, checked or stored for that event. The map, pin and radius are hidden but kept, and an event can be created with no pin at all.
