@@ -28,7 +28,7 @@ Every line is marked **Major** or **Minor**:
 
 | Version | Date | What | Pull requests | Pages | SQL files |
 |---|---|---|---|---|---|
-| 0.6.1 | Unreleased | QR screen counter for selected-staff events | | admin v3.10 | none |
+| 0.6.1 | Unreleased | QR screen counter for selected-staff events; step-out message on a day off | | staff v2.11, admin v3.10 | none |
 | 0.6 | 9 Oct 2026 | Keluar waktu bekerja (stepping out during working hours) | #15 | staff v2.10, admin v3.9 | 13 |
 | 0.5 | 8 Oct 2026 | "Require location" switch; events for selected staff; this changelog | #14 | staff v2.9, admin v3.8 | 12 |
 | 0.4 | 7 Oct 2026 | Live location status; phone-side failures recorded | #13 | staff v2.8, admin v3.7 | 11 |
@@ -41,10 +41,11 @@ Versions 0.1 to 0.4 were numbered on 7 Oct 2026, after the fact, one per release
 
 ## 0.6.1 — Unreleased
 
-Admin page v3.10. No SQL file.
+Staff page v2.11, admin page v3.10. No SQL file.
 
 ### Fixed
 - **Minor · Admin page:** on the QR screen, the counter for a selected-staff event said "of 70" (every active staff member) instead of "of 12" (the invited list). It now uses the number the database gives, the same one the display page and the staff page show.
+- **Minor · Staff page:** pressing Step out on a day with no working hours (a weekend) said "can only be recorded between  and ", with the two times missing. It now says there are no working hours today.
 
 
 ## 0.6 — 9 Oct 2026

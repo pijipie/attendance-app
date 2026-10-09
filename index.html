@@ -368,7 +368,9 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
                               the time they will be back, and shows the latest time allowed (4 hours a day, never
                               past the end of the working day); or "not coming back today". The database decides
                               everything, with the event's own location rules. (Needs SQL file 13; an older database
-                              never says an event allows it, so the choices never appear and either can be put in first))
+                              never says an event allows it, so the choices never appear and either can be put in first);
+                        2.11: stepping out on a day with no working hours (a weekend) says so, instead of
+                              "between  and " with the two times missing)
    The page only collects facts and shows the answer.
    The database function check_in() makes every decision.
    ===================================================================== */
@@ -510,6 +512,7 @@ const MESSAGES = {
     no_open_exit:      ["warn", "Tiada keluar untuk ditutup", "Tiada rekod keluar yang masih terbuka hari ini. Untuk keluar, pilih Keluar."],
     limit_used_up:     ["bad",  "Had 4 jam sudah digunakan", "Masa keluar anda hari ini telah habis. Jika perlu pulang, tandakan Tidak kembali hari ini."],
     outside_work_hours:["warn", "Di luar waktu bekerja", "Keluar hanya boleh direkod antara {start} dan {end}."],
+    no_work_hours:     ["warn", "Tiada waktu bekerja hari ini", "Keluar waktu bekerja tidak boleh direkod hari ini."],
     exit_not_allowed:  ["warn", "Tidak dibuka", "Acara ini tidak menerima rekod keluar waktu bekerja pada masa ini."],
     x_device_already_used: ["bad", "Peranti sudah digunakan", "Peranti ini telah merekod keluar orang lain hari ini. Gunakan peranti anda sendiri."],
     too_many:          ["bad",  "Terlalu banyak rekod", "Hubungi pentadbir."],
@@ -563,6 +566,7 @@ const MESSAGES = {
     no_open_exit:      ["warn", "Nothing to close", "There is no open step out today. To step out, choose Step out."],
     limit_used_up:     ["bad",  "4-hour limit used up", "Your time out for today is used up. If you have to go home, tick Not coming back today."],
     outside_work_hours:["warn", "Outside working hours", "Stepping out can only be recorded between {start} and {end}."],
+    no_work_hours:     ["warn", "No working hours today", "Stepping out cannot be recorded today."],
     exit_not_allowed:  ["warn", "Not open", "This event is not taking step-out records right now."],
     x_device_already_used: ["bad", "Device already used", "This device has already recorded someone else stepping out today. Use your own device."],
     too_many:          ["bad",  "Too many records", "Contact the administrator."],
@@ -1211,6 +1215,7 @@ async function submit(event) {
       // "Too weak" at hundreds of metres is not a weak signal: the device is not using GPS at all. Say what to switch on.
       if (reason === "gps_accuracy_too_low" && accuracy >= APPROX_M) reason = "geo_approx";
       if (reason === "device_already_used" && doing !== "in") reason = "x_device_already_used";   // "someone else stepping out today", not "this session"
+      if (reason === "outside_work_hours" && !reply.work_start) reason = "no_work_hours";        // no working hours today (a weekend): there are no two times to show
       showMessage(reason in MESSAGES[lang] ? reason : "unknown", { m: Math.round(metres || 0),
         latest: reply && reply.latest, left: reply && reply.minutes_left, back: reply && reply.back_by,
         start: reply && reply.work_start, end: reply && reply.work_end });
