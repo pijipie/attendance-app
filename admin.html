@@ -388,7 +388,9 @@ td.edit{padding:14px; white-space:normal; background:var(--bg)}
                           out, reason, back by, back in, length, and marks for late, overdue, went home and
                           over 4 hours. An owner or manager can enter a forgotten return by hand, with a
                           reason. Needs SQL file 13: with an older database the switch and the list are
-                          simply not shown)
+                          simply not shown;
+                     3.10: the QR screen's counter says "of N" with the number the database gives, as the
+                          display page does, so a selected-staff event reads "4 of 12", not "4 of 70")
    Sign in  ->  QR screen | Attendance | Events + time windows | Staff | Settings
 
    THREE LEVELS (set in Settings > Admins by an owner)
@@ -836,7 +838,7 @@ const state = {
   openNow: {},                   // event_code -> true/false, from list_events()
   edit: null,                    // which inline editor is open, e.g. { kind:"staff", id:"new" }
   confirm: null,                 // which Delete button is asking "are you sure?"
-  qr:  { eventId: store("session", "qr_event") || "", token: null, goodUntil: 0, lost: false, present: null, timer: null, busy: false, run: 0, lock: null,
+  qr:  { eventId: store("session", "qr_event") || "", token: null, goodUntil: 0, lost: false, present: null, total: null, timer: null, busy: false, run: 0, lock: null,
          session: null },         // which session the count belongs to: { label, state }. null = whole day (older database)
   log: { date: todayKL(), followToday: true,   // followToday: the date moves on by itself at midnight
          eventId: "", windowId: "", tab: "present", rows: [], capped: false, loadedAt: null, loading: false,
@@ -1395,11 +1397,12 @@ async function qrExtras(ev, run) {
     if (run !== state.qr.run) return;
     if (counter && counter.data) {
       state.qr.present = counter.data.present;
+      state.qr.total = counter.data.total;                                             // "of N": the invited list for a selected-staff event
       state.qr.session = counter.data.window_label ? { label: counter.data.window_label, state: counter.data.window_state } : null;
     } else {                                                                           // older database: count the whole day, as before
       const present = await api(`attendance?select=staff_id&event_id=eq.${ev.id}&attendance_date=eq.${todayKL()}&status=eq.present`);
       if (run !== state.qr.run) return;
-      state.qr.present = new Set(present.data.map(r => r.staff_id)).size; state.qr.session = null;
+      state.qr.present = new Set(present.data.map(r => r.staff_id)).size; state.qr.session = null; state.qr.total = null;
     }
     state.openNow = Object.fromEntries(open.data.map(e => [e.event_code, e.open_now]));
     paintQr();
@@ -1433,7 +1436,7 @@ function paintQr(restartBarMs) {
     bar.className = ""; void bar.offsetWidth;
     bar.style.animationDuration = restartBarMs + "ms"; bar.className = "run";
   }
-  const total = state.staff.filter(s => s.active).length;
+  const total = state.qr.total ?? state.staff.filter(s => s.active).length;      // older database without a total: every active staff member
   // "Petang: 4 of 70 submitted", or "Pagi (closed): 5 of 70 submitted" between sessions. No session known: the old whole-day line.
   const session = state.qr.session;
   const sessionNote = !session ? "" : session.state === "closed" ? t("qrWinClosed") : session.state === "upcoming" ? t("qrWinUpcoming") : "";
@@ -1448,7 +1451,7 @@ function paintQr(restartBarMs) {
 }
 
 function stopQr() {
-  clearTimeout(state.qr.timer); state.qr.timer = null; state.qr.token = null; state.qr.present = null; state.qr.session = null; state.qr.lost = false;
+  clearTimeout(state.qr.timer); state.qr.timer = null; state.qr.token = null; state.qr.present = null; state.qr.total = null; state.qr.session = null; state.qr.lost = false;
   state.qr.run++; state.qr.busy = false;                          // anything still waiting for the database is now out of date
   if (state.qr.lock) { state.qr.lock.release().catch(() => {}); state.qr.lock = null; }
 }

@@ -28,6 +28,7 @@ Every line is marked **Major** or **Minor**:
 
 | Version | Date | What | Pull requests | Pages | SQL files |
 |---|---|---|---|---|---|
+| 0.6.1 | Unreleased | QR screen counter for selected-staff events | | admin v3.10 | none |
 | 0.6 | 9 Oct 2026 | Keluar waktu bekerja (stepping out during working hours) | #15 | staff v2.10, admin v3.9 | 13 |
 | 0.5 | 8 Oct 2026 | "Require location" switch; events for selected staff; this changelog | #14 | staff v2.9, admin v3.8 | 12 |
 | 0.4 | 7 Oct 2026 | Live location status; phone-side failures recorded | #13 | staff v2.8, admin v3.7 | 11 |
@@ -36,6 +37,14 @@ Every line is marked **Major** or **Minor**:
 | 0.1 | 3 Oct 2026 | First day: staff page, admin page, display page, security review | #1 to #9 | staff up to v2.4, admin up to v3.2 | 01 to 06 |
 
 Versions 0.1 to 0.4 were numbered on 7 Oct 2026, after the fact, one per release day, from the repository history, the version notes inside the pages and the SQL files. From 0.5 onward every pull request gets its own number.
+
+
+## 0.6.1 — Unreleased
+
+Admin page v3.10. No SQL file.
+
+### Fixed
+- **Minor · Admin page:** on the QR screen, the counter for a selected-staff event said "of 70" (every active staff member) instead of "of 12" (the invited list). It now uses the number the database gives, the same one the display page and the staff page show.
 
 
 ## 0.6 — 9 Oct 2026
