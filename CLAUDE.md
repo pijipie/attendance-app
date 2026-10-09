@@ -2,7 +2,7 @@
 
 Version 2 of the staff attendance system, rebuilding `attendance-geo-sraib` (Google Sheets + Apps Script) on Supabase. In pilot with real staff since 5 Oct 2026, so the database holds real attendance: treat every change as a change to a live system.
 
-Read `PRODUCT.md` first. It holds the product facts and the open decisions.
+Read `PRODUCT.md` first. It holds the product facts and the open decisions. Then `HANDOFF.md`: where the work stands and what comes next.
 
 ## Layout
 - `index.html` — staff check-in page. Calls the Supabase RPCs `list_events()`, `check_in(...)`, `event_counter(...)`, `report_location_problem(...)`, `exit_rules(...)` and `work_exit(...)` with the **publishable** key, which is safe to be public.
@@ -13,6 +13,9 @@ Read `PRODUCT.md` first. It holds the product facts and the open decisions.
 - `leaflet.js`, `leaflet.css` — vendored third-party map library, Leaflet 1.9.4 (BSD-2-Clause). Never edit them. Only `admin.html` loads them.
 - `logo.png`, `apple-touch-icon.png` — school logo.
 - `CHANGELOG.md` — what changed and when, newest first, in plain words. See the changelog rule below.
+- `HANDOFF.md` — the current state, the work queue and the v3 direction. Update it at the end of a working session.
+- `docs/` — notes for pages not built yet (`faq-notes.md`: the future How-to / FAQ page).
+- `tests/` — database tests (a throw-away PostgreSQL with every SQL file) and browser tests (Playwright, Supabase answered by the test). How to run them: `tests/README.md`. Run them after every change; they hold no real names, codes or coordinates.
 - `database/01_schema.sql` … `database/13_work_exits.sql` — the database, in run order. A change to the database is always a NEW numbered file that is safe to run twice; never edit a file that has already been run. The one exception is the guard: every file except the newest starts with `begin;` and a `do` block that stops it when a later file is installed (re-running an old file would restore weaker functions and policies). When you add file N+1, add that guard (and the closing `commit;` before its quick check) to file N.
 
 ## Rules
@@ -67,5 +70,6 @@ Read `PRODUCT.md` first. It holds the product facts and the open decisions.
 - Work on a branch and open a PR. Don't push straight to `main`.
 
 ## Testing
+- Before a pull request: the tests in `tests/` that cover what changed, plus a new test for the new behaviour. A time-based rule gets a test at an evening time too (the step-out midnight bug of 9 Oct 2026 was missed because the tests only ran at midday).
 - The maintainer runs SQL by hand in the Supabase SQL Editor and uploads files through the GitHub website.
 - Do not sign in to the admin page on the maintainer's behalf, and never ask for the password.
