@@ -13,7 +13,7 @@ Read `PRODUCT.md` first. It holds the product facts and the open decisions.
 - `leaflet.js`, `leaflet.css` — vendored third-party map library, Leaflet 1.9.4 (BSD-2-Clause). Never edit them. Only `admin.html` loads them.
 - `logo.png`, `apple-touch-icon.png` — school logo.
 - `CHANGELOG.md` — what changed and when, newest first, in plain words. See the changelog rule below.
-- `database/01_schema.sql` … `database/13_work_exits.sql` — the database, in run order. A change to the database is always a NEW numbered file that is safe to run twice; never edit a file that has already been run. The one exception is the guard: every file except the newest starts with `begin;` and a `do` block that stops it when a later file is installed (re-running an old file would restore weaker functions and policies). When you add file N+1, add that guard (and the closing `commit;` before its quick check) to file N.
+- `database/01_schema.sql` … `database/14_counter_active_staff.sql` — the database, in run order. A change to the database is always a NEW numbered file that is safe to run twice; never edit a file that has already been run. The one exception is the guard: every file except the newest starts with `begin;` and a `do` block that stops it when a later file is installed (re-running an old file would restore weaker functions and policies). When you add file N+1, add that guard (and the closing `commit;` before its quick check) to file N.
 
 ## Rules
 - Public repo. Never commit staff names, CSV exports, venue coordinates, or any `service_role`/`sb_secret_` key.
