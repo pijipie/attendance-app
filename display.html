@@ -144,7 +144,8 @@ h1{margin:0; font-size:clamp(1.5rem, 5vmin, 3.4rem); line-height:1.15; letter-sp
 <script src="menu.js"></script>
 <script>
 /* =====================================================================
-   DISPLAY PAGE  v1.3  -  the QR on a big screen, with NO login
+   DISPLAY PAGE  v1.4  -  the QR on a big screen, with NO login
+   (1.4: switching the language or full screen no longer stops the countdown bar under the QR)
    (1.3: the counter follows the session - "Petang: 4 of 70 submitted" - instead of counting the
          whole day, so it starts again from 0 when check-out opens. Needs SQL file 07; with an
          older database the old "present today" line is shown, so either can be put in first)
@@ -238,6 +239,7 @@ let view   = { state: "starting" };            // starting | waiting | showing |
 let lost   = false;                            // could not reach the database on the last try
 let goodUntil = 0;                             // when the QR on screen stops being accepted
 let timer = null, lock = null;
+let barRun = { start: 0, ms: 0 };              // the countdown bar under the QR: when it started and how long it runs
 let round = 0;                                 // each round of the loop takes a number; only the newest one may change the screen
 
 /* ---------- 5. Drawing ------------------------------------------------- */
@@ -262,7 +264,10 @@ function draw(restartBarMs) {
     if (view.token && Date.now() < goodUntil) tile.append(qrPicture(STAFF_PAGE + "?e=" + encodeURIComponent(view.event_code) + "#t=" + encodeURIComponent(view.token), view.event_name));
     else tile.textContent = t("lost");                                   // never leave a dead code on screen
     const bar = el("div", "barline"); bar.setAttribute("aria-hidden", "true"); const fillBar = document.createElement("i"); bar.append(fillBar);
-    if (restartBarMs) { fillBar.style.animationDuration = restartBarMs + "ms"; fillBar.className = "run"; }
+    // A redraw for another reason (language, full screen) picks the bar up where it was, instead of stopping it full.
+    if (restartBarMs) barRun = { start: Date.now(), ms: restartBarMs };
+    const gone = Date.now() - barRun.start;
+    if (gone < barRun.ms) { fillBar.style.animationDuration = barRun.ms + "ms"; fillBar.style.animationDelay = -gone + "ms"; fillBar.className = "run"; }
     // The counter belongs to ONE session (the database picks which: see counter_for() in SQL file 07).
     // "Petang: 4 of 70 submitted", or "Pagi (closed): 5 of 70 submitted" between sessions.
     // No session name in the reply (older database, or no session today): the old whole-day line.
