@@ -68,6 +68,9 @@ begin
                   where table_schema = 'public' and table_name = 'events' and column_name = 'require_location') then
     raise exception 'STOP: run 12_location_switch_invited_staff.sql first. Nothing was changed.';
   end if;
+  if coalesce(obj_description('public.counter_for(uuid)'::regprocedure, 'pg_proc'), '') like '%14_counter_active_staff%' then
+    raise exception 'STOP: 14_counter_active_staff.sql is already installed. This older file is not needed again. Nothing was changed.';
+  end if;
 end $$;
 
 

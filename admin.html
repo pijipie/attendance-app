@@ -390,7 +390,9 @@ td.edit{padding:14px; white-space:normal; background:var(--bg)}
                           reason. Needs SQL file 13: with an older database the switch and the list are
                           simply not shown;
                      3.10: the QR screen's counter says "of N" with the number the database gives, as the
-                          display page does, so a selected-staff event reads "4 of 12", not "4 of 70")
+                          display page does, so a selected-staff event reads "4 of 12", not "4 of 70".
+                          Saving a selected-staff event sends the invited list first, and a new event saved
+                          once is never added a second time when Save is pressed again after a failure)
    Sign in  ->  QR screen | Attendance | Events + time windows | Staff | Settings
 
    THREE LEVELS (set in Settings > Admins by an owner)
@@ -2149,15 +2151,18 @@ function eventForm(ev) {
     if (exitChoice) row.allow_exit = exitTick.checked;                                   // nor this one (SQL file 13)
     if (selected && !picked.size) return toast("bad", t("errTitle"), t("errInvNone"));
     saving(save, async () => {
-      let saved;
-      if (ev) Object.assign(ev, saved = (await api("events?id=eq." + ev.id, { method: "PATCH", body: row })).data[0]);
-      else state.events.push(saved = (await api("events", { method: "POST", body: row })).data[0]);
-      state.events.sort((a, b) => a.name.localeCompare(b.name));
       // The list is sent only for a selected-staff event. An event set back to "All staff" keeps its old list, unused.
-      if (selected) {
-        await api("rpc/set_event_staff", { method: "POST", body: { p_event_id: saved.id, p_staff_ids: [...picked] } });
-        state.invited = state.invited.filter(r => r.event_id !== saved.id).concat([...picked].map(staff_id => ({ event_id: saved.id, staff_id })));
-      }
+      const sendList = async id => {
+        await api("rpc/set_event_staff", { method: "POST", body: { p_event_id: id, p_staff_ids: [...picked] } });
+        state.invited = state.invited.filter(r => r.event_id !== id).concat([...picked].map(staff_id => ({ event_id: id, staff_id })));
+      };
+      const isNew = !ev;
+      // An existing event gets its list BEFORE it is switched to "Selected staff", so a failed list never leaves it switched with the wrong one.
+      if (selected && !isNew) await sendList(ev.id);
+      if (isNew) state.events.push(ev = (await api("events", { method: "POST", body: row })).data[0]);   // from here on this form edits that event: Save after a failure below does not add it twice
+      else Object.assign(ev, (await api("events?id=eq." + ev.id, { method: "PATCH", body: row })).data[0]);
+      state.events.sort((a, b) => a.name.localeCompare(b.name));
+      if (selected && isNew) await sendList(ev.id);
     });
   } },
     h("div", { class: "row" }, field(t("evName"), name), field(t("evCode"), code, t("evCodeHelp"))),
