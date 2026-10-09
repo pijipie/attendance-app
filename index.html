@@ -370,7 +370,8 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
                               everything, with the event's own location rules. (Needs SQL file 13; an older database
                               never says an event allows it, so the choices never appear and either can be put in first);
                         2.11: stepping out on a day with no working hours (a weekend) says so, instead of
-                              "between  and " with the two times missing)
+                              "between  and " with the two times missing. A phone with no position while stepping
+                              out or back in is no longer reported to the admin's Rejected attendance list)
    The page only collects facts and shows the answer.
    The database function check_in() makes every decision.
    ===================================================================== */
@@ -1139,7 +1140,8 @@ async function submit(event) {
     let position = null, stuck = null;                // stuck = why the phone could give no position
     const tellStuck = () => {
       showMessage({ denied: "geo_denied", unsupported: "geo_unsupported", off: "geo_off" }[stuck] || "geo_not_found");
-      reportProblem(["denied", "unsupported", "off"].includes(stuck) ? stuck : "timeout", staffCode, eventCode);
+      // Only for attendance: the admin's list of these is the Rejected attendance list. A failed step-out is not a failed check-in.
+      if (doing === "in") reportProblem(["denied", "unsupported", "off"].includes(stuck) ? stuck : "timeout", staffCode, eventCode);
     };
     if (needsLocation()) {
       button.textContent = t("locating");
