@@ -28,6 +28,7 @@ Every line is marked **Major** or **Minor**:
 
 | Version | Date | What | Pull requests | Pages | SQL files |
 |---|---|---|---|---|---|
+| 0.8 | Unreleased | Stepping out: midnight fix; time left today on the phone that checked in | | staff v2.12 | 15 |
 | 0.7 | 9 Oct 2026 | Counter counts active staff only | #17 | none | 14 |
 | 0.6.1 | 9 Oct 2026 | Small fixes: QR screen counter, step-out messages, event save, big-screen bar | #16 | staff v2.11, admin v3.10, display v1.4 | none |
 | 0.6 | 9 Oct 2026 | Keluar waktu bekerja (stepping out during working hours) | #15 | staff v2.10, admin v3.9 | 13 |
@@ -38,6 +39,20 @@ Every line is marked **Major** or **Minor**:
 | 0.1 | 3 Oct 2026 | First day: staff page, admin page, display page, security review | #1 to #9 | staff up to v2.4, admin up to v3.2 | 01 to 06 |
 
 Versions 0.1 to 0.4 were numbered on 7 Oct 2026, after the fact, one per release day, from the repository history, the version notes inside the pages and the SQL files. From 0.5 onward every pull request gets its own number.
+
+
+## 0.8 — Unreleased
+
+Staff page v2.12, SQL file `15_step_out_time_left.sql` (run it after file 14). The staff page works before or after the SQL file is run.
+
+### Fixed
+- **Major · Database:** the latest return time for stepping out was wrong after 8 pm (it went past midnight), so evening step-outs were refused. School hours were never affected.
+
+### Added
+- **Major · Staff page:** the phone that recorded today's attendance now shows the real time out left today, and the latest return time based on it. Other phones still see the general note. After Keluar the message also says how much will be left if the person is back on time, and after Masuk semula how much is left.
+
+### Decided
+- **Minor · All pages:** the 4-hour limit counts every step-out of the day together. The time left is shown only on the phone that made that day's check-in, never by typing a staff code.
 
 
 ## 0.7 — 9 Oct 2026

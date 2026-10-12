@@ -30,6 +30,9 @@ begin
   if to_regclass('public.work_exits') is null then
     raise exception 'STOP: run 13_work_exits.sql first. Nothing was changed.';
   end if;
+  if to_regprocedure('public.exit_rules(text,text)') is not null then
+    raise exception 'STOP: 15_step_out_time_left.sql is already installed. This older file is not needed again. Nothing was changed.';
+  end if;
 end $$;
 
 

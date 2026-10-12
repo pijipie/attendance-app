@@ -172,7 +172,7 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
 .toast-icon{width:24px; height:24px; margin-top:.1rem}
 .toast-body{min-width:0}
 .toast-title{margin:0; font-size:1.05rem; font-weight:700; line-height:1.3}
-.toast-text{margin:.15rem 0 0; font-size:.95rem; overflow-wrap:anywhere}
+.toast-text{margin:.15rem 0 0; font-size:.95rem; overflow-wrap:anywhere; white-space:pre-line}     /* a second line: time out left today */
 .toast-close{
   width:44px; height:44px; margin:-.5rem 0; padding:0;
   display:grid; place-items:center;
@@ -371,7 +371,11 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
                               never says an event allows it, so the choices never appear and either can be put in first);
                         2.11: stepping out on a day with no working hours (a weekend) says so, instead of
                               "between  and " with the two times missing. A phone with no position while stepping
-                              out or back in is no longer reported to the admin's Rejected attendance list)
+                              out or back in is no longer reported to the admin's Rejected attendance list;
+                        2.12: the phone that made today's check-in sees that person's own time out left today and
+                              the latest return time based on it, under the time box and after each Keluar / Masuk
+                              semula. Other phones see the general note. (Needs SQL file 15; with an older database
+                              the page asks again without the device ID and shows the general note)
    The page only collects facts and shows the answer.
    The database function check_in() makes every decision.
    ===================================================================== */
@@ -423,6 +427,12 @@ const TEXT = {
     exitLatest: "Paling lewat kembali {latest}. Had keluar 4 jam sehari; keluar lebih awal hari ini mengurangkannya.",
     exitHours: "Keluar boleh direkod dalam waktu bekerja sahaja, {start} hingga {end}.",
     exitNone: "Tiada waktu bekerja hari ini.",
+    exitGone: "Pulang sudah direkodkan hari ini.",
+    exitOutNow: "Anda masih di luar (kembali sebelum {back_by}). Pilih Masuk semula.",
+    exitLeft: "Baki keluar hari ini: {left} · paling lewat kembali {latest}",
+    xLeftIfOnTime: "Jika kembali pada {back}, baki hari ini {left}.",
+    xLeftNow: "Baki keluar hari ini: {left}.",
+    leftHm: "{h} j {m} min", leftM: "{m} min",
     hintBack: "Tekan selepas anda kembali ke sekolah.",
     counted: "daripada {n} telah hantar", winClosed: "ditutup", winUpcoming: "belum dibuka",
     close: "Tutup mesej",
@@ -466,6 +476,12 @@ const TEXT = {
     exitLatest: "Be back by {latest} at the latest. The limit is 4 hours a day; earlier outings today shorten it.",
     exitHours: "Stepping out can only be recorded during working hours, {start} to {end}.",
     exitNone: "No working hours today.",
+    exitGone: "Going home is already recorded today.",
+    exitOutNow: "You are still out (back by {back_by}). Choose Back in.",
+    exitLeft: "Time out left today: {left} · back by {latest} at the latest",
+    xLeftIfOnTime: "If you are back at {back}, time out left today: {left}.",
+    xLeftNow: "Time out left today: {left}.",
+    leftHm: "{h} h {m} min", leftM: "{m} min",
     hintBack: "Press after you are back at school.",
     counted: "of {n} submitted", winClosed: "closed", winUpcoming: "not open yet",
     close: "Close message",
@@ -706,9 +722,12 @@ function showMessage(id, values) {
   toast.className = "toast " + colour;
   $("#toastIcon").innerHTML = ICONS[colour];
   $("#toastTitle").textContent = fill(title, values);
-  $("#toastText").textContent  = fill(text, values);
+  // values.more: one more line from TEXT, e.g. the time out left today after a step-out (values.leftMin, in minutes).
+  // Its words are looked up here, so a change of language redraws it too.
+  const body = fill(text, values) + (values && values.more ? "\n" + fill(t(values.more), Object.assign({}, values, { left: leftText(values.leftMin) })) : "");
+  $("#toastText").textContent  = body;
   $("#toastClose").setAttribute("aria-label", t("close"));
-  $("#announce").textContent = fill(title, values) + ". " + fill(text, values);
+  $("#announce").textContent = fill(title, values) + ". " + body;
 
   if (toast.hidden) {
     toast.hidden = false;
@@ -874,6 +893,13 @@ let rules      = null;      // the last answer of exit_rules(): { code, data }
 let rulesTimer = null;
 let rulesRound = 0;
 let rulesOff   = false;     // the database has no exit_rules() door (SQL file 13 not run)
+let rulesNoDevice = false;  // the database is older than SQL file 15: exit_rules() takes the event code only
+
+/* Minutes as "2 h 05 min" / "2 j 05 min", or "45 min" under an hour. The number itself always comes from the database. */
+function leftText(minutes) {
+  const n = Math.max(0, Number(minutes) || 0), hours = Math.floor(n / 60), mins = n % 60;
+  return hours ? fill(t("leftHm"), { h: hours, m: String(mins).padStart(2, "0") }) : fill(t("leftM"), { m: mins });
+}
 
 const allowsExit = () => { const ev = currentEvent(); return !!(ev && ev.allow_exit === true); };
 
@@ -900,7 +926,11 @@ function drawExitNote() {
   const code = currentEventCode().toLowerCase();
   const data = rules && rules.code === code ? rules.data : null;
   let text = "";
-  if (data && data.ok === false)  text = t("exitNone");
+  // NEW in 2.12: the answers about the person who checked in from THIS phone come first (SQL file 15).
+  if (data && data.gone_home)     text = t("exitGone");
+  else if (data && data.out_now)  text = fill(t("exitOutNow"), { back_by: data.back_by });
+  else if (data && data.personal && data.latest) text = fill(t("exitLeft"), { left: leftText(data.minutes_left), latest: data.latest });
+  else if (data && data.ok === false)  text = t("exitNone");
   else if (data && data.latest)   text = fill(t("exitLatest"), { latest: data.latest });
   else if (data && data.work_end) text = fill(t("exitHours"), { start: data.work_start, end: data.work_end });
   box.textContent = text;
@@ -914,9 +944,12 @@ async function loadRules() {
   if (!code || rulesOff || document.hidden) { drawExitNote(); return; }
   let answer = null;
   try {
-    const data = await callDatabase("exit_rules", { p_event_code: code });
+    // This phone's device ID: the database answers with the time left today only for the person who checked in from it.
+    const data = await callDatabase("exit_rules", rulesNoDevice ? { p_event_code: code } : { p_event_code: code, p_device_id: deviceId() });
     if (data && typeof data === "object") answer = { code: code.toLowerCase(), data };
   } catch (error) {
+    // A database older than SQL file 15 has no exit_rules() that takes a device ID: ask again without it, and stop sending it.
+    if (!rulesNoDevice && error && [400, 404].includes(error.http)) { rulesNoDevice = true; return loadRules(); }
     if (error && [401, 403, 404].includes(error.http)) rulesOff = true;
   }
   if (mine !== rulesRound) return;
@@ -1187,6 +1220,9 @@ async function submit(event) {
     if (reply && reply.ok && doing !== "in") {
       locStop(); loc.done = true;
       const facts = { name: reply.name, back: reply.back_by, at: reply.at, away: reply.away_minutes, late: reply.late_minutes, day: reply.day_minutes };
+      // One more line with the time out left today, when the database says it (SQL file 15).
+      const left = doing === "out" ? reply.minutes_left_if_on_time : reply.minutes_left;
+      if (!reply.going_home && left != null) Object.assign(facts, { more: doing === "out" ? "xLeftIfOnTime" : "xLeftNow", leftMin: left });
       if (doing === "out") {
         showMessage(reply.going_home ? (reply.over_limit ? "x_home_over" : "x_home_ok") : "x_out_ok", facts);
         $("#exitReason").value = ""; $("#exitBack").value = ""; $("#exitHome").checked = false; drawAct();
@@ -1227,7 +1263,7 @@ async function submit(event) {
     drawAct();                                        // the button's own words (Submit / Submit step out / Submit back in)
     drawLoc();
     loadCount();                                      // the number has probably just changed: show it straight away
-    if (doing === "out") loadRules();                 // so has the latest return time
+    if (doing !== "in") loadRules();                  // so has the time left today and the latest return time
   }
 }
 
