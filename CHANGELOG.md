@@ -28,7 +28,7 @@ Every line is marked **Major** or **Minor**:
 
 | Version | Date | What | Pull requests | Pages | SQL files |
 |---|---|---|---|---|---|
-| 0.9 | Unreleased | Push reminders (Remind Me) | | staff v2.13, admin v3.11 | 16 |
+| 0.9 | 12 Oct 2026 | Push reminders (Remind Me) | #24 | staff v2.13, admin v3.11 | 16 |
 | 0.8 | 12 Oct 2026 | Stepping out: midnight fix; time left today on the phone that checked in | #21 | staff v2.12 | 15 |
 | 0.7 | 9 Oct 2026 | Counter counts active staff only | #17 | none | 14 |
 | 0.6.1 | 9 Oct 2026 | Small fixes: QR screen counter, step-out messages, event save, big-screen bar | #16 | staff v2.11, admin v3.10, display v1.4 | none |
@@ -42,9 +42,9 @@ Every line is marked **Major** or **Minor**:
 Versions 0.1 to 0.4 were numbered on 7 Oct 2026, after the fact, one per release day, from the repository history, the version notes inside the pages and the SQL files. From 0.5 onward every pull request gets its own number.
 
 
-## 0.9 — Unreleased
+## 0.9 — 12 Oct 2026
 
-Staff page v2.13, admin page v3.11, SQL file `16_push_reminders.sql` (run it after file 15, with `pg_cron` and `pg_net` switched on), the Edge Function `send-reminders`, and the new files `sw.js`, `manifest.webmanifest` and `icon-512.png`. The pages work before or after the SQL file is run; the Remind Me button appears only once the database and the reminder keys are in place.
+Pull request #24, merged on the evening of 12 Oct 2026. Timer switched on separately (see `16_push_reminders.sql`). Staff page v2.13, admin page v3.11, SQL file `16_push_reminders.sql` (run it after file 15, with `pg_cron` and `pg_net` switched on), the Edge Function `send-reminders`, and the new files `sw.js`, `manifest.webmanifest` and `icon-512.png`. The pages work before or after the SQL file is run; the Remind Me button appears only once the database and the reminder keys are in place.
 
 ### Added
 - **Major · Staff page:** a Remind Me button under the counter. A phone that signs up gets reminders: at 06:30 that attendance is open, after the late time if that person has not checked in, and after check-out opens if that person has not checked out. On an iPhone the page must first be added to the Home Screen; the button says so.
