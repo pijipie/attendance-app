@@ -52,6 +52,9 @@ begin
   if coalesce(obj_description('public.counter_for(uuid)'::regprocedure, 'pg_proc'), '') not like '%14_counter_active_staff%' then
     raise exception 'STOP: run 14_counter_active_staff.sql first. Nothing was changed.';
   end if;
+  if to_regclass('public.push_subscriptions') is not null then
+    raise exception 'STOP: 16_push_reminders.sql is already installed. This older file is not needed again. Nothing was changed.';
+  end if;
 end $$;
 
 

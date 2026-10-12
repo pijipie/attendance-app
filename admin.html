@@ -392,7 +392,10 @@ td.edit{padding:14px; white-space:normal; background:var(--bg)}
                      3.10: the QR screen's counter says "of N" with the number the database gives, as the
                           display page does, so a selected-staff event reads "4 of 12", not "4 of 70".
                           Saving a selected-staff event sends the invited list first, and a new event saved
-                          once is never added a second time when Save is pressed again after a failure)
+                          once is never added a second time when Save is pressed again after a failure;
+                     3.11: Settings shows how many phones have reminders, and how many are linked to a person
+                          (owner and manager; numbers only, never names). Needs SQL file 16: with an older
+                          database the line is simply not shown)
    Sign in  ->  QR screen | Attendance | Events + time windows | Staff | Settings
 
    THREE LEVELS (set in Settings > Admins by an owner)
@@ -569,6 +572,7 @@ const TEXT = {
     setAccuracyHelp: "Kehadiran ditolak jika ketepatan GPS telefon lebih buruk daripada nilai ini. Nilai biasa: 30.",
     setQrSeconds: "Tempoh sah kod QR (saat)", setQrSecondsHelp: "Berapa lama satu kod yang diimbas masih diterima. Antara 10 dan 600. Cadangan: 90.",
     setAccount: "Akaun", setSignedIn: "Log masuk sebagai {email}.", setAdmins: "Tahap anda ditetapkan oleh pemilik.",
+    setPush: "Telefon dengan peringatan: {n} ({l} dipautkan kepada staf)",
     setStaffLink: "Pautan halaman staf", setCopy: "Salin pautan", copied: "Pautan disalin",
 
     okSaved: "Disimpan", okRemoved: "Dipadam", okQrOn: "QR kini diwajibkan", okQrOff: "QR tidak lagi diwajibkan",
@@ -727,6 +731,7 @@ const TEXT = {
     setAccuracyHelp: "Attendance is refused when the phone's GPS accuracy is worse than this. Usual value: 30.",
     setQrSeconds: "QR code lifetime (seconds)", setQrSecondsHelp: "How long a scanned code is still accepted. Between 10 and 600. Suggested: 90.",
     setAccount: "Account", setSignedIn: "Signed in as {email}.", setAdmins: "Your level is set by an owner.",
+    setPush: "Phones with reminders: {n} ({l} linked to a staff member)",
     setStaffLink: "Staff page link", setCopy: "Copy link", copied: "Link copied",
 
     okSaved: "Saved", okRemoved: "Deleted", okQrOn: "QR is now required", okQrOff: "QR is no longer required",
@@ -856,7 +861,8 @@ const state = {
   staffFilter: { text: "", show: "active", type: "all" },
   evFilter: { text: "", show: "current" },
   displays: [], canPair: false, pairOpen: false,     // screen pairing
-  admins: [], activity: null                         // owner only
+  admins: [], activity: null,                        // owner only
+  push: null, noPush: false                          // phones with reminders: { phones, linked } from push_count() (SQL file 16)
 };
 
 const canManage = () => state.role === "owner" || state.role === "manager";
@@ -989,7 +995,7 @@ function endSession(messageKey, values) {
   dropSession();
   stopQr(); clearTimeout(state.log.timer); closeMap();
   Object.assign(state, { role: null, staff: [], events: [], windows: [], settings: null, invited: null, basicsAt: 0, openNow: {},
-                         edit: null, confirm: null, displays: [], canPair: false, pairOpen: false, admins: [], activity: null });
+                         edit: null, confirm: null, displays: [], canPair: false, pairOpen: false, admins: [], activity: null, push: null });
   Object.assign(state.log, { eventId: "", windowId: "", tab: "present", rows: [], hours: [], exits: [], capped: false, loadedAt: null, loading: false,
                              error: null, stale: false, loadedKey: "", shown: LOG_SHOW, known: { date: "", events: new Set(), sessions: new Set() } });
   state.log.ticket++;                                                       // any attendance list still on its way is now out of date
@@ -2361,10 +2367,27 @@ function drawSettings() {
       h("h2", null, t("setAccount")),
       h("p", null, t("setSignedIn", { email: state.session.email })),
       h("p", { id: "setLevel" }, t("setLevel", { level: levelName(state.role) }) + " " + t({ owner: "levelOwnerHelp", manager: "levelManagerHelp", operator: "levelOperatorHelp" }[state.role])),
-      !isOwner() && h("p", { class: "mute small" }, t("setAdmins"))),
+      !isOwner() && h("p", { class: "mute small" }, t("setAdmins")),
+      canManage() && h("p", { id: "setPush", hidden: true })),
     isOwner() && adminsCard(),
     isOwner() && activityCard());
   if (isOwner()) { paintAdmins(); loadAdmins(); paintActivity(); }
+  if (canManage()) { paintPush(); loadPushCount(); }
+}
+
+/* --- Phones with reminders (owner and manager) ---
+   Numbers only, from push_count(). An older database has no such door: the line stays hidden, and the page stops asking. */
+async function loadPushCount() {
+  if (state.noPush) return;
+  try { state.push = (await api("rpc/push_count", { method: "POST", body: {} })).data; }
+  catch (error) { if (error.status === 404) state.noPush = true; state.push = null; }
+  paintPush();
+}
+function paintPush() {
+  const box = $("#setPush"), p = state.push;
+  if (!box || !state.session) return;
+  box.hidden = !p;
+  box.textContent = p ? t("setPush", { n: p.phones, l: p.linked }) : "";
 }
 
 function settingsForm() {

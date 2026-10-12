@@ -16,6 +16,9 @@ What changed and when: see [`CHANGELOG.md`](CHANGELOG.md).
 | `qrcode.js` | (library) | Draws the QR picture. Third-party code by Kazuhiko Arase, MIT licence. Do not edit. |
 | `leaflet.js`, `leaflet.css` | (library) | Draws the map in the admin event editor. Third-party code, Leaflet 1.9.4, BSD-2-Clause licence. Do not edit. |
 | `logo.png`, `apple-touch-icon.png` | (images) | School logo for the header, the browser tab and the iPhone home screen. |
+| `sw.js` | Staff phones | The service worker for Remind Me: shows a reminder that arrives, and opens the staff page when it is tapped. It caches nothing. |
+| `manifest.webmanifest`, `icon-512.png` | Staff phones | Lets the staff page be added to the Home Screen (an iPhone needs that for reminders). |
+| `supabase/functions/send-reminders/` | Supabase | The Edge Function that signs and sends the reminders. Its keys are Edge Function secrets, never in this repository. |
 
 ## Database files
 
@@ -38,6 +41,7 @@ All SQL lives in the `database/` folder. Run each file once in Supabase > SQL Ed
 | `13_work_exits.sql` | Keluar waktu bekerja (stepping out during working hours). An event gets an "allow stepping out" switch, off for every event, so nothing behaves differently until an admin switches it on. Staff record Step out (own reason, time back, or going home) and Back in on the staff page through `work_exit()`; `exit_rules()` gives the page the latest return time. The limit is 4 hours a day, inside the event's working hours. Rows are kept in `work_exits` and read through the `work_exit_log` view; an owner or manager closes a forgotten one with `exit_set_return()`. Going home counts as the day's check-out in `work_hours`. |
 | `14_counter_active_staff.sql` | The counter ("4 of 70 submitted") counts only active staff in the first number too, the same people as in "of 70", so a selected-staff event can never show "13 of 12". Replaces `counter_for()` only; no attendance row is changed. |
 | `15_step_out_time_left.sql` | Stepping out: the latest return time no longer wraps past midnight for evening events (one helper, `exit_latest()`, used by `work_exit()` and `exit_rules()`). `exit_rules()` can be given the phone's device ID: when that phone made today's accepted check-in, the answer adds that person's time left today, latest return time, and whether they are out or have gone home; nothing else about them, and never anything found by a typed staff code. `work_exit()` adds what is left after each Keluar and Masuk semula. No row is changed. |
+| `16_push_reminders.sql` | Push reminders. A phone signs up with Remind Me (`push_subscribe()`); only its push address is kept, and it is linked to a person only by that person's own check-in from the same phone (`push_link()`). `push_due()` works out the three daily reminders from the reminder event's sessions (06:30; after the late time, for people not checked in; after check-out opens, for people not checked out), once a day per phone. A `pg_cron` timer, made paused, runs `push_tick()` every minute, which hands what is due to the Edge Function. Admins see a count only (`push_count()`). Switch on `pg_cron` and `pg_net` before running it. |
 
 Each file from `01` to `12` begins with a guard: if a later file is already installed, it stops and changes nothing. Running an old file again would otherwise put back older, weaker rules. The newest file (`13`) is safe to run again.
 
