@@ -4,7 +4,7 @@ Where the work stands, and what comes next, for the maintainer and for Claude Co
 
 ## 1. Where things stand
 
-- **Live:** version 0.8 (staff page v2.12, admin page v3.10, display page v1.4). SQL files 01 to 15 are installed; 15 was run on the evening of 12 Oct. 0.8 fixed the step-out midnight bug and shows the time out left today on the phone that made the day's check-in. See `CHANGELOG.md`.
+- **Live:** version 0.9 (staff page v2.13, admin page v3.11, display page v1.4). SQL files 01 to 16 are installed; 15 and 16 were run on the evening of 12 Oct. 0.8 fixed the step-out midnight bug and shows the time out left today on the phone that made the day's check-in; 0.9 added push reminders (Remind Me). See `CHANGELOG.md`.
 - **Pilot:** since 5 Oct, with real staff and the thumbprint machine still in use. Daily Attendance: 12 people on 8 Oct, 18 on 9 Oct, 15 on 12 Oct, out of 70 active staff. No system errors; refusals were real (outside the circle, weak GPS, double presses) or phone-side.
 - **Phone-side problems are the main cause of trouble.** On 9 Oct, 4 people on 5 devices had location blocked for the page and 1 phone's GPS never answered; 3 of those 5 have no check-in that day and no manual time yet. 1 phone-side problem on 12 Oct. The fix for blocked location is in `docs/faq-notes.md`.
 - **Stepping out:** on for Daily Attendance since 9 Oct 21:28. First school day, 12 Oct: 2 step-outs, both back (30 and 61 minutes), one back 3 minutes after the time written. None overdue, none over 4 hours.
@@ -13,18 +13,31 @@ Where the work stands, and what comes next, for the maintainer and for Claude Co
   - `0002` Mesyuarat Pentadbiran: 5 invited, Wednesdays 07:40–15:30, no late time, 30 m circle.
   - `TEST00` Beacon Test (the maintainer's evening test event, stepping out on) and `TEST01` Beacon Test 2 (70 m circle, 30 invited): both switched **off** on 9 Oct 21:29. TEST01 collected one day of data (5 people on 9 Oct).
 - **Settings:** GPS accuracy limit 30 m. QR lifetime 30 s. Admins: 1 owner, 1 manager (the test account).
-- **Supabase project:** `xtrgefkopnqgektrllra`. `pg_cron` and `pg_net` are available but not switched on yet (needed for 0.9). Reading the database is fine; any change goes through a numbered SQL file that the maintainer runs.
-- **Tests on this PC:** WSL (Ubuntu 26.04) with PostgreSQL 18, Python, Playwright and `faketime` since 12 Oct. How to run them: `tests/README.md` (use `PG_BIN=/usr/lib/postgresql/18/bin`; the checkout has Windows line endings, so run from a copy with `setup.sh` converted).
+- **Push reminders (0.9), state on 12 Oct evening:**
+  - `pg_cron` and `pg_net` are on. The timer (`pg_cron` job `push-reminders`) is **paused**; switch it on with the line at the top of `16_push_reminders.sql`.
+  - Edge Function: shown as `send-reminders` in the dashboard, but its address (slug) is **`send`**: `https://xtrgefkopnqgektrllra.supabase.co/functions/v1/send`. JWT verification is off. Its secrets: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `PUSH_SHARED_SECRET`.
+  - Vault: `push_function_url` (the address above) and `push_shared_secret` (must be exactly the same string as `PUSH_SHARED_SECRET`; letters and numbers only, no `< >`).
+  - VAPID keys made on 12 Oct: the public key is `VAPID_PUBLIC` in `index.html`; the private key is in `D:\Claude\Private Data\attendance\vapid-keys.txt`, never in a repository.
+  - Tested by hand on 12 Oct 19:22: a test message reached the maintainer's Android phone (Chrome, installed to the Home Screen). No iPhone tested yet. 1 phone signed up.
+  - Test sends and how to read the answer (`net._http_response`): the maintainer has the SQL; it is also in this file, section 2, item 1.
+- **Supabase project:** `xtrgefkopnqgektrllra`. Reading the database is fine; any change goes through a numbered SQL file that the maintainer runs.
+- **Tests on this PC:** WSL (Ubuntu 26.04) with PostgreSQL 18 (+ `pg_cron`), Python, Playwright, `faketime`, ImageMagick and Deno since 12 Oct. How to run them: `tests/README.md` (use `PG_BIN=/usr/lib/postgresql/18/bin`; the checkout has Windows line endings, so run from a copy with `setup.sh` converted).
 
 ## 2. Work queue, in order
 
-1. **Version 0.9: push reminders.** Spec: `docs/push-notifications-spec.md` (decisions taken 11 Oct). SQL file 16, a service worker, a manifest, an Edge Function, and the steps in the Supabase dashboard listed in the spec's section 8 (switch on `pg_cron` and `pg_net`, VAPID keys, secrets, Vault, deploy). Timer switched on and announced on Tue 13 Oct.
+1. **Push reminders rollout (0.9 is live; the timer is paused).**
+   - Tue 13 Oct: switch the timer on (`select cron.alter_job((select jobid from cron.job where jobname = 'push-reminders'), active := true);`). Before 06:30, that day's 06:30 reminder still goes; after it, the first is the next school day.
+   - Then announce to staff (BM, the earlier style): press Remind Me; on iPhone add the page to the Home Screen first and open it from the icon; on Android use Chrome (it works in the browser; reminders do not work inside WhatsApp's or Facebook's built-in browser); reminders help but are not guaranteed; only the phone's address is kept, linked at their own check-in; Stop reminders deletes it.
+   - Test an iPhone from the Home Screen.
+   - First days: check what went out: `select status_code, content from net._http_response order by id desc limit 5;` (200 and `sent` counts) and Settings → "Phones with reminders". `401` = the two shared secrets differ; `404` = wrong address in the Vault.
+   - Test send of any text to the signed-up phones (only the maintainer's own once staff sign up: add `where staff_id = (select id from staff where staff_code = 'KOD')`): the `net.http_post` query given to the maintainer on 12 Oct, using the two Vault secrets. A real reminder through the whole chain: `select push_tick('<a PAST school day> 06:35:00+08');`, once per day per phone, never a future date.
+   - Later versions (spec section 2): 5 minutes before late, 10 minutes before check-out, check-out open, the two step-out reminders. Owner-editable reminder event in the admin page.
 2. **Follow-up from 9 Oct.**
    - Attendance → 9 Oct → Rejected: the rows marked "Device: …" show the 3 people with no check-in. If they were at school, add a manual time with a reason in Hours.
    - Send staff the "location blocked" fix from `docs/faq-notes.md` (the iPhone / WhatsApp browser case).
 3. **Stepping out, first week:** after school, look at Attendance → Step-outs; anything still "overdue" needs a manual return (owner or manager, with a reason).
 4. **Pin decision for Daily Attendance:** compare TEST01 (70 m) with 0001 (45 m). TEST01 ran for one day only before it was switched off; switch it back on for a week if the comparison is still wanted. Distances of accepted and refused readings are in `attendance.distance_m`. The maintainer does not want the circle to cover ground outside the school (cars parked beside it); any circle that covers the whole L-shaped plot reaches outside the fence.
-5. **How-to / FAQ page.** Notes in `docs/faq-notes.md`. The staff page itself gets no extra instructions.
+5. **How-to / FAQ page.** Notes in `docs/faq-notes.md`; add Remind Me (iPhone Home Screen, Android Chrome, not inside WhatsApp's browser, how to stop). The staff page itself gets no extra instructions.
 6. **v3, cleaner code** (section 5).
 7. **Small items:**
    - Remove the test manager account from Settings → Admins before more people use the admin page.
