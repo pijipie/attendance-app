@@ -64,7 +64,7 @@ toast = lambda p: None if p.evaluate("document.querySelector('#toast').hidden") 
 def to_out(p, calls, n=1):
     p.select_option("#event", "0001"); time.sleep(0.05)
     p.click(".seg button[data-act='out']"); wait_calls(calls["rules"], n); settle(p)
-def lang(p, code): p.click(f".lang button[data-lang='{code}']"); time.sleep(0.05)
+def lang(p, code): p.evaluate(f"document.querySelector(\".lang button[data-lang='{code}']\").click()"); time.sleep(0.05)   # by script: the floating message may cover the button on a 390 px screen
 def ready(p): fwd(p, 100); p.evaluate("__geo.emit(8)"); fwd(p, 6000)
 
 PERSONAL = dict(GENERAL, personal=True, minutes_left=149, latest="12:29")
@@ -106,6 +106,9 @@ with sync_playwright() as pw:
     lang(p, "en")
 
     # 5. Keluar accepted: one more line with the time left if back on time; the note is asked for again
+    # The minutes skipped above passed the page's two-minute battery rest, so the GPS is paused: press "Find my location", as a person would.
+    check("GPS paused after the idle minutes", p.evaluate("document.querySelector('#gps').dataset.state") == "paused")
+    p.click("#gpsRetry"); time.sleep(0.05)
     ready(p)
     state["xreply"] = {"ok": True, "action": "out", "going_home": False, "name": "Test One", "back_by": "11:30", "minutes_left_if_on_time": 210}
     n = len(calls["rules"])
