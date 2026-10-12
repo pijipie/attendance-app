@@ -15,10 +15,13 @@ Linux or WSL, with Python 3, PostgreSQL 16 and Playwright for Python (`pip insta
 
 ```bash
 # database (as root)
-bash tests/db/setup.sh && python3 tests/db/test_13_work_exits.py && python3 tests/db/test_15_step_out_time_left.py
+bash tests/db/setup.sh && python3 tests/db/test_13_work_exits.py && python3 tests/db/test_15_step_out_time_left.py && python3 tests/db/test_16_push_reminders.py
 
 # pages (any user); the argument is the folder that holds index.html and admin.html
 for t in tests/browser/t_*.py; do python3 "$t" .; done
+
+# the Edge Function (needs deno and openssl)
+deno run -A --unsafely-ignore-certificate-errors tests/edge/send_reminders_test.ts
 ```
 
 Each script prints PASS / FAIL per check and ends with "N of M passed".
@@ -27,10 +30,13 @@ Each script prints PASS / FAIL per check and ends with "N of M passed".
 |---|---|---|
 | `db/test_13_work_exits.py` | 54 | Stepping out: limits, latest time, location rules, manual return, read/write rights, archive |
 | `db/test_15_step_out_time_left.py` | 41 | The midnight fix (fixed times, including 20:06 with the day ending at 21:00), time left today only on the phone that checked in, 225 then 210 after two 15-minute step-outs |
+| `db/test_16_push_reminders.py` | 60 | Push reminders at fixed times: Monday 06:30 / 07:45 / 15:45, Friday 12:15, Saturday, an evening event; once a day; 15 minutes late at most; linking only by the phone's own check-in; doors, brake, read rights, the Edge Function's report |
 | `browser/t_staff.py` | 40 | Live location status, every location problem, problem reports |
 | `browser/t_staff2.py` | 15 | Location-off events (silent), selected-staff events |
 | `browser/t_staff3.py` | 46 | Attendance / Step out / Back in, messages in EN and BM |
 | `browser/t_staff4.py` | 24 | Time left today: personal, general, out-now and gone-home notes in EN and BM, the extra line after Keluar / Masuk semula, an older database without file 15 |
+| `browser/t_push.py` | 43 | Remind Me: shown or hidden by browser support, key and database; permission asked only in the click; subscribe, stop, refused permission; `push_link` after an accepted check-in only, without delaying the message; the iPhone Home Screen message; BM; `sw.js`; the count in the admin Settings |
+| `edge/send_reminders_test.ts` | 13 | The Edge Function with Deno: the shared secret, real encrypted and signed pushes to a fake push service, sent / gone / failed reported back with the secret key on `apikey`, counts only in the log |
 | `browser/t_admin.py` | 13 | Rejected list incl. phone-side problems |
 | `browser/t_admin2.py` | 32 | Location switch, invited staff picker, "Not on the list" |
 | `browser/t_admin3.py` | 28 | Allow stepping out switch, Step-outs list, manual return, CSV |

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- A fence around this page: it may load code, styles and pictures only from its own folder,
      and may talk only to the database. If the database address (API, further down) ever changes, change it here too. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src https://xtrgefkopnqgektrllra.supabase.co; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src https://xtrgefkopnqgektrllra.supabase.co; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'">
 <!-- Refuse to be shown inside another website's frame (a trick used to make people click hidden buttons).
      The page stays invisible until this check has passed. -->
 <style id="noFrame">html{display:none !important}</style>
@@ -41,6 +41,8 @@ window.themeAuto = function () {
                           (iPhones paint see-through areas black, so it needs its own) -->
 <link rel="icon" type="image/png" href="logo.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<!-- For "Remind Me": the page can be added to the Home Screen (an iPhone needs that for reminders at all). -->
+<link rel="manifest" href="manifest.webmanifest">
 <style>
 /* ---------- colours: light first, then the same names again for dark ---------- */
 :root{
@@ -139,6 +141,15 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
 /* the counter under the button: the same line the big screen shows, e.g. "Petang: 4 of 70 submitted" */
 .count{margin:.8rem 0 0; color:var(--mute); font-size:.95rem; text-align:center; overflow-wrap:anywhere}
 .count b{color:var(--ink); font-size:1.15em; font-variant-numeric:tabular-nums}
+/* "Remind Me": reminders on this phone (section 6d). Shown only where the browser can do it. */
+.push{margin:.9rem 0 0; text-align:center}
+.push-btn{
+  font:inherit; font-weight:700; min-height:44px; padding:0 1.1rem;
+  border:1.5px solid var(--brand); border-radius:10px; background:transparent; color:var(--brand); cursor:pointer;
+}
+.push-btn[aria-pressed="true"]{border-color:var(--line); color:var(--mute)}
+.push-btn[disabled]{opacity:.65; cursor:progress}
+.push-note{margin:.45rem 0 0; color:var(--mute); font-size:.82rem; line-height:1.4}
 /* the location line above the button: what the phone's GPS is doing right now (drawLoc() fills it in).
    The colour is only a helper: the words always say the same thing. */
 .gps{
@@ -313,6 +324,11 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
    <button class="primary" id="go" type="submit" data-t="submit"></button>
    <!-- The counter for the chosen event. Filled in by drawCount(); hidden when there is nothing to show. -->
    <p class="count" id="count" hidden></p>
+   <!-- Reminders on this phone. Shown only when the browser can receive them (drawPush). -->
+   <div class="push" id="push" hidden>
+    <button type="button" class="push-btn" id="pushBtn" aria-pressed="false"></button>
+    <p class="push-note" data-t="pushNote"></p>
+   </div>
   </form>
  </section>
 
@@ -375,7 +391,12 @@ input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid 
                         2.12: the phone that made today's check-in sees that person's own time out left today and
                               the latest return time based on it, under the time box and after each Keluar / Masuk
                               semula. Other phones see the general note. (Needs SQL file 15; with an older database
-                              the page asks again without the device ID and shows the general note)
+                              the page asks again without the device ID and shows the general note);
+                        2.13: "Remind Me" under the counter: this phone can sign up for reminders (06:30, after the late time,
+                              after check-out opens). Only the phone's push address is kept; it is linked to a person only
+                              by that person's own accepted check-in from this phone, never by a typed code. On an iPhone
+                              that did not open the page from the Home Screen, the button says to do that first. (Needs SQL
+                              file 16 and the VAPID public key below; without either the button stays hidden)
    The page only collects facts and shows the answer.
    The database function check_in() makes every decision.
    ===================================================================== */
@@ -436,6 +457,8 @@ const TEXT = {
     hintBack: "Tekan selepas anda kembali ke sekolah.",
     counted: "daripada {n} telah hantar", winClosed: "ditutup", winUpcoming: "belum dibuka",
     close: "Tutup mesej",
+    pushStart: "Remind Me", pushStop: "Hentikan peringatan",
+    pushNote: "Peringatan membantu, tetapi tidak dijamin sampai. Simpan hanya alamat peranti ini; tekan Hentikan peringatan untuk memadam.",
     adminLink: "Log masuk pentadbir",
     siteTitle: "Laman web rasmi (dibuka dalam tab baharu)"
   },
@@ -485,6 +508,8 @@ const TEXT = {
     hintBack: "Press after you are back at school.",
     counted: "of {n} submitted", winClosed: "closed", winUpcoming: "not open yet",
     close: "Close message",
+    pushStart: "Remind Me", pushStop: "Stop reminders",
+    pushNote: "Reminders help, but are not guaranteed to arrive. Only this device's address is kept; press Stop reminders to delete it.",
     adminLink: "Admin sign-in",
     siteTitle: "Official website (opens in a new tab)"
   }
@@ -510,6 +535,13 @@ const MESSAGES = {
     unknown_staff_or_event:           ["bad",  "Kod tidak dikenali", "Semak kod staf dan acara, kemudian cuba lagi."],
     bad_input:                        ["bad",  "Data tidak lengkap", "Cuba hantar semula."],
     location_required:                ["warn", "Lokasi diperlukan", "Acara ini memerlukan lokasi anda. Tunggu sehingga lokasi ditemui, kemudian tekan Hantar sekali lagi."],
+
+    // Remind Me (section 6d)
+    push_on:      ["ok",   "Peringatan dihidupkan", "Telefon ini akan menerima peringatan kehadiran."],
+    push_stopped: ["ok",   "Peringatan dihentikan", "Alamat peranti ini telah dipadam."],
+    push_blocked: ["warn", "Pemberitahuan disekat", "Benarkan pemberitahuan untuk laman ini dalam tetapan pelayar, kemudian tekan Remind Me sekali lagi."],
+    push_home:    ["warn", "Tambah ke Skrin Utama dahulu", "Pada iPhone: tekan Kongsi, pilih Tambah ke Skrin Utama, kemudian buka halaman ini dari ikon itu dan tekan Remind Me."],
+    push_failed:  ["bad",  "Peringatan tidak dapat dihidupkan", "Cuba lagi sebentar."],
 
     // Keluar waktu bekerja: the answers of work_exit()
     x_out_ok:          ["ok",   "Keluar direkodkan", "{name} · kembali sebelum {back}. Tekan Masuk semula apabila anda kembali."],
@@ -564,6 +596,13 @@ const MESSAGES = {
     unknown_staff_or_event:           ["bad",  "Code not recognised", "Check the staff code and the event, then try again."],
     bad_input:                        ["bad",  "Incomplete data", "Try sending again."],
     location_required:                ["warn", "Location needed", "This event needs your location. Wait until the location is found, then press Submit again."],
+
+    // Remind Me (section 6d)
+    push_on:      ["ok",   "Reminders on", "This phone will get attendance reminders."],
+    push_stopped: ["ok",   "Reminders stopped", "This device's address has been deleted."],
+    push_blocked: ["warn", "Notifications are blocked", "Allow notifications for this site in the browser settings, then press Remind Me again."],
+    push_home:    ["warn", "Add to Home Screen first", "On iPhone: tap Share, choose Add to Home Screen, then open this page from that icon and press Remind Me."],
+    push_failed:  ["bad",  "Reminders could not be switched on", "Please try again in a moment."],
 
     // Keluar waktu bekerja: the answers of work_exit()
     x_out_ok:          ["ok",   "Step out recorded", "{name} · back by {back}. Press Back in when you return."],
@@ -806,6 +845,7 @@ function drawLanguage() {
   drawAct();
   drawCount();
   drawLoc();
+  drawPush();
   if (lastMsg) showMessage(lastMsg.id, lastMsg.values);
 }
 
@@ -956,6 +996,83 @@ async function loadRules() {
   rules = answer;
   drawExitNote();
   if (!rulesOff) rulesTimer = setTimeout(loadRules, RULES_MS);   // the latest time moves on with the clock
+}
+
+
+/* ---------- 6d. Remind Me: reminders on this phone ---------------------
+   A phone signs up with the button; the database keeps only its push address (push_subscribe, SQL
+   file 16). After an accepted check-in from this phone, push_link() links that address to the person
+   who checked in, so they can also get the "not yet" reminders. A typed staff code never links anything.
+   The reminders themselves are worked out and sent by the database and its Edge Function; sw.js shows them.
+   The permission question is asked ONLY inside the button's click (a browser rule, and Apple's).
+   An iPhone gets push only for a page opened from its Home Screen: there the button says so instead.
+   Page and database in either order: no VAPID key, no service worker or no push door means no button. */
+const VAPID_PUBLIC = "";     // the VAPID PUBLIC key (meant to be public; the private one lives only in the Edge Function's secrets)
+let pushSub   = null;        // this browser's subscription, when signed up
+let pushReg   = null;        // the service worker registration (sw.js)
+let pushOff   = false;       // no service worker, or no push door in the database (SQL file 16 not run): hide the button
+const pushSupported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+const isIOS      = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const standalone = () => navigator.standalone === true || !!(window.matchMedia && matchMedia("(display-mode: standalone)").matches);
+const iosNeedsHome = () => isIOS() && !standalone() && !pushSupported();
+const keyBytes = text => Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - text.length % 4) % 4)), c => c.charCodeAt(0));
+
+function drawPush() {
+  const show = !!VAPID_PUBLIC && !pushOff && (pushSupported() || iosNeedsHome());
+  $("#push").hidden = !show;
+  if (!show) return;
+  $("#pushBtn").textContent = t(pushSub ? "pushStop" : "pushStart");
+  $("#pushBtn").setAttribute("aria-pressed", String(!!pushSub));
+}
+
+async function pushInit() {
+  if (VAPID_PUBLIC && pushSupported()) {
+    try {
+      pushReg = await navigator.serviceWorker.register("sw.js");
+      pushSub = await pushReg.pushManager.getSubscription();
+    } catch { pushOff = true; }      // sw.js missing or refused: no reminders on this page, and nothing else changes
+  }
+  drawPush();
+}
+
+async function pushToggle() {
+  if (iosNeedsHome()) { showMessage("push_home"); return; }
+  if (!pushReg) return;
+  const button = $("#pushBtn");
+  button.disabled = true;
+  try {
+    if (pushSub) {                                            // stop: forget the address here and in the database
+      const old = pushSub;
+      pushSub = null;
+      try { await old.unsubscribe(); } catch { /* the browser forgot it already */ }
+      callDatabase("push_unsubscribe", { p_endpoint: old.endpoint }).catch(() => {});
+      showMessage("push_stopped");
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") { showMessage("push_blocked"); return; }
+    const sub = await pushReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(VAPID_PUBLIC) });
+    const keys = (sub.toJSON && sub.toJSON().keys) || {};
+    try {
+      await callDatabase("push_subscribe", { p_endpoint: sub.endpoint, p_p256dh: keys.p256dh, p_auth: keys.auth, p_device_id: deviceId(), p_lang: lang });
+    } catch (error) {
+      try { await sub.unsubscribe(); } catch { /* nothing to undo */ }
+      if (error && [401, 403, 404].includes(error.http)) { pushOff = true; return; }    // an older database: no push door, so no button
+      throw error;
+    }
+    pushSub = sub;
+    showMessage("push_on");
+  } catch {
+    showMessage("push_failed");
+  } finally {
+    button.disabled = false;
+    drawPush();
+  }
+}
+
+/* After an accepted check-in: link this phone's address to the person who checked in. Quietly: never waits, never shows anything. */
+function pushLink() {
+  if (pushSub && !pushOff) callDatabase("push_link", { p_endpoint: pushSub.endpoint, p_device_id: deviceId() }).catch(() => {});
 }
 
 
@@ -1231,6 +1348,7 @@ async function submit(event) {
       }
     } else if (reply && reply.ok) {
       locStop(); loc.done = true;                     // recorded: the GPS can rest, and the location line goes away
+      pushLink();                                     // Remind Me: link this phone to the person who just checked in (does not wait)
       // Accepted. If the database says "late" (after the session's late time), say so: it is recorded, but stamped.
       // If it says "not_listed" (a selected-staff event, and this name is not on its list), say that too.
       const facts = { name: reply.name, event: reply.event, m: reply.distance_m, min: reply.late_minutes, after: reply.late_after };
@@ -1298,7 +1416,9 @@ document.querySelectorAll(".lang button").forEach(b => b.addEventListener("click
   drawLanguage();
 }));
 
+$("#pushBtn").addEventListener("click", pushToggle);
 drawLanguage();
+pushInit();
 loadEvents().then(() => { loadCount(); locSync(); });  // the event remembered from last time gets its counter at once, and the search for the phone starts
 </script>
 </body>

@@ -28,6 +28,7 @@ Every line is marked **Major** or **Minor**:
 
 | Version | Date | What | Pull requests | Pages | SQL files |
 |---|---|---|---|---|---|
+| 0.9 | Unreleased | Push reminders (Remind Me) | | staff v2.13, admin v3.11 | 16 |
 | 0.8 | 12 Oct 2026 | Stepping out: midnight fix; time left today on the phone that checked in | #21 | staff v2.12 | 15 |
 | 0.7 | 9 Oct 2026 | Counter counts active staff only | #17 | none | 14 |
 | 0.6.1 | 9 Oct 2026 | Small fixes: QR screen counter, step-out messages, event save, big-screen bar | #16 | staff v2.11, admin v3.10, display v1.4 | none |
@@ -39,6 +40,19 @@ Every line is marked **Major** or **Minor**:
 | 0.1 | 3 Oct 2026 | First day: staff page, admin page, display page, security review | #1 to #9 | staff up to v2.4, admin up to v3.2 | 01 to 06 |
 
 Versions 0.1 to 0.4 were numbered on 7 Oct 2026, after the fact, one per release day, from the repository history, the version notes inside the pages and the SQL files. From 0.5 onward every pull request gets its own number.
+
+
+## 0.9 — Unreleased
+
+Staff page v2.13, admin page v3.11, SQL file `16_push_reminders.sql` (run it after file 15, with `pg_cron` and `pg_net` switched on), the Edge Function `send-reminders`, and the new files `sw.js`, `manifest.webmanifest` and `icon-512.png`. The pages work before or after the SQL file is run; the Remind Me button appears only once the database and the reminder keys are in place.
+
+### Added
+- **Major · Staff page:** a Remind Me button under the counter. A phone that signs up gets reminders: at 06:30 that attendance is open, after the late time if that person has not checked in, and after check-out opens if that person has not checked out. On an iPhone the page must first be added to the Home Screen; the button says so.
+- **Major · Database:** the list of phones that signed up (only the phone's push address, never a name), the once-a-day record of what was sent, and the timer that sends the reminders. A phone is linked to a person only by that person's own check-in from that phone.
+- **Minor · Admin page:** Settings shows how many phones have reminders, and how many are linked to a staff member. Numbers only.
+
+### Decided
+- **Minor · All pages:** one button for both kinds of reminder; a phone is linked only by its own check-in, never by typing a staff code; admins see a count, not names. Reminders help but are not guaranteed to arrive, and the page says so.
 
 
 ## 0.8 — 12 Oct 2026
