@@ -28,7 +28,7 @@ Every line is marked **Major** or **Minor**:
 
 | Version | Date | What | Pull requests | Pages | SQL files |
 |---|---|---|---|---|---|
-| 0.8 | Unreleased | Stepping out: midnight fix; time left today on the phone that checked in | | staff v2.12 | 15 |
+| 0.8 | 12 Oct 2026 | Stepping out: midnight fix; time left today on the phone that checked in | #21 | staff v2.12 | 15 |
 | 0.7 | 9 Oct 2026 | Counter counts active staff only | #17 | none | 14 |
 | 0.6.1 | 9 Oct 2026 | Small fixes: QR screen counter, step-out messages, event save, big-screen bar | #16 | staff v2.11, admin v3.10, display v1.4 | none |
 | 0.6 | 9 Oct 2026 | Keluar waktu bekerja (stepping out during working hours) | #15 | staff v2.10, admin v3.9 | 13 |
@@ -41,9 +41,9 @@ Every line is marked **Major** or **Minor**:
 Versions 0.1 to 0.4 were numbered on 7 Oct 2026, after the fact, one per release day, from the repository history, the version notes inside the pages and the SQL files. From 0.5 onward every pull request gets its own number.
 
 
-## 0.8 — Unreleased
+## 0.8 — 12 Oct 2026
 
-Staff page v2.12, SQL file `15_step_out_time_left.sql` (run it after file 14). The staff page works before or after the SQL file is run.
+Pull request #21, merged on the evening of 12 Oct 2026. Staff page v2.12, SQL file `15_step_out_time_left.sql` (run it after file 14). The staff page works before or after the SQL file is run.
 
 ### Fixed
 - **Major · Database:** the latest return time for stepping out was wrong after 8 pm (it went past midnight), so evening step-outs were refused. School hours were never affected.
