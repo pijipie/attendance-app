@@ -1007,7 +1007,7 @@ async function loadRules() {
    The permission question is asked ONLY inside the button's click (a browser rule, and Apple's).
    An iPhone gets push only for a page opened from its Home Screen: there the button says so instead.
    Page and database in either order: no VAPID key, no service worker or no push door means no button. */
-const VAPID_PUBLIC = "";     // the VAPID PUBLIC key (meant to be public; the private one lives only in the Edge Function's secrets)
+const VAPID_PUBLIC = "BJcL5KLgYIwMWIRGtVv9KpmKM4LfL7jlDspwneq9D3ikf7B40KYRkUv09RhGQZOPpnjvYIRpRbF26mIIi4od3ug";     // the VAPID PUBLIC key (meant to be public; the private one lives only in the Edge Function's secrets)
 let pushSub   = null;        // this browser's subscription, when signed up
 let pushReg   = null;        // the service worker registration (sw.js)
 let pushOff   = false;       // no service worker, or no push door in the database (SQL file 16 not run): hide the button

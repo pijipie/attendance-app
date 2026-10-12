@@ -50,9 +50,9 @@ def staff_page(browser, key=TEST_KEY, push_status=200, no_push=False, reg_fail=F
             return route.fulfill(json={"ok": True})
         return route.fulfill(status=404, json={})
     page.route("https://xtrgefkopnqgektrllra.supabase.co/**", handle)
-    # The repository's page has no VAPID key yet; the test serves it with a sample public key.
+    # The test serves the page with its own sample public key (or none), whatever key the repository holds.
     page.route(f"http://127.0.0.1:{PORT}/index.html", lambda r: r.fulfill(status=200, content_type="text/html",
-               body=INDEX.replace('const VAPID_PUBLIC = "";', f'const VAPID_PUBLIC = "{key}";')))
+               body=re.sub(r'const VAPID_PUBLIC = "[^"]*";', f'const VAPID_PUBLIC = "{key}";', INDEX)))
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     init = ("window.__noPush = true;" if no_push else "") + FAKE + (f"__push.regFail = {str(reg_fail).lower()}; __push.perm = '{perm}';")
